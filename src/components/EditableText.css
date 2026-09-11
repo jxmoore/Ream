@@ -1,0 +1,23 @@
+.editable-text {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  font: inherit;
+  padding: 2px 6px;
+  width: 100%;
+  min-width: 40px;
+  outline: none;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+.editable-text:hover {
+  border-color: var(--color-border);
+}
+.editable-text:focus {
+  background: var(--color-bg-canvas);
+  border-color: var(--color-accent);
+  cursor: text;
+}
+.editable-text::placeholder {
+  color: var(--color-text-faint);
+}

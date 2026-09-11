@@ -1,0 +1,121 @@
+/* Shared prose styling for both read-mode rendering and the TipTap editor. */
+.markdown {
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  line-height: 1.25;
+  font-weight: 650;
+  margin: 1em 0 0.5em;
+}
+.markdown h1 {
+  font-size: 1.5em;
+}
+.markdown h2 {
+  font-size: 1.3em;
+}
+.markdown h3 {
+  font-size: 1.12em;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown blockquote,
+.markdown pre,
+.markdown table {
+  margin: 0 0 0.7em;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.4em;
+}
+.markdown li {
+  margin: 0.2em 0;
+}
+.markdown li > ul,
+.markdown li > ol {
+  margin: 0.2em 0;
+}
+
+.markdown a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown blockquote {
+  border-left: 3px solid var(--color-border-strong);
+  padding-left: var(--space-3);
+  color: var(--color-text-muted);
+}
+
+.markdown code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--color-code-bg);
+  padding: 0.12em 0.4em;
+  border-radius: 4px;
+}
+
+.markdown pre {
+  background: var(--color-bg-canvas);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  overflow-x: auto;
+}
+.markdown pre code {
+  background: none;
+  padding: 0;
+}
+
+.markdown hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1em 0;
+}
+
+.markdown img {
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+}
+
+.markdown table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.markdown th,
+.markdown td {
+  border: 1px solid var(--color-border);
+  padding: 6px 10px;
+  text-align: left;
+}
+.markdown th {
+  background: var(--color-code-bg);
+  font-weight: 600;
+}
+
+.markdown kbd {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  background: var(--color-code-bg);
+  border: 1px solid var(--color-border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+}

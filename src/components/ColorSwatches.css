@@ -1,0 +1,34 @@
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-2);
+}
+
+.swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  border: 2px solid transparent;
+  transition: transform var(--transition-fast);
+}
+.swatch:hover {
+  transform: scale(1.1);
+}
+.swatch.is-selected {
+  border-color: var(--color-text);
+  box-shadow: 0 0 0 2px var(--color-surface-raised);
+}
+
+.swatch--none {
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border-strong);
+  color: var(--color-text-faint);
+}
+.swatch--none.is-selected {
+  border-style: solid;
+  border-color: var(--color-text);
+}

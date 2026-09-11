@@ -1,0 +1,82 @@
+.page-editor {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-editor);
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  animation: editor-in var(--transition-base);
+}
+
+.page-editor__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.page-editor__title {
+  flex: 0 1 480px;
+  height: 36px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  outline: none;
+}
+.page-editor__title:hover {
+  border-color: var(--color-border);
+}
+.page-editor__title:focus {
+  border-color: var(--color-accent);
+  background: var(--color-bg-canvas);
+}
+
+.page-editor__status {
+  font-size: var(--text-xs);
+  color: var(--color-text-faint);
+  min-width: 56px;
+}
+.page-editor__status[data-status='pending'] {
+  color: var(--color-accent-hover);
+}
+
+.page-editor__scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+}
+
+.page-editor__sheet {
+  width: 100%;
+  max-width: 760px;
+  padding: var(--space-6) var(--space-5) 30vh;
+}
+
+/* TipTap editing surface uses the shared .markdown prose styles. */
+.page-editor__sheet .ProseMirror {
+  outline: none;
+  min-height: 50vh;
+  font-size: var(--text-lg);
+  line-height: 1.7;
+}
+.page-editor__sheet .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--color-text-faint);
+  pointer-events: none;
+  height: 0;
+}
+
+@keyframes editor-in {
+  from {
+    opacity: 0;
+    transform: scale(0.99);
+  }
+}
