@@ -3,6 +3,10 @@ namespace Ream.Core.Models;
 public sealed class AppConfig
 {
     public int SchemaVersion { get; init; } = 1;
+
+    /// <summary>Folder holding all workspaces. Null/empty means the default location.</summary>
+    public string? DocumentsRoot { get; init; }
+
     public LayoutConfig Layout { get; init; } = new();
     public AnimationConfig Animations { get; init; } = new();
     public Dictionary<string, string> Keybindings { get; init; } = DefaultKeybindings();

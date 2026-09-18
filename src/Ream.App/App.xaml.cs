@@ -1,34 +1,67 @@
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Ream.App.Fake;
+using Ream.App.Services;
+using Ream.App.ViewModels;
+using Ream.Core.Abstractions;
 using Ream.Core.Models;
+using Ream.Persistence;
+using Ream.Persistence.Storage;
 
 namespace Ream.App;
 
 public partial class App : Application
 {
     private IHost? _host;
+    private PersistenceCoordinator? _persistence;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
-        _host = Host.CreateDefaultBuilder()
-            .ConfigureServices(services =>
-            {
-                services.AddSingleton(new AppConfig());
-                services.AddSingleton(sp => SampleData.Create(sp.GetRequiredService<AppConfig>()));
-                services.AddSingleton<MainWindow>();
-            })
-            .Build();
+        try
+        {
+            var paths = AppPaths.Resolve(ParseHome(e.Args));
+            var config = new AppConfigStore(paths.ConfigFile).Load(paths.DefaultDocumentsRoot);
+            string documentsRoot = string.IsNullOrWhiteSpace(config.DocumentsRoot)
+                ? paths.DefaultDocumentsRoot
+                : config.DocumentsRoot;
 
-        _host.StartAsync().GetAwaiter().GetResult();
-        _host.Services.GetRequiredService<MainWindow>().Show();
+            _host = Host.CreateDefaultBuilder()
+                .ConfigureServices(services =>
+                {
+                    services.AddSingleton(config);
+                    services.AddSingleton<IDocumentRepository>(_ => new DocumentRepository(documentsRoot));
+                    services.AddSingleton(sp => LoadOrSeed(sp.GetRequiredService<IDocumentRepository>(), config));
+                    services.AddSingleton(sp => new PersistenceCoordinator(
+                        sp.GetRequiredService<IDocumentRepository>(),
+                        sp.GetRequiredService<AppViewModel>(),
+                        Dispatcher));
+                    services.AddSingleton<MainWindow>();
+                })
+                .Build();
+
+            _host.StartAsync().GetAwaiter().GetResult();
+
+            var window = _host.Services.GetRequiredService<MainWindow>();
+            _persistence = _host.Services.GetRequiredService<PersistenceCoordinator>();
+            window.Show();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Ream couldn't start.\n\n{ex.Message}",
+                "Ream",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            Shutdown(1);
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _persistence?.Flush();
+
         if (_host is not null)
         {
             _host.StopAsync().GetAwaiter().GetResult();
@@ -36,5 +69,20 @@ public partial class App : Application
         }
 
         base.OnExit(e);
+    }
+
+    private static AppViewModel LoadOrSeed(IDocumentRepository repository, AppConfig config)
+    {
+        var snapshot = repository.Load();
+        return snapshot.IsFirstRun
+            ? SeedData.CreateWelcome(config)
+            : SnapshotMapper.ToViewModel(snapshot, config);
+    }
+
+    /// <summary>Optional `--home &lt;dir&gt;` keeps config and documents under one folder (dev and testing).</summary>
+    private static string? ParseHome(string[] args)
+    {
+        int i = Array.IndexOf(args, "--home");
+        return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
     }
 }

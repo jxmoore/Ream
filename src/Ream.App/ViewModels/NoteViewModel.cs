@@ -6,7 +6,7 @@ namespace Ream.App.ViewModels;
 
 public sealed partial class NoteViewModel : ObservableObject
 {
-    public Guid Id { get; } = Guid.NewGuid();
+    public Guid Id { get; init; } = Guid.NewGuid();
 
     [ObservableProperty]
     private string _title = "";

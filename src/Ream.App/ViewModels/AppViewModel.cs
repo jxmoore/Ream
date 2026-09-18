@@ -10,11 +10,12 @@ public sealed partial class AppViewModel : ObservableObject
 {
     private int _noteCounter;
 
-    public AppViewModel(AppConfig config, IEnumerable<WorkspaceViewModel> workspaces)
+    public AppViewModel(AppConfig config, IEnumerable<WorkspaceViewModel> workspaces, int currentIndex = 0)
     {
         Config = config;
         Workspaces = new ObservableCollection<WorkspaceViewModel>(workspaces);
         EnsureTrailingEmpty();
+        _currentIndex = Math.Clamp(currentIndex, 0, Workspaces.Count - 1);
         _noteCounter = Workspaces.Sum(w => w.Notes.Count);
         Workspaces.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IndicatorText));
 
@@ -118,7 +119,13 @@ public sealed partial class AppViewModel : ObservableObject
     private void NewNote()
     {
         _noteCounter++;
-        CurrentWorkspace.InsertAfterFocus(new NoteViewModel { Title = $"Untitled {_noteCounter}" });
+        var id = Guid.NewGuid();
+        CurrentWorkspace.InsertAfterFocus(new NoteViewModel
+        {
+            Id = id,
+            Title = $"Untitled {_noteCounter}",
+            AccentColor = SnapshotMapper.AccentFor(id),
+        });
         EnsureTrailingEmpty();
     }
 

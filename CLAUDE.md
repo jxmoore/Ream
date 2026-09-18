@@ -40,17 +40,33 @@ Empty workspaces are pruned only after a switch animation settles
 (`AppViewModel.PruneEmptyWorkspacesCommand`), using `SuppressAnimation` so the strip
 snaps rather than animates when the list shifts under it.
 
-Status: M1 (static layout + fake data in `Fake/SampleData.cs`) is done; real
-persistence and config-file loading are M2.
+Status: M0-M2 done (layout engine, real on-disk persistence, config.json).
+Next is M3 (rich-text editor, `.reamnote` format, image paste). Until then a note's
+body is plain text in its `.reamnote` file and is not editable in the UI.
+
+Persistence flow: `PersistenceCoordinator` (Ream.App/Services) watches the view models,
+debounces 300ms, snapshots on the UI thread via `SnapshotMapper`, then saves on a
+background queue. `IDocumentRepository.Save` reconciles disk with the snapshot
+(creates/moves/trashes note files, rewrites only changed layout/metadata).
+The always-empty trailing workspace is never stored. `Flush()` runs on app exit.
 
 ## Storage
 
 - `ReemDocuments/metadata.json` — workspace order, names, current workspace.
-- `ReemDocuments/ws-<guid8>/layout.json` + `<noteId>.reamnote` files, images in
+- `ReemDocuments/ws-<guid8>/layout.json` + `<noteId:N>.reamnote` files, images (M3) in
   `assets/<noteId>/`. Folder names are never derived from display names.
+- Default documents folder is `%USERPROFILE%\Documents\ReemDocuments`; it is written
+  into config.json as `documentsRoot` on first run and can be changed there.
+- Closing a note (Alt+Q) never deletes it: the file moves to `ReemDocuments/.trash/<ws-folder>/`.
 - `%AppData%\Ream\config.json` — gaps, centered focus, animations, keybindings.
-  Kept separate from documents.
-- All writes go through `AtomicFileWriter` (write `.tmp`, then replace).
+  Kept separate from documents. Unreadable JSON is set aside as `*.corrupt-<timestamp>`
+  and defaults are used; bad/duplicate keybindings fall back to defaults.
+- `--home <dir>` on the command line puts config and documents under one folder. Use it
+  (with a temp dir) when running the app for testing so real data is never touched.
+- All writes go through `AtomicFile` (write `.tmp`, flush, replace). On load, damaged
+  layout/metadata files are quarantined and rebuilt from the note files and `ws-*` folders,
+  and note files missing from a layout are adopted, so nothing on disk is orphaned.
+- Note/folder names read from JSON are validated (no path separators) before use.
 
 ## Conventions and gotchas
 
@@ -63,3 +79,9 @@ persistence and config-file loading are M2.
 - `XamlWriter`/`XamlReader` don't round-trip images; `NoteDocumentSerializer`
   handles images as sibling asset files with an `asset://` placeholder.
 - Soft scope: no import/export, sync, or auth in v1.
+- The WPF SDK removes `System.IO` from implicit usings; `Ream.Persistence` and
+  `Ream.Tests` add it explicitly via `<Using Include="System.IO" />`.
+- `JsonDefaults` uses relaxed escaping so hand-edited files read `Alt+Right`, not
+  `Alt+Right`. Keep it that way for anything a user might edit.
+- `dotnet test` may leave `Ream.App/bin` stale; run `dotnet build Ream.sln` before
+  launching the app to test changes.

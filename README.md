@@ -18,8 +18,13 @@ A Windows desktop note-taking app built around an infinitely scrollable,
 - **Configurable** via a niri-style `config.json` (gaps, centered focus,
   animation timing, keybindings).
 
-Notes are plain files on disk under a `ReemDocuments/` folder: one folder per
-workspace, one file per note, and a JSON layout file describing the arrangement.
+Notes are plain files on disk under a `ReemDocuments/` folder (by default in your
+Documents folder): one folder per workspace, one file per note, and a JSON layout file
+describing the arrangement. Closing a note moves it to `ReemDocuments/.trash/` rather
+than deleting it.
+
+Settings live in `%AppData%\Ream\config.json`, created on first run. Edit it to change
+the gap between columns, centered focus, animation timing and every keyboard shortcut.
 
 ## Build and run
 
