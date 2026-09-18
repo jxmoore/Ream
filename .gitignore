@@ -1,31 +1,37 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-
-# Dependencies
-node_modules
-.pnp
-.pnp.js
-
 # Build output
-dist
-dist-ssr
-*.local
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+publish/
+artifacts/
 
-# Editor / OS
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+*.user
 *.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+
+# Tests
+TestResults/
+*.trx
+coverage*.xml
+
+# NuGet
+*.nupkg
+*.snupkg
+project.lock.json
+
+# OS
 Thumbs.db
+Desktop.ini
+.DS_Store
 
 # Env
 .env
 .env.local
-.env.*.local
