@@ -14,7 +14,8 @@ A Windows desktop note-taking app built around an infinitely scrollable,
   A new note opens to the right of the focused one.
 - **Columns resize** to niri-style width presets (1/3, 1/2, 2/3, full) and any
   note can go fullscreen.
-- **A real rich-text editor** — fonts, styling, and images pasted inline.
+- **A real rich-text editor** — fonts, sizes, bold/italic/underline/strikethrough, colors and
+  highlights, headings, lists, alignment, and images pasted straight in with Ctrl+V.
 - **Configurable** via a niri-style `config.json` (gaps, centered focus,
   animation timing, keybindings).
 

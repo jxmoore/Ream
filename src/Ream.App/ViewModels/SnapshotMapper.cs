@@ -1,3 +1,4 @@
+using Ream.Core.Abstractions;
 using Ream.Core.Models;
 
 namespace Ream.App.ViewModels;
@@ -5,15 +6,18 @@ namespace Ream.App.ViewModels;
 /// <summary>Translates between the persisted snapshot and the live view models.</summary>
 internal static class SnapshotMapper
 {
-    public static AppViewModel ToViewModel(DocumentSnapshot snapshot, AppConfig config)
+    public static AppViewModel ToViewModel(DocumentSnapshot snapshot, AppConfig config, IAssetStore assets)
     {
-        var workspaces = snapshot.Workspaces.Select(ToWorkspace).ToList();
+        var workspaces = snapshot.Workspaces.Select(w => ToWorkspace(w, assets)).ToList();
         int current = workspaces.FindIndex(w => w.Id == snapshot.CurrentWorkspaceId);
-        return new AppViewModel(config, workspaces, Math.Max(0, current));
+        return new AppViewModel(config, workspaces, Math.Max(0, current), assets);
     }
 
     public static DocumentSnapshot ToSnapshot(AppViewModel app)
     {
+        // Edits live in the editors' documents until now; bring the saved form up to date first.
+        app.FlushPendingContent();
+
         // The trailing empty workspace is always recreated on load, so it is never stored.
         var persisted = app.Workspaces.ToList();
         if (persisted.Count > 0 && persisted[^1].IsEmpty)
@@ -32,9 +36,9 @@ internal static class SnapshotMapper
         workspace.Notes.Select(n => new NoteSnapshot(n.Id, n.Title, n.Body, n.WidthPreset, n.IsFullscreen)).ToList(),
         workspace.FocusedNote?.Id);
 
-    private static WorkspaceViewModel ToWorkspace(WorkspaceSnapshot snapshot)
+    private static WorkspaceViewModel ToWorkspace(WorkspaceSnapshot snapshot, IAssetStore assets)
     {
-        var workspace = new WorkspaceViewModel(snapshot.Id, snapshot.Name, snapshot.FolderName);
+        var workspace = new WorkspaceViewModel(snapshot.Id, snapshot.Name, snapshot.FolderName, assets);
         workspace.LoadNotes(
             snapshot.Notes.Select(n => new NoteViewModel
             {

@@ -30,6 +30,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Ream.Core\Ream.Core.csproj" />
     <ProjectReference Include="..\Ream.Persistence\Ream.Persistence.csproj" />
+    <ProjectReference Include="..\Ream.App\Ream.App.csproj" />
   </ItemGroup>
 
 </Project>

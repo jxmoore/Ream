@@ -12,14 +12,17 @@ namespace Ream.Persistence.Storage;
 /// File-based store: one folder per workspace holding one file per note plus a layout file,
 /// and a root metadata file describing the workspaces.
 /// </summary>
-public sealed class DocumentRepository : IDocumentRepository
+public sealed class DocumentRepository : IDocumentRepository, IAssetStore
 {
+    private const string AssetsFolderName = "assets";
+
     private readonly string _root;
     private readonly object _gate = new();
 
     // What is currently on disk, so Save only touches what changed.
     private readonly Dictionary<Guid, string> _noteFolders = [];
     private readonly Dictionary<Guid, string> _noteBodies = [];
+    private readonly Dictionary<Guid, string> _assetFolders = [];
     private readonly Dictionary<string, string> _layoutJson = new(StringComparer.OrdinalIgnoreCase);
     private HashSet<string> _knownFolders = new(StringComparer.OrdinalIgnoreCase);
     private string? _metadataJson;
@@ -55,6 +58,7 @@ public sealed class DocumentRepository : IDocumentRepository
 
             _noteFolders.Clear();
             _noteBodies.Clear();
+            _assetFolders.Clear();
             _layoutJson.Clear();
             _metadataJson = null;
 
@@ -87,6 +91,7 @@ public sealed class DocumentRepository : IDocumentRepository
             foreach (var id in _noteFolders.Keys.Where(id => !desired.ContainsKey(id)).ToList())
             {
                 TrashNote(_noteFolders[id], NoteFileName(id));
+                TrashAssets(id);
                 _noteFolders.Remove(id);
                 _noteBodies.Remove(id);
             }
@@ -125,7 +130,7 @@ public sealed class DocumentRepository : IDocumentRepository
             if (!File.Exists(path) || !seen.Add(item.NoteId)) continue;
 
             string body = File.ReadAllText(path);
-            notes.Add(new NoteSnapshot(item.NoteId, item.Title ?? DeriveTitle(body), body, item.Width, item.IsFullscreen));
+            notes.Add(new NoteSnapshot(item.NoteId, item.Title ?? TitleOf(body), body, item.Width, item.IsFullscreen));
             Remember(item.NoteId, folder, body);
         }
 
@@ -141,7 +146,7 @@ public sealed class DocumentRepository : IDocumentRepository
             if (!seen.Add(id)) continue;
 
             string body = File.ReadAllText(path);
-            notes.Add(new NoteSnapshot(id, DeriveTitle(body), body, WidthPreset.Half, false));
+            notes.Add(new NoteSnapshot(id, TitleOf(body), body, WidthPreset.Half, false));
             Remember(id, folder, body);
         }
 
@@ -152,7 +157,10 @@ public sealed class DocumentRepository : IDocumentRepository
     {
         _noteFolders[id] = folder;
         _noteBodies[id] = body;
+        if (Directory.Exists(AssetDir(folder, id))) _assetFolders[id] = folder;
     }
+
+    private static string TitleOf(string body) => NoteContent.DeriveTitle(NoteContent.ToPlainText(body));
 
     private void SaveNote(Guid id, string folder, NoteSnapshot note)
     {
@@ -163,6 +171,12 @@ public sealed class DocumentRepository : IDocumentRepository
             string from = Path.Combine(FolderPath(oldFolder), fileName);
             string to = Path.Combine(FolderPath(folder), fileName);
             if (File.Exists(from) && !File.Exists(to)) File.Move(from, to);
+        }
+
+        if (_assetFolders.TryGetValue(id, out var assetFolder) && !assetFolder.Equals(folder, StringComparison.OrdinalIgnoreCase))
+        {
+            MoveAssets(id, assetFolder, folder);
+            _assetFolders[id] = folder;
         }
 
         string path = Path.Combine(FolderPath(folder), fileName);
@@ -186,6 +200,98 @@ public sealed class DocumentRepository : IDocumentRepository
             to = Path.Combine(trash, $"{Path.GetFileNameWithoutExtension(fileName)}-{DateTime.UtcNow:yyyyMMddHHmmssfff}{NoteExtension}");
         File.Move(from, to);
     }
+
+    public string SaveAsset(string workspaceFolder, Guid noteId, byte[] png)
+    {
+        if (!IsSafeName(workspaceFolder))
+            throw new ArgumentException("Unsafe workspace folder name.", nameof(workspaceFolder));
+
+        lock (_gate)
+        {
+            // The note may have moved workspaces since its images were last written.
+            if (_assetFolders.TryGetValue(noteId, out var recorded) && !recorded.Equals(workspaceFolder, StringComparison.OrdinalIgnoreCase))
+                MoveAssets(noteId, recorded, workspaceFolder);
+
+            string name = Guid.NewGuid().ToString("N") + ".png";
+            AtomicFile.WriteAllBytes(Path.Combine(AssetDir(workspaceFolder, noteId), name), png);
+            _assetFolders[noteId] = workspaceFolder;
+            return name;
+        }
+    }
+
+    public string? GetAssetPath(string workspaceFolder, Guid noteId, string name)
+    {
+        if (!IsSafeName(workspaceFolder) || !IsSafeName(name)) return null;
+
+        lock (_gate)
+        {
+            string path = Path.Combine(AssetDir(workspaceFolder, noteId), name);
+            if (File.Exists(path)) return path;
+
+            if (_assetFolders.TryGetValue(noteId, out var recorded) && IsSafeName(recorded))
+            {
+                path = Path.Combine(AssetDir(recorded, noteId), name);
+                if (File.Exists(path)) return path;
+            }
+            return null;
+        }
+    }
+
+    private void MoveAssets(Guid id, string fromFolder, string toFolder)
+    {
+        string from = AssetDir(fromFolder, id);
+        string to = AssetDir(toFolder, id);
+        if (!Directory.Exists(from) || from.Equals(to, StringComparison.OrdinalIgnoreCase)) return;
+
+        Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+        if (!Directory.Exists(to))
+        {
+            Directory.Move(from, to);
+        }
+        else
+        {
+            // Both exist (an image was pasted after the note moved): merge rather than lose either.
+            foreach (var file in Directory.GetFiles(from))
+            {
+                string destination = Path.Combine(to, Path.GetFileName(file));
+                if (!File.Exists(destination)) File.Move(file, destination);
+            }
+            TryDeleteEmptyDirectory(from);
+        }
+
+        TryDeleteEmptyDirectory(Path.GetDirectoryName(from)!);
+    }
+
+    private void TrashAssets(Guid id)
+    {
+        if (!_assetFolders.Remove(id, out var folder)) return;
+
+        string from = AssetDir(folder, id);
+        if (!Directory.Exists(from)) return;
+
+        string to = Path.Combine(_root, TrashFolderName, folder, AssetsFolderName, id.ToString("N"));
+        if (Directory.Exists(to)) to += $"-{DateTime.UtcNow:yyyyMMddHHmmssfff}";
+        Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+        Directory.Move(from, to);
+
+        TryDeleteEmptyDirectory(Path.GetDirectoryName(from)!);
+    }
+
+    private static void TryDeleteEmptyDirectory(string directory)
+    {
+        try
+        {
+            if (Directory.Exists(directory) && !Directory.EnumerateFileSystemEntries(directory).Any())
+                Directory.Delete(directory, recursive: false);
+        }
+        catch (IOException ex)
+        {
+            Debug.WriteLine($"Left directory in place: {ex.Message}");
+        }
+    }
+
+    private string AssetDir(string workspaceFolder, Guid noteId) =>
+        Path.Combine(FolderPath(workspaceFolder), AssetsFolderName, noteId.ToString("N"));
 
     private void SaveLayout(WorkspaceSnapshot workspace)
     {
@@ -235,6 +341,7 @@ public sealed class DocumentRepository : IDocumentRepository
 
         try
         {
+            TryDeleteEmptyDirectory(Path.Combine(directory, AssetsFolderName));
             string layout = Path.Combine(directory, LayoutFileName);
             if (File.Exists(layout)) File.Delete(layout);
             Directory.Delete(directory, recursive: false);
@@ -287,14 +394,4 @@ public sealed class DocumentRepository : IDocumentRepository
         && name != "." && name != ".."
         && Path.GetFileName(name) == name
         && name.IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
-
-    internal static string DeriveTitle(string body)
-    {
-        foreach (var line in body.Split('\n'))
-        {
-            string trimmed = line.Trim();
-            if (trimmed.Length > 0) return trimmed.Length <= 60 ? trimmed : trimmed[..60];
-        }
-        return "Untitled";
-    }
 }

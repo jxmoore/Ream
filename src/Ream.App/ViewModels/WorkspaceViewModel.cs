@@ -1,23 +1,28 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Ream.Core.Abstractions;
 
 namespace Ream.App.ViewModels;
 
 public sealed partial class WorkspaceViewModel : ObservableObject
 {
-    public WorkspaceViewModel(string? name = null) : this(Guid.NewGuid(), name, null)
+    public WorkspaceViewModel(string? name = null, IAssetStore? assets = null) : this(Guid.NewGuid(), name, null, assets)
     {
     }
 
-    public WorkspaceViewModel(Guid id, string? name, string? folderName)
+    public WorkspaceViewModel(Guid id, string? name, string? folderName, IAssetStore? assets = null)
     {
         Id = id;
+        Assets = assets;
         FolderName = folderName ?? $"ws-{id:N}"[..11];
         _name = name;
         Notes.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsEmpty));
     }
 
     public Guid Id { get; }
+
+    /// <summary>Where this workspace's notes keep their images.</summary>
+    public IAssetStore? Assets { get; }
 
     /// <summary>Stable on-disk folder; never derived from the (editable) display name.</summary>
     public string FolderName { get; }

@@ -1,6 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <Using Include="System.IO" />
+    <InternalsVisibleTo Include="Ream.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Ream.Core\Ream.Core.csproj" />
     <ProjectReference Include="..\Ream.Persistence\Ream.Persistence.csproj" />
   </ItemGroup>

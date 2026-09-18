@@ -31,8 +31,11 @@ public partial class App : Application
                 .ConfigureServices(services =>
                 {
                     services.AddSingleton(config);
-                    services.AddSingleton<IDocumentRepository>(_ => new DocumentRepository(documentsRoot));
-                    services.AddSingleton(sp => LoadOrSeed(sp.GetRequiredService<IDocumentRepository>(), config));
+                    services.AddSingleton(_ => new DocumentRepository(documentsRoot));
+                    services.AddSingleton<IDocumentRepository>(sp => sp.GetRequiredService<DocumentRepository>());
+                    services.AddSingleton<IAssetStore>(sp => sp.GetRequiredService<DocumentRepository>());
+                    services.AddSingleton(sp => LoadOrSeed(
+                        sp.GetRequiredService<IDocumentRepository>(), config, sp.GetRequiredService<IAssetStore>()));
                     services.AddSingleton(sp => new PersistenceCoordinator(
                         sp.GetRequiredService<IDocumentRepository>(),
                         sp.GetRequiredService<AppViewModel>(),
@@ -71,12 +74,12 @@ public partial class App : Application
         base.OnExit(e);
     }
 
-    private static AppViewModel LoadOrSeed(IDocumentRepository repository, AppConfig config)
+    private static AppViewModel LoadOrSeed(IDocumentRepository repository, AppConfig config, IAssetStore assets)
     {
         var snapshot = repository.Load();
         return snapshot.IsFirstRun
-            ? SeedData.CreateWelcome(config)
-            : SnapshotMapper.ToViewModel(snapshot, config);
+            ? SeedData.CreateWelcome(config, assets)
+            : SnapshotMapper.ToViewModel(snapshot, config, assets);
     }
 
     /// <summary>Optional `--home &lt;dir&gt;` keeps config and documents under one folder (dev and testing).</summary>

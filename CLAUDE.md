@@ -40,9 +40,15 @@ Empty workspaces are pruned only after a switch animation settles
 (`AppViewModel.PruneEmptyWorkspacesCommand`), using `SuppressAnimation` so the strip
 snaps rather than animates when the list shifts under it.
 
-Status: M0-M2 done (layout engine, real on-disk persistence, config.json).
-Next is M3 (rich-text editor, `.reamnote` format, image paste). Until then a note's
-body is plain text in its `.reamnote` file and is not editable in the UI.
+Status: M0-M3 done (layout engine, on-disk persistence, config.json, rich-text editor
+with inline images). Next is M4 (freeform resize, workspace rename UI, indicator strip,
+horizontal-tilt wheel); M5 is polish (config live-reload, virtualization, theming, packaging).
+
+Editor: each `NoteColumnView` hosts a `RichTextBox`; `NoteViewModel` owns the note's live
+`FlowDocument` and only writes it into `Body` (the saved XML) in `FlushDocument()`, which
+`SnapshotMapper.ToSnapshot` calls before every save. `EditorToolbar` acts on whichever
+editor last had keyboard focus. Focus follows the app's note focus via
+`AppViewModel.RequestEditorFocus` -> `NoteViewModel.EditorFocusRequested`.
 
 Persistence flow: `PersistenceCoordinator` (Ream.App/Services) watches the view models,
 debounces 300ms, snapshots on the UI thread via `SnapshotMapper`, then saves on a
@@ -53,8 +59,15 @@ The always-empty trailing workspace is never stored. `Flush()` runs on app exit.
 ## Storage
 
 - `ReemDocuments/metadata.json` — workspace order, names, current workspace.
-- `ReemDocuments/ws-<guid8>/layout.json` + `<noteId:N>.reamnote` files, images (M3) in
-  `assets/<noteId>/`. Folder names are never derived from display names.
+- `ReemDocuments/ws-<guid8>/layout.json` + `<noteId:N>.reamnote` files, images in
+  `assets/<noteId>/<guid>.png` (written at paste time via `IAssetStore`; they move/trash with
+  their note; unreferenced images are never garbage-collected). Folder names are never
+  derived from display names.
+- `.reamnote` is a small whitelisted XML format (`ReamNote > Doc > P/UL/OL > R/BR/IMG`),
+  NOT XAML: XamlReader can instantiate arbitrary types, so it is never used on note files.
+  `NoteDocumentSerializer` writes only what differs from the paragraph/document baseline,
+  refuses DTDs, ignores unknown elements, and rejects unsafe asset names. Text that isn't
+  in this format (older notes) opens as plain paragraphs.
 - Default documents folder is `%USERPROFILE%\Documents\ReemDocuments`; it is written
   into config.json as `documentsRoot` on first run and can be changed there.
 - Closing a note (Alt+Q) never deletes it: the file moves to `ReemDocuments/.trash/<ws-folder>/`.
@@ -85,3 +98,14 @@ The always-empty trailing workspace is never stored. `Flush()` runs on app exit.
   `Alt+Right`. Keep it that way for anything a user might edit.
 - `dotnet test` may leave `Ream.App/bin` stale; run `dotnet build Ream.sln` before
   launching the app to test changes.
+- A `FlowDocument` does NOT inherit font/color from its `RichTextBox`; `NoteColumnView` copies
+  the editor's defaults onto the document. `TextRange.ApplyPropertyValue` rejects
+  `DependencyProperty.UnsetValue` (throws) - apply explicit defaults or null instead.
+- A `TextPointer` scan reports an `InlineUIContainer` at both its start and end; dedupe.
+- Test editor behaviour in-process (`Ream.Tests/Ui.cs` hosts real views on a UI thread,
+  off-screen, with the app's resources; raise `Click` on toolbar buttons, use
+  `Editor.AppendText`, `RenderToPng` to look at output). Do NOT drive the user's live
+  desktop with SendKeys/mouse events: other input lands in the same window and keys can
+  reach the wrong app. If you must run the real app, use `--home <temp dir>`, capture with
+  `PrintWindow` only, and never delete a path built from a variable without validating it
+  (PowerShell's `$Home` is read-only and silently resolves to the user profile).

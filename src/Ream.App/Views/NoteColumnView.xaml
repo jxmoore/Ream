@@ -29,10 +29,23 @@
                            Foreground="{StaticResource TextBrush}"/>
             </DockPanel>
 
-            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Focusable="False">
-                <TextBlock Text="{Binding Body}" TextWrapping="Wrap" Margin="16,8,16,16" LineHeight="22"
-                           Foreground="{StaticResource TextBrush}"/>
-            </ScrollViewer>
+            <RichTextBox x:Name="Editor" Grid.Row="2"
+                         Background="Transparent" BorderThickness="0"
+                         Foreground="{StaticResource TextBrush}"
+                         CaretBrush="{StaticResource TextBrush}"
+                         SelectionBrush="{StaticResource AccentBrush}"
+                         FontFamily="Segoe UI" FontSize="14"
+                         Padding="12,4,12,12"
+                         VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Disabled"
+                         AcceptsTab="True"
+                         SpellCheck.IsEnabled="True">
+                <RichTextBox.Resources>
+                    <Style TargetType="Paragraph">
+                        <Setter Property="Margin" Value="0,0,0,6"/>
+                    </Style>
+                </RichTextBox.Resources>
+            </RichTextBox>
         </Grid>
     </Border>
 </UserControl>

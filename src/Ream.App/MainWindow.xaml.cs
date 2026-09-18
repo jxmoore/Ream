@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Threading;
 using Ream.App.Input;
 using Ream.App.ViewModels;
 using Ream.Core.Utilities;
@@ -18,6 +19,12 @@ public partial class MainWindow : Window
         _viewModel = viewModel;
         DataContext = viewModel;
         KeyBindingsRegistry.Apply(this, viewModel.Config.Keybindings, viewModel.Actions);
+
+        // The new note's view may not exist yet when focus is requested, so wait until layout has caught up.
+        viewModel.FocusEditorRequested += () => Dispatcher.BeginInvoke(
+            DispatcherPriority.Loaded,
+            () => viewModel.CurrentWorkspace.FocusedNote?.RequestEditorFocus());
+        Loaded += (_, _) => viewModel.RequestEditorFocus();
     }
 
     // Plain wheel is deliberately left alone so it scrolls the note under the cursor.

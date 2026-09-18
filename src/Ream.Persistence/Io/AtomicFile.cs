@@ -7,7 +7,18 @@ public static class AtomicFile
 {
     private const int Attempts = 4;
 
-    public static void WriteAllText(string path, string contents)
+    public static void WriteAllText(string path, string contents) =>
+        Write(path, stream =>
+        {
+            using var writer = new StreamWriter(stream, new UTF8Encoding(false), leaveOpen: true);
+            writer.Write(contents);
+            writer.Flush();
+        });
+
+    public static void WriteAllBytes(string path, byte[] bytes) =>
+        Write(path, stream => stream.Write(bytes, 0, bytes.Length));
+
+    private static void Write(string path, Action<FileStream> write)
     {
         var directory = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
@@ -20,10 +31,8 @@ public static class AtomicFile
             try
             {
                 using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None))
-                using (var writer = new StreamWriter(stream, new UTF8Encoding(false)))
                 {
-                    writer.Write(contents);
-                    writer.Flush();
+                    write(stream);
                     stream.Flush(flushToDisk: true);
                 }
 

@@ -244,10 +244,16 @@ public class DocumentRepositoryTests
     }
 
     [Fact]
-    public void DeriveTitle_UsesFirstNonEmptyLineAndCapsLength()
+    public void RebuiltTitle_ComesFromTheTextOfAFormattedNote()
     {
-        Assert.Equal("Hello", DocumentRepository.DeriveTitle("\n  \n Hello \nworld"));
-        Assert.Equal("Untitled", DocumentRepository.DeriveTitle("  \n \n"));
-        Assert.Equal(60, DocumentRepository.DeriveTitle(new string('x', 200)).Length);
+        using var dir = new TempDir();
+        string root = dir.Combine("ReemDocuments");
+        var note = Note("ignored", """<ReamNote schemaVersion="1"><Doc><P><R b="1">Real title</R></P><P><R>more</R></P></Doc></ReamNote>""");
+        new DocumentRepository(root).Save(Doc(null, Workspace("W", "ws-11111111", note)));
+        File.Delete(Path.Combine(root, "ws-11111111", "layout.json"));
+
+        var recovered = new DocumentRepository(root).Load().Workspaces[0].Notes[0];
+
+        Assert.Equal("Real title", recovered.Title);
     }
 }

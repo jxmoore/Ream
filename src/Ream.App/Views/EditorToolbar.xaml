@@ -1,0 +1,92 @@
+<UserControl x:Class="Ream.App.Views.EditorToolbar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="MinWidth" Value="28"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Margin" Value="1"/>
+            <Setter Property="Padding" Value="6,0"/>
+        </Style>
+        <Style TargetType="ToggleButton" x:Key="ToggleTool">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="MinWidth" Value="28"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Margin" Value="1"/>
+            <Setter Property="Padding" Value="6,0"/>
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Margin" Value="1,1,4,1"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style TargetType="Rectangle" x:Key="Separator">
+            <Setter Property="Width" Value="1"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Margin" Value="5,0"/>
+            <Setter Property="Fill" Value="#c4c4cc"/>
+        </Style>
+    </UserControl.Resources>
+
+    <WrapPanel x:Name="Bar" Orientation="Horizontal" Margin="10,5" IsEnabled="False">
+        <ComboBox x:Name="HeadingBox" Width="100" ToolTip="Paragraph style" SelectionChanged="OnHeadingChanged"/>
+        <ComboBox x:Name="FontBox" Width="130" ToolTip="Font" SelectionChanged="OnFontChanged"/>
+        <ComboBox x:Name="SizeBox" Width="56" ToolTip="Font size" SelectionChanged="OnSizeChanged"/>
+
+        <Rectangle Style="{StaticResource Separator}"/>
+
+        <ToggleButton x:Name="BoldButton" Style="{StaticResource ToggleTool}" Content="B" FontWeight="Bold"
+                      ToolTip="Bold (Ctrl+B)" Click="OnBold"/>
+        <ToggleButton x:Name="ItalicButton" Style="{StaticResource ToggleTool}" Content="I" FontStyle="Italic"
+                      ToolTip="Italic (Ctrl+I)" Click="OnItalic"/>
+        <ToggleButton x:Name="UnderlineButton" Style="{StaticResource ToggleTool}"
+                      ToolTip="Underline (Ctrl+U)" Click="OnUnderline">
+            <TextBlock Text="U" TextDecorations="Underline"/>
+        </ToggleButton>
+        <ToggleButton x:Name="StrikeButton" Style="{StaticResource ToggleTool}"
+                      ToolTip="Strikethrough" Click="OnStrikethrough">
+            <TextBlock Text="S" TextDecorations="Strikethrough"/>
+        </ToggleButton>
+
+        <Rectangle Style="{StaticResource Separator}"/>
+
+        <Button x:Name="TextColorButton" ToolTip="Text color" Click="OnTextColor">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="A" FontWeight="Bold"/>
+                <TextBlock Text=" ▾" FontSize="9" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Button>
+        <Button x:Name="HighlightButton" ToolTip="Highlight color" Click="OnHighlight">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="ab" Background="#fff3a3" Foreground="#1a1a1a" Padding="2,0"/>
+                <TextBlock Text=" ▾" FontSize="9" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Button>
+
+        <Rectangle Style="{StaticResource Separator}"/>
+
+        <ToggleButton x:Name="AlignLeftButton" Style="{StaticResource ToggleTool}" Content="L"
+                      ToolTip="Align left (Ctrl+L)" Click="OnAlignLeft"/>
+        <ToggleButton x:Name="AlignCenterButton" Style="{StaticResource ToggleTool}" Content="C"
+                      ToolTip="Center (Ctrl+E)" Click="OnAlignCenter"/>
+        <ToggleButton x:Name="AlignRightButton" Style="{StaticResource ToggleTool}" Content="R"
+                      ToolTip="Align right (Ctrl+R)" Click="OnAlignRight"/>
+        <ToggleButton x:Name="AlignJustifyButton" Style="{StaticResource ToggleTool}" Content="J"
+                      ToolTip="Justify (Ctrl+J)" Click="OnAlignJustify"/>
+
+        <Rectangle Style="{StaticResource Separator}"/>
+
+        <ToggleButton x:Name="BulletsButton" Style="{StaticResource ToggleTool}" Content="•"
+                      ToolTip="Bulleted list" Click="OnBullets"/>
+        <ToggleButton x:Name="NumbersButton" Style="{StaticResource ToggleTool}" Content="1."
+                      ToolTip="Numbered list" Click="OnNumbers"/>
+        <Button ToolTip="Decrease indent" Click="OnOutdent" FontFamily="Segoe UI Symbol" Content="⇤"/>
+        <Button ToolTip="Increase indent" Click="OnIndent" FontFamily="Segoe UI Symbol" Content="⇥"/>
+
+        <Rectangle Style="{StaticResource Separator}"/>
+
+        <Button ToolTip="Smaller text" Click="OnSmaller" Content="A-" FontSize="11"/>
+        <Button ToolTip="Larger text" Click="OnLarger" Content="A+" FontSize="15"/>
+    </WrapPanel>
+</UserControl>

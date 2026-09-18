@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Ream.Core.Abstractions;
 using Ream.Core.Models;
 
 namespace Ream.App.ViewModels;
@@ -10,9 +11,12 @@ public sealed partial class AppViewModel : ObservableObject
 {
     private int _noteCounter;
 
-    public AppViewModel(AppConfig config, IEnumerable<WorkspaceViewModel> workspaces, int currentIndex = 0)
+    private readonly IAssetStore? _assets;
+
+    public AppViewModel(AppConfig config, IEnumerable<WorkspaceViewModel> workspaces, int currentIndex = 0, IAssetStore? assets = null)
     {
         Config = config;
+        _assets = assets;
         Workspaces = new ObservableCollection<WorkspaceViewModel>(workspaces);
         EnsureTrailingEmpty();
         _currentIndex = Math.Clamp(currentIndex, 0, Workspaces.Count - 1);
@@ -56,17 +60,33 @@ public sealed partial class AppViewModel : ObservableObject
     public string IndicatorText =>
         $"{CurrentWorkspace.Name ?? $"Workspace {CurrentIndex + 1}"}   {CurrentIndex + 1}/{Workspaces.Count}";
 
+    /// <summary>Raised when the focused note's editor should take keyboard focus (after focus or workspace moves).</summary>
+    public event Action? FocusEditorRequested;
+
+    public void RequestEditorFocus() => FocusEditorRequested?.Invoke();
+
     public void SwitchWorkspace(int delta)
     {
         int target = Math.Clamp(CurrentIndex + delta, 0, Workspaces.Count - 1);
-        if (target != CurrentIndex) CurrentIndex = target;
+        if (target == CurrentIndex) return;
+
+        CurrentIndex = target;
+        RequestEditorFocus();
+    }
+
+    /// <summary>Writes every note's pending edits into its saved form. Call before taking a snapshot.</summary>
+    public void FlushPendingContent()
+    {
+        foreach (var workspace in Workspaces)
+            foreach (var note in workspace.Notes)
+                note.FlushDocument();
     }
 
     /// <summary>Like niri: there is always exactly one empty workspace at the end.</summary>
     private void EnsureTrailingEmpty()
     {
         if (Workspaces.Count == 0 || !Workspaces[^1].IsEmpty)
-            Workspaces.Add(new WorkspaceViewModel());
+            Workspaces.Add(new WorkspaceViewModel(null, _assets));
     }
 
     /// <summary>
@@ -92,12 +112,37 @@ public sealed partial class AppViewModel : ObservableObject
         }
     }
 
-    [RelayCommand] private void FocusPrevNote() => CurrentWorkspace.FocusBy(-1);
-    [RelayCommand] private void FocusNextNote() => CurrentWorkspace.FocusBy(1);
+    [RelayCommand]
+    private void FocusPrevNote()
+    {
+        CurrentWorkspace.FocusBy(-1);
+        RequestEditorFocus();
+    }
+
+    [RelayCommand]
+    private void FocusNextNote()
+    {
+        CurrentWorkspace.FocusBy(1);
+        RequestEditorFocus();
+    }
+
     [RelayCommand] private void SwitchWorkspaceUp() => SwitchWorkspace(-1);
     [RelayCommand] private void SwitchWorkspaceDown() => SwitchWorkspace(1);
-    [RelayCommand] private void MoveNoteLeft() => CurrentWorkspace.MoveFocused(-1);
-    [RelayCommand] private void MoveNoteRight() => CurrentWorkspace.MoveFocused(1);
+
+    [RelayCommand]
+    private void MoveNoteLeft()
+    {
+        CurrentWorkspace.MoveFocused(-1);
+        RequestEditorFocus();
+    }
+
+    [RelayCommand]
+    private void MoveNoteRight()
+    {
+        CurrentWorkspace.MoveFocused(1);
+        RequestEditorFocus();
+    }
+
     [RelayCommand] private void MoveNoteToPrevWorkspace() => MoveFocusedNoteToWorkspace(-1);
     [RelayCommand] private void MoveNoteToNextWorkspace() => MoveFocusedNoteToWorkspace(1);
 
@@ -127,6 +172,7 @@ public sealed partial class AppViewModel : ObservableObject
             AccentColor = SnapshotMapper.AccentFor(id),
         });
         EnsureTrailingEmpty();
+        RequestEditorFocus();
     }
 
     [RelayCommand]
@@ -134,6 +180,7 @@ public sealed partial class AppViewModel : ObservableObject
     {
         CurrentWorkspace.RemoveFocused();
         EnsureTrailingEmpty();
+        RequestEditorFocus();
     }
 
     private void MoveFocusedNoteToWorkspace(int delta)
@@ -146,5 +193,6 @@ public sealed partial class AppViewModel : ObservableObject
         Workspaces[target].InsertAfterFocus(note);
         EnsureTrailingEmpty();
         CurrentIndex = target;
+        RequestEditorFocus();
     }
 }
