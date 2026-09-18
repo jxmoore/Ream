@@ -32,7 +32,16 @@ file is `C:\Users\JoeMo\.claude\plans\playful-crafting-taco.md`.
 
 Layout is two custom `Panel`s with manually animated offsets (a vertical
 workspace strip, a horizontal note row per workspace), not `ScrollViewer`
-virtualization.
+virtualization: `Ream.App/Controls/WorkspaceStripPanel.cs` and `NoteRowPanel.cs`.
+The row geometry (column widths, minimal-scroll vs centered offset) is pure math in
+`Ream.Core/Layout/RowLayout.cs` and is unit-tested; keep it there, not in the panel.
+Animation goes through `Ream.App/Animation/Motion.cs` (respects `AppConfig.Animations`).
+Empty workspaces are pruned only after a switch animation settles
+(`AppViewModel.PruneEmptyWorkspacesCommand`), using `SuppressAnimation` so the strip
+snaps rather than animates when the list shifts under it.
+
+Status: M1 (static layout + fake data in `Fake/SampleData.cs`) is done; real
+persistence and config-file loading are M2.
 
 ## Storage
 

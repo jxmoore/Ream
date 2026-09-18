@@ -1,6 +1,8 @@
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Ream.App.Fake;
+using Ream.Core.Models;
 
 namespace Ream.App;
 
@@ -15,6 +17,8 @@ public partial class App : Application
         _host = Host.CreateDefaultBuilder()
             .ConfigureServices(services =>
             {
+                services.AddSingleton(new AppConfig());
+                services.AddSingleton(sp => SampleData.Create(sp.GetRequiredService<AppConfig>()));
                 services.AddSingleton<MainWindow>();
             })
             .Build();
