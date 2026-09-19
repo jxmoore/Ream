@@ -363,7 +363,9 @@ public sealed partial class AppViewModel : ObservableObject
         if (CurrentWorkspace.RemoveFocused() is not { } note) return;
 
         var destination = Workspaces[target];
-        destination.InsertAfterFocus(note);
+        // Always the start of the row, whichever way it came, so arriving is predictable: it's the first note
+        // and can be moved right from there.
+        destination.InsertFirst(note);
         EnsureEdgeWorkspaces();
         CurrentIndex = Workspaces.IndexOf(destination);
         RequestEditorFocus();

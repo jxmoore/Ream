@@ -186,7 +186,7 @@ public class FocusFirstNoteOnSwitchTests
 
         Assert.Same(b, app.CurrentWorkspace);
         Assert.Same(moved, b.FocusedNote);
-        Assert.Equal(3, b.FocusedIndex);
+        Assert.Equal(0, b.FocusedIndex);
     }
 
     [Fact]
