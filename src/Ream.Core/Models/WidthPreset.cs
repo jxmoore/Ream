@@ -32,6 +32,13 @@ public static class WidthPresets
     public static double Clamp(double fraction) =>
         double.IsFinite(fraction) ? Math.Clamp(fraction, Min, Max) : Default;
 
+    /// <summary>The step Alt+= / Alt+- take, as a share of the row.</summary>
+    public const double Step = 0.05;
+
+    /// <summary>The width one step wider (or narrower for a negative <paramref name="direction"/>), kept in range.</summary>
+    public static double Nudge(double current, int direction) =>
+        Clamp(Math.Round(current + Math.Sign(direction) * Step, 4));
+
     /// <summary>The next preset wider than the current width, wrapping to the narrowest after the widest.</summary>
     public static double Next(double current)
     {

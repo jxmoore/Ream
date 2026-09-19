@@ -45,7 +45,10 @@ public sealed partial class AppViewModel : ObservableObject
             ["moveNoteToPrevWorkspace"] = MoveNoteToPrevWorkspaceCommand,
             ["moveNoteToNextWorkspace"] = MoveNoteToNextWorkspaceCommand,
             ["cycleWidthPreset"] = CycleWidthPresetCommand,
+            ["sizeUp"] = SizeUpCommand,
+            ["sizeDown"] = SizeDownCommand,
             ["toggleFullscreen"] = ToggleFullscreenCommand,
+            ["toggleAppFullscreen"] = ToggleAppFullscreenCommand,
             ["newNote"] = NewNoteCommand,
             ["closeNote"] = CloseNoteCommand,
             ["renameWorkspace"] = BeginRenameCommand,
@@ -278,6 +281,21 @@ public sealed partial class AppViewModel : ObservableObject
         if (CurrentWorkspace.FocusedNote is { } note)
             note.WidthFraction = WidthPresets.Next(note.WidthFraction);
     }
+
+    [RelayCommand] private void SizeUp() => Nudge(1);
+    [RelayCommand] private void SizeDown() => Nudge(-1);
+
+    private void Nudge(int direction)
+    {
+        if (CurrentWorkspace.FocusedNote is { } note)
+            note.WidthFraction = WidthPresets.Nudge(note.WidthFraction, direction);
+    }
+
+    /// <summary>Raised when the whole window should go fullscreen or come back (the window owns that, not us).</summary>
+    public event Action? AppFullscreenToggleRequested;
+
+    [RelayCommand]
+    private void ToggleAppFullscreen() => AppFullscreenToggleRequested?.Invoke();
 
     [RelayCommand]
     private void ToggleFullscreen()

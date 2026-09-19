@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
 using Ream.App.Input;
+using Ream.App.Services;
 using Ream.App.ViewModels;
 using Ream.Core.Utilities;
 
@@ -19,6 +20,7 @@ public partial class MainWindow : Window
     private readonly WheelAccumulator _rowWheel = new();
     private readonly WheelAccumulator _tiltWheel = new();
     private readonly List<InputBinding> _configuredBindings = [];
+    private readonly FullscreenController _fullscreen;
     private bool _titleBarIsLight;
 
     public MainWindow(AppViewModel viewModel)
@@ -26,6 +28,9 @@ public partial class MainWindow : Window
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = viewModel;
+
+        _fullscreen = new FullscreenController(new WindowFrame(this));
+        viewModel.AppFullscreenToggleRequested += _fullscreen.Toggle;
 
         ApplyKeyBindings();
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
