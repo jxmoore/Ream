@@ -33,6 +33,9 @@ public static class ActionCatalog
         new("sizeUp", "Make the note wider", Layout),
         new("sizeDown", "Make the note narrower", Layout),
         new("cycleWidthPreset", "Cycle the note's width: 1/3, 1/2, 2/3, full", Layout),
+        new("resetNoteSize", "Reset this note's width to the default", Layout),
+        new("resetWorkspaceSizes", "Reset every note's width in this workspace", Layout),
+        new("resetAllSizes", "Reset every note's width in every workspace", Layout),
         new("toggleFullscreen", "Note fullscreen, and back", Layout),
         new("toggleAppFullscreen", "App fullscreen, and back", Layout),
     ];

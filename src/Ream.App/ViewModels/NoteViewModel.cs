@@ -66,7 +66,6 @@ public sealed partial class NoteViewModel : ObservableObject
 
     /// <summary>Share of the row's width this column takes (a preset like 1/2, or any dragged-to value).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(WidthLabel))]
     private double _widthFraction = WidthPresets.Default;
 
     /// <summary>
@@ -86,8 +85,10 @@ public sealed partial class NoteViewModel : ObservableObject
     [ObservableProperty]
     private bool _isResizing;
 
-    public string WidthLabel => WidthPresets.Label(WidthFraction);
+    /// <summary>Raised (with e.g. "55%") when the width was just changed on purpose, so the view can flash it briefly.</summary>
+    public event Action<string>? SizeToastRequested;
 
+    public void ShowSizeToast() => SizeToastRequested?.Invoke(WidthPresets.Percent(WidthFraction));
     internal WorkspaceViewModel? Owner { get; set; }
 
     /// <summary>Raised when the app wants this note's editor to take keyboard focus.</summary>

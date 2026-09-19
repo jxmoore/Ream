@@ -21,17 +21,6 @@ public class WidthPresetsTests
         Assert.Equal(expected, WidthPresets.Next(current), 9);
     }
 
-    [Theory]
-    [InlineData(1d / 3d, "1/3")]
-    [InlineData(0.5, "1/2")]
-    [InlineData(0.6667, "2/3")]
-    [InlineData(1.0, "Full")]
-    [InlineData(0.37, "37%")]
-    [InlineData(0.9, "90%")]
-    public void Label_NamesPresets_AndShowsOtherWidthsAsPercentages(double fraction, string expected)
-    {
-        Assert.Equal(expected, WidthPresets.Label(fraction));
-    }
 
     [Theory]
     [InlineData(0.4, 0.4)]
@@ -63,11 +52,11 @@ public class WidthPresetsTests
         var labels = new List<string>();
         for (int i = 0; i < 5; i++)
         {
-            labels.Add(WidthPresets.Label(width));
+            labels.Add(WidthPresets.Percent(width));
             width = WidthPresets.Next(width);
         }
 
-        Assert.Equal(["1/3", "1/2", "2/3", "Full", "1/3"], labels);
+        Assert.Equal(["33%", "50%", "67%", "100%", "33%"], labels);
     }
 }
 

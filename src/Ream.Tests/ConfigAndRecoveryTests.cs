@@ -97,7 +97,7 @@ public class ConfigTryLoadTests
 
         var config = new AppConfigStore(path).Load("docs");
 
-        Assert.Equal(16, config.Layout.GapPx);
+        Assert.Equal(28, config.Layout.GapPx);
         Assert.Single(Directory.GetFiles(dir.Path, "config.json.corrupt-*"));
     }
 
@@ -151,7 +151,7 @@ public class ConfigTryLoadTests
 
         var config = new AppConfigStore(path).Load("docs");
 
-        Assert.Equal(16, config.Layout.GapPx);
+        Assert.Equal(28, config.Layout.GapPx);
         Assert.Single(Directory.GetFiles(dir.Path, "config.json.interrupted-*"));
     }
 }

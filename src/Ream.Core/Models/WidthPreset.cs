@@ -20,7 +20,6 @@ public static class WidthPresets
 
     private const double MatchTolerance = 0.005;
     private static readonly double[] Values = [1d / 3d, 0.5, 2d / 3d, 1d];
-    private static readonly string[] Labels = ["1/3", "1/2", "2/3", "Full"];
 
     public static double Fraction(this WidthPreset preset)
     {
@@ -47,12 +46,7 @@ public static class WidthPresets
         return Values[0];
     }
 
-    /// <summary>"1/2" for a preset width, otherwise a percentage.</summary>
-    public static string Label(double fraction)
-    {
-        for (int i = 0; i < Values.Length; i++)
-            if (Math.Abs(Values[i] - fraction) < MatchTolerance) return Labels[i];
-
-        return Math.Round(fraction * 100).ToString("0", CultureInfo.InvariantCulture) + "%";
-    }
+    /// <summary>A width as a percentage of the row, e.g. "55%".</summary>
+    public static string Percent(double fraction) =>
+        Math.Round(fraction * 100).ToString("0", CultureInfo.InvariantCulture) + "%";
 }

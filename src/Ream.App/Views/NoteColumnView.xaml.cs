@@ -6,6 +6,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Ream.App.Controls;
 using Ream.App.ViewModels;
@@ -107,6 +108,7 @@ public partial class NoteColumnView : UserControl, INearAware
     {
         if (_note is null || _subscribed) return;
         _note.EditorFocusRequested += OnEditorFocusRequested;
+        _note.SizeToastRequested += OnSizeToast;
         _subscribed = true;
     }
 
@@ -114,7 +116,28 @@ public partial class NoteColumnView : UserControl, INearAware
     {
         if (_note is null || !_subscribed) return;
         _note.EditorFocusRequested -= OnEditorFocusRequested;
+        _note.SizeToastRequested -= OnSizeToast;
         _subscribed = false;
+    }
+
+    private static readonly TimeSpan ToastHold = TimeSpan.FromMilliseconds(900);
+    private static readonly TimeSpan ToastFade = TimeSpan.FromMilliseconds(300);
+
+    /// <summary>Shows the width for a moment in the accent color, then fades it (or just hides it if animations are off).</summary>
+    private void OnSizeToast(string text)
+    {
+        SizeToast.Text = text;
+
+        bool animate = FindRow()?.Config.Animations.Enabled ?? true;
+        var frames = new DoubleAnimationUsingKeyFrames();
+        frames.KeyFrames.Add(new DiscreteDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.Zero)));
+        frames.KeyFrames.Add(new DiscreteDoubleKeyFrame(1, KeyTime.FromTimeSpan(ToastHold)));
+        if (animate) frames.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromTimeSpan(ToastHold + ToastFade)));
+        else frames.KeyFrames.Add(new DiscreteDoubleKeyFrame(0, KeyTime.FromTimeSpan(ToastHold + TimeSpan.FromMilliseconds(1))));
+        frames.FillBehavior = FillBehavior.Stop;
+
+        SizeToast.Opacity = 0;
+        SizeToast.BeginAnimation(OpacityProperty, frames);
     }
 
     private void OnUnloaded()
@@ -223,6 +246,7 @@ public partial class NoteColumnView : UserControl, INearAware
         _dragWidth = Math.Clamp(_dragWidth + e.HorizontalChange, min, max);
 
         _note.WidthFraction = RowLayout.FractionForWidth(_dragWidth, viewport, gap);
+        _note.ShowSizeToast();
     }
 
     private void OnResizeCompleted(object sender, DragCompletedEventArgs e)

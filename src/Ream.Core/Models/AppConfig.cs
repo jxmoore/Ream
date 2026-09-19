@@ -44,6 +44,9 @@ public sealed class AppConfig
         ["moveNoteToPrevWorkspace"] = "Alt+Shift+Up",
         ["moveNoteToNextWorkspace"] = "Alt+Shift+Down",
         ["cycleWidthPreset"] = "Alt+R",
+        ["resetNoteSize"] = "Alt+0",
+        ["resetWorkspaceSizes"] = "Alt+Shift+0",
+        ["resetAllSizes"] = "Ctrl+Alt+0",
         ["sizeUp"] = "Alt+OemPlus",
         ["sizeDown"] = "Alt+OemMinus",
         ["toggleFullscreen"] = "Shift+F11",
@@ -57,9 +60,13 @@ public sealed class AppConfig
 
 public sealed class LayoutConfig
 {
-    public double GapPx { get; init; } = 16;
+    /// <summary>Space between notes, and around the row, in pixels.</summary>
+    public double GapPx { get; init; } = 28;
+
     public bool CenterFocusedColumn { get; init; } = true;
 
+    /// <summary>Moving to another workspace (keys, Alt+wheel, the workspace menu) lands on its first note.</summary>
+    public bool FocusFirstNoteOnSwitch { get; init; } = true;
     /// <summary>Color of the border around the focused note, "#RRGGBB" or "#AARRGGBB". Null means the theme's accent.</summary>
     public string? FocusBorderColor { get; init; }
 }

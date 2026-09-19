@@ -113,7 +113,7 @@ public class CenteredLayoutTests
 
         var view = fx.ColumnOf(note);
         var row = Ui.Ancestor<NoteRowPanel>(view)!;
-        Assert.Equal(16, Left(view, row), 1);
+        Assert.Equal(new LayoutConfig().GapPx, Left(view, row), 1);
     });
 
     [Fact]
@@ -128,7 +128,7 @@ public class CenteredLayoutTests
         var view = fx.ColumnOf(fx.App.CurrentWorkspace.Notes[0]);
         var row = Ui.Ancestor<NoteRowPanel>(view)!;
 
-        Assert.Equal(16, Left(view, row), 1);
+        Assert.Equal(new LayoutConfig().GapPx, Left(view, row), 1);
     });
 
     // ----- The color strip is gone -----
