@@ -39,7 +39,7 @@ internal static class SnapshotMapper
             workspace.Id,
             workspace.Name,
             workspace.FolderName,
-            notes.Select(n => new NoteSnapshot(n.Id, n.Title, n.Body, n.WidthFraction, n.IsFullscreen)).ToList(),
+            notes.Select(n => new NoteSnapshot(n.Id, n.Title, n.Body, n.WidthFraction, n.IsFullscreen, n.CustomTitle)).ToList(),
             focused is not null && notes.Contains(focused) ? focused.Id : null);
     }
 
@@ -51,6 +51,7 @@ internal static class SnapshotMapper
             {
                 Id = n.Id,
                 Title = n.Title,
+                CustomTitle = n.CustomTitle,
                 Body = n.Body,
                 WidthFraction = n.WidthFraction,
                 IsFullscreen = n.IsFullscreen,

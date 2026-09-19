@@ -22,8 +22,38 @@
             <DockPanel Grid.Row="0" Margin="16,14,16,4" LastChildFill="True">
                 <TextBlock DockPanel.Dock="Right" Text="{Binding WidthLabel}" VerticalAlignment="Center"
                            Foreground="{DynamicResource MutedTextBrush}" FontSize="12"/>
-                <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                           Foreground="{DynamicResource TextBrush}"/>
+                <Grid Margin="0,0,10,0">
+                    <TextBlock x:Name="TitleText" Text="{Binding DisplayTitle}" FontSize="18" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextBrush}"
+                               Cursor="IBeam" ToolTip="Click to rename (F2)"
+                               MouseLeftButtonDown="OnTitleMouseDown">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsEditingTitle}" Value="True">
+                                        <Setter Property="Visibility" Value="Hidden"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBox x:Name="TitleBox" FontSize="18" FontWeight="SemiBold" MaxLength="80" Padding="0,0,0,1"
+                             Text="{Binding EditTitle, UpdateSourceTrigger=PropertyChanged}"
+                             PreviewKeyDown="OnTitleKeyDown"
+                             LostKeyboardFocus="OnTitleLostFocus"
+                             IsVisibleChanged="OnTitleBoxVisibleChanged">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsEditingTitle}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
+                </Grid>
             </DockPanel>
 
             <RichTextBox x:Name="Editor" Grid.Row="1"

@@ -327,6 +327,7 @@ public class WelcomeNoteTests
         Assert.Contains("F11", text);
         Assert.Contains("Alt+=", text);
         Assert.Contains("Alt+-", text);
+        Assert.Contains("Shift+F2", text);
         Assert.DoesNotContain("Alt+F ", text);
     }
 

@@ -22,8 +22,47 @@ public sealed partial class NoteViewModel : ObservableObject
     [ObservableProperty]
     private string _body = "";
 
+    /// <summary>The automatic title: the note's first line. What the header shows is <see cref="DisplayTitle"/>.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayTitle))]
     private string _title = "";
+
+    /// <summary>A title the user chose; null means "use the first line".</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayTitle))]
+    private string? _customTitle;
+
+    public string DisplayTitle => string.IsNullOrWhiteSpace(CustomTitle) ? Title : CustomTitle;
+
+    public const int MaxCustomTitleLength = 80;
+
+    /// <summary>True while the header shows a text box for renaming.</summary>
+    [ObservableProperty]
+    private bool _isEditingTitle;
+
+    [ObservableProperty]
+    private string _editTitle = "";
+
+    public void BeginTitleEdit()
+    {
+        if (IsEditingTitle) return;
+
+        EditTitle = DisplayTitle;
+        IsEditingTitle = true;
+    }
+
+    /// <summary>Applies the typed title (blank goes back to the first line). Does nothing unless an edit is in progress.</summary>
+    public void CommitTitleEdit()
+    {
+        if (!IsEditingTitle) return;
+        IsEditingTitle = false;
+
+        string typed = EditTitle.Trim();
+        if (typed.Length == 0) CustomTitle = null;
+        else if (typed != DisplayTitle) CustomTitle = typed[..Math.Min(typed.Length, MaxCustomTitleLength)];
+    }
+
+    public void CancelTitleEdit() => IsEditingTitle = false;
 
     /// <summary>Share of the row's width this column takes (a preset like 1/2, or any dragged-to value).</summary>
     [ObservableProperty]
@@ -106,7 +145,8 @@ public sealed partial class NoteViewModel : ObservableObject
         FlushDocument();
         if (!IsDraft) return false;
 
-        if (NoteContent.IsBlank(Body))
+        // A title the user typed makes it theirs, even before there is any text.
+        if (NoteContent.IsBlank(Body) && string.IsNullOrWhiteSpace(CustomTitle))
             return true;
 
         IsDraft = false;

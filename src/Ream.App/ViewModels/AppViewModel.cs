@@ -51,6 +51,7 @@ public sealed partial class AppViewModel : ObservableObject
             ["toggleAppFullscreen"] = ToggleAppFullscreenCommand,
             ["newNote"] = NewNoteCommand,
             ["closeNote"] = CloseNoteCommand,
+            ["renameNote"] = RenameNoteCommand,
             ["renameWorkspace"] = BeginRenameCommand,
         };
     }
@@ -236,6 +237,10 @@ public sealed partial class AppViewModel : ObservableObject
         int index = workspace is null ? -1 : Workspaces.IndexOf(workspace);
         if (index >= 0) SwitchWorkspace(index - CurrentIndex);
     }
+
+    /// <summary>Starts renaming the focused note in its header (the F2 shortcut).</summary>
+    [RelayCommand]
+    private void RenameNote() => CurrentWorkspace.FocusedNote?.BeginTitleEdit();
 
     /// <summary>Starts renaming the given workspace (the current one when none is given).</summary>
     [RelayCommand]

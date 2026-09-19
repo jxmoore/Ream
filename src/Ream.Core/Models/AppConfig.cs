@@ -31,6 +31,7 @@ public sealed class AppConfig
         ["toggleAppFullscreen"] = "F11",
         ["newNote"] = "Alt+N",
         ["closeNote"] = "Alt+Q",
+        ["renameNote"] = "F2",
         ["renameWorkspace"] = "Shift+F2",
     };
 }

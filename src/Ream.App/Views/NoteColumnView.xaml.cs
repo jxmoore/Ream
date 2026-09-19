@@ -150,6 +150,47 @@ public partial class NoteColumnView : UserControl, INearAware
     private void OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e) =>
         _note?.FocusCommand.Execute(null);
 
+    // ----- Renaming -----
+
+    private void OnTitleMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _note?.BeginTitleEdit();
+        e.Handled = true;
+    }
+
+    private void OnTitleKeyDown(object sender, KeyEventArgs e)
+    {
+        if (_note is null) return;
+
+        switch (e.Key)
+        {
+            case Key.Enter:
+                _note.CommitTitleEdit();
+                _note.RequestEditorFocus();
+                e.Handled = true;
+                break;
+            case Key.Escape:
+                _note.CancelTitleEdit();
+                _note.RequestEditorFocus();
+                e.Handled = true;
+                break;
+        }
+    }
+
+    // Clicking away keeps what was typed (and leaves focus where the click put it). Escape has already ended the edit.
+    private void OnTitleLostFocus(object sender, KeyboardFocusChangedEventArgs e) => _note?.CommitTitleEdit();
+
+    private void OnTitleBoxVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is not true || sender is not TextBox box) return;
+
+        box.Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
+        {
+            box.Focus();
+            box.SelectAll();
+        });
+    }
+
     // ----- Resizing -----
 
     // The width being dragged to, tracked here (not read back from layout) so several drag events
