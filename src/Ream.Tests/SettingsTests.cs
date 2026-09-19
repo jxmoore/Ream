@@ -370,16 +370,13 @@ public class ViewRibbonTests
     private static SettingsViewModel Make(AppViewModel app, ThemeService theme, bool supported = true) =>
         new(app, theme, store: null, dispatcher: null, blurSupported: () => supported);
 
-    private static IEnumerable<Button> ThemeRows(ViewRibbonView view) =>
-        Ui.Descendants<Button>(view).Where(b => b.Name == "Row");
-
     private static void Click(Button button) =>
         ((IInvokeProvider)new ButtonAutomationPeer(button).GetPattern(PatternInterface.Invoke)!).Invoke();
 
     private static Slider SliderNamed(ViewRibbonView view, string name) => (Slider)view.FindName(name);
 
     [Fact]
-    public void ItShowsOneTilePerTheme_AndOnePicksIt() => Ui.Run(() =>
+    public void ThemesAreADropdown_OneEntryPerTheme_AndPickingOnePicksIt() => Ui.Run(() =>
     {
         var app = new AppViewModel(new AppConfig(), []);
         var theme = new ThemeService(Application.Current, () => true);
@@ -388,18 +385,86 @@ public class ViewRibbonTests
         {
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
+            var box = (ComboBox)view.FindName("ThemeBox");
 
-            var rows = ThemeRows(view).ToList();
-            Assert.Equal(ThemeCatalog.All.Count, rows.Count);
-            Assert.Equal(ThemeCatalog.All.Select(t => t.Name), rows.Select(r => Ui.Descendants<TextBlock>(r).Last().Text));
+            Assert.Equal(ThemeCatalog.All.Select(t => t.Name), box.Items.Cast<ThemeOption>().Select(o => o.Name));
+            Assert.Equal("dark", ((ThemeOption)box.SelectedItem).Id);
 
-            Click(rows[2]);
+            box.SelectedIndex = 2;
             Ui.Settle();
 
             Assert.Equal("dracula", app.Config.Theme);
-            var checks = Ui.Descendants<TextBlock>(view).Where(t => t.Name == "Check").Select(t => t.Visibility).ToList();
-            Assert.Equal(1, checks.Count(v => v == Visibility.Visible));
-            Assert.Equal(Visibility.Visible, checks[2]);
+            Assert.Equal("dracula", ((ThemeOption)box.SelectedItem).Id);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void TheDropdown_FollowsTheConfigWhenItChangesElsewhere() => Ui.Run(() =>
+    {
+        var app = new AppViewModel(new AppConfig(), []);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            var box = (ComboBox)view.FindName("ThemeBox");
+
+            app.Config = app.Config.With(theme: "nord");
+            Ui.Settle();
+
+            Assert.Equal("nord", ((ThemeOption)box.SelectedItem).Id);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void TheDropdownShowsTheSelectedThemesSwatchAndName() => Ui.Run(() =>
+    {
+        var app = new AppViewModel(new AppConfig { Theme = "gruvbox" }, []);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            var box = (ComboBox)view.FindName("ThemeBox");
+            Ui.Settle();
+
+            Assert.Contains(Ui.Descendants<TextBlock>(box), t => t.Text == "Gruvbox");
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void TheTwoSliders_AreStackedAndShort() => Ui.Run(() =>
+    {
+        var app = new AppViewModel(new AppConfig(), []);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            var canvas = SliderNamed(view, "OpacitySlider");
+            var notes = SliderNamed(view, "NoteOpacitySlider");
+
+            var canvasAt = canvas.TranslatePoint(new Point(0, 0), view);
+            var notesAt = notes.TranslatePoint(new Point(0, 0), view);
+
+            Assert.Equal(canvasAt.X, notesAt.X);
+            Assert.True(notesAt.Y - canvasAt.Y >= 24, "the Notes slider sits under the Canvas one");
+            Assert.True(canvas.ActualWidth <= 130 && notes.ActualWidth <= 130);
         }
         finally
         {

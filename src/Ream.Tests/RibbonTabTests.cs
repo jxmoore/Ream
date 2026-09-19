@@ -105,6 +105,11 @@ public class RibbonTabTests
     private static List<Button> WorkspaceButtons(FileRibbonView view) =>
         Ui.Descendants<Button>(view).Where(b => b.Name == "WorkspaceButton").ToList();
 
+    private static string LabelOf(Button tile) => Ui.Descendants<TextBlock>(tile).Single(x => x.Name == "Name").Text;
+
+    private static bool IsFilled(Button tile) =>
+        ((System.Windows.Media.SolidColorBrush)tile.Background).Color == Themes.Brush("ChipCurrentBrush");
+
     private static void Invoke(Button button) =>
         ((IInvokeProvider)new ButtonAutomationPeer(button).GetPattern(PatternInterface.Invoke)!).Invoke();
 
@@ -131,8 +136,45 @@ public class RibbonTabTests
 
         Assert.Equal(
             ["New workspace above", "Work", "Workspace 2", "New workspace below"],
-            buttons.Select(b => ((TextBlock)b.Content).Text));
-        Assert.Equal([false, true, false, false], buttons.Select(b => b.BorderThickness.Left > 1));
+            buttons.Select(b => LabelOf(b)));
+        Assert.Equal([false, true, false, false], buttons.Select(IsFilled));
+    });
+
+    [Fact]
+    public void TheWorkspaceTiles_AreEqualSized_InAGridTwoHigh() => Ui.Run(() =>
+    {
+        using var fx = Docked(("A", 1), ("B", 1), ("C", 1), ("D", 1), ("E", 1));
+        var view = FileRibbon(fx);
+        var tiles = WorkspaceButtons(view);
+
+        Assert.Equal(7, tiles.Count);
+        Assert.Single(tiles.Select(t => t.ActualWidth).Distinct());
+        Assert.Single(tiles.Select(t => t.ActualHeight).Distinct());
+
+        var rows = tiles.Select(t => Math.Round(t.TranslatePoint(new Point(0, 0), view).Y)).Distinct().ToList();
+        var columns = tiles.Select(t => Math.Round(t.TranslatePoint(new Point(0, 0), view).X)).Distinct().ToList();
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(4, columns.Count);
+
+        // Reading order: down the first column, then the next.
+        var first = tiles[0].TranslatePoint(new Point(0, 0), view);
+        var second = tiles[1].TranslatePoint(new Point(0, 0), view);
+        var third = tiles[2].TranslatePoint(new Point(0, 0), view);
+        Assert.Equal(first.X, second.X);
+        Assert.True(second.Y > first.Y);
+        Assert.True(third.X > first.X);
+    });
+
+    [Fact]
+    public void TheEdgeTiles_AreMutedWithAPlus_AndTheRealOnesAreNot() => Ui.Run(() =>
+    {
+        using var fx = Docked(("Work", 1));
+        var view = FileRibbon(fx);
+        var tiles = WorkspaceButtons(view);
+
+        bool PlusShown(Button tile) => Ui.Descendants<TextBlock>(tile).Single(x => x.Name == "Plus").IsVisible;
+
+        Assert.Equal([true, false, true], tiles.Select(PlusShown));
     });
 
     [Fact]
@@ -169,14 +211,14 @@ public class RibbonTabTests
     {
         using var fx = Docked(("Work", 1));
         var view = FileRibbon(fx);
-        Assert.Equal(["New workspace above", "Work", "New workspace below"], WorkspaceButtons(view).Select(b => ((TextBlock)b.Content).Text));
+        Assert.Equal(["New workspace above", "Work", "New workspace below"], WorkspaceButtons(view).Select(b => LabelOf(b)));
 
         fx.App.CurrentWorkspace.Name = "Renamed";
         fx.App.SelectWorkspaceCommand.Execute(fx.App.Workspaces[^1]);
         fx.App.NewNoteCommand.Execute(null); // a note in the last empty workspace makes another appear
         Ui.Settle();
 
-        var labels = WorkspaceButtons(view).Select(b => ((TextBlock)b.Content).Text).ToList();
+        var labels = WorkspaceButtons(view).Select(b => LabelOf(b)).ToList();
         Assert.Equal(fx.App.Workspaces.Count, labels.Count);
         Assert.Contains("Renamed", labels);
     });

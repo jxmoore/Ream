@@ -89,6 +89,16 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _selectedThemeId = ThemeCatalog.DefaultId;
 
+    /// <summary>The dropdown's selection: reads the theme in use, and choosing one applies it.</summary>
+    public ThemeOption? SelectedTheme
+    {
+        get => Themes.FirstOrDefault(t => t.IsSelected);
+        set
+        {
+            if (value is not null) SelectThemeCommand.Execute(value);
+        }
+    }
+
     public string OpacityLabel => $"{OpacityPercent}%";
 
     public string NoteOpacityLabel => $"{NoteOpacityPercent}%";
@@ -178,6 +188,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         OpacityPercent = config.CanvasOpacity;
         NoteOpacityPercent = config.NoteOpacity;
         foreach (var option in Themes) option.IsSelected = option.Id == id;
+        OnPropertyChanged(nameof(SelectedTheme));
 
         OnPropertyChanged(nameof(OpacityHint));
     }

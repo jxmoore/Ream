@@ -5,7 +5,7 @@
     <StackPanel Orientation="Horizontal" Margin="12,6,12,2">
 
         <StackPanel>
-            <Button x:Name="OpenButton" Style="{StaticResource RibbonTile}" IsEnabled="False"
+            <Button x:Name="OpenButton" Style="{StaticResource RibbonTile}" IsEnabled="False" MinHeight="54"
                     ToolTipService.ShowOnDisabled="True" ToolTip="Coming soon">
                 <StackPanel>
                     <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE838;" FontSize="20"/>
@@ -17,24 +17,38 @@
 
         <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
 
+        <!-- Workspaces: equal-sized tiles, two high, reading top to bottom then left to right. The current one is filled. -->
         <StackPanel>
-            <ItemsControl x:Name="WorkspaceList" ItemsSource="{Binding Workspaces}" Focusable="False">
+            <ItemsControl x:Name="WorkspaceList" ItemsSource="{Binding Workspaces}" Focusable="False" MinHeight="60" VerticalAlignment="Center">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <StackPanel Orientation="Horizontal"/>
+                        <WrapPanel Orientation="Vertical" Height="62"/>
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Button x:Name="WorkspaceButton" Style="{StaticResource RibbonTile}" VerticalAlignment="Center"
+                        <Button x:Name="WorkspaceButton" Width="158" Height="28" Margin="2,1" Padding="10,0" MinWidth="0"
+                                Focusable="False" HorizontalContentAlignment="Left"
                                 Command="{Binding DataContext.SelectWorkspaceCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                 CommandParameter="{Binding}" ToolTip="Go to this workspace">
-                            <TextBlock Text="{Binding MenuLabel}" FontSize="12" MaxWidth="160" TextTrimming="CharacterEllipsis"/>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="Plus" Text="+" Visibility="Collapsed" Margin="0,0,6,0" FontSize="12"/>
+                                <TextBlock x:Name="Name" Text="{Binding MenuLabel}" FontSize="12" MaxWidth="120" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
                         </Button>
                         <DataTemplate.Triggers>
+                            <DataTrigger Binding="{Binding IsEdge}" Value="True">
+                                <Setter TargetName="Plus" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="Plus" Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
+                                <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
+                                <Setter TargetName="Name" Property="FontStyle" Value="Italic"/>
+                            </DataTrigger>
                             <DataTrigger Binding="{Binding IsCurrent}" Value="True">
-                                <Setter TargetName="WorkspaceButton" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-                                <Setter TargetName="WorkspaceButton" Property="BorderThickness" Value="2"/>
+                                <Setter TargetName="WorkspaceButton" Property="Background" Value="{DynamicResource ChipCurrentBrush}"/>
+                                <Setter TargetName="WorkspaceButton" Property="BorderBrush" Value="{DynamicResource ChipCurrentBrush}"/>
+                                <Setter TargetName="Plus" Property="Foreground" Value="{DynamicResource ChipCurrentTextBrush}"/>
+                                <Setter TargetName="Name" Property="Foreground" Value="{DynamicResource ChipCurrentTextBrush}"/>
+                                <Setter TargetName="Name" Property="FontWeight" Value="SemiBold"/>
                             </DataTrigger>
                         </DataTemplate.Triggers>
                     </DataTemplate>
@@ -47,13 +61,13 @@
 
         <StackPanel>
             <StackPanel Orientation="Horizontal">
-                <Button x:Name="HelpButton" Style="{StaticResource RibbonTile}" Click="OnHelp" ToolTip="Every shortcut, as bound right now">
+                <Button x:Name="HelpButton" Style="{StaticResource RibbonTile}" MinHeight="54" Click="OnHelp" ToolTip="Every shortcut, as bound right now">
                     <StackPanel>
                         <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE897;" FontSize="20"/>
                         <TextBlock Text="Help" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
                     </StackPanel>
                 </Button>
-                <Button x:Name="AboutButton" Style="{StaticResource RibbonTile}" Click="OnAbout" ToolTip="Version and where your notes live">
+                <Button x:Name="AboutButton" Style="{StaticResource RibbonTile}" MinHeight="54" Click="OnAbout" ToolTip="Version and where your notes live">
                     <StackPanel>
                         <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE946;" FontSize="20"/>
                         <TextBlock Text="About" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
