@@ -112,7 +112,7 @@ public static class HelpContent
         new("Move along the row of notes", "Tilt wheel"),
         new("Rename a note", "Click its title"),
         new("Resize a note", "Drag its right edge"),
-        new("Rename a workspace", "Double-click its name in the title bar"),
+        new("Rename a workspace", "Double-click its name in the bottom-right corner"),
     ];
 
     private static readonly HelpEntry[] Editing =

@@ -88,13 +88,13 @@ public partial class MainWindow : Window
         WindowBorder.Margin = maximized ? SystemParameters.WindowResizeBorderThickness : new Thickness(0);
     }
 
-    /// <summary>In app fullscreen the title bar goes away too (the rest of the top bar stays). A rename brings it back.</summary>
+    /// <summary>In app fullscreen the title bar goes away too (the rest of the top bar stays).</summary>
     internal void ApplyFullscreenChrome(bool fullscreen) =>
         TitleBar.Tag = fullscreen ? "fullscreen" : null;
 
-    // ----- Renaming the workspace from the title bar -----
+    // ----- Renaming the workspace from the corner label -----
 
-    private void OnTitleMouseDown(object sender, MouseButtonEventArgs e)
+    private void OnWorkspaceLabelMouseDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount < 2) return;
 
@@ -102,7 +102,7 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private void OnTitleKeyDown(object sender, KeyEventArgs e)
+    private void OnWorkspaceNameKeyDown(object sender, KeyEventArgs e)
     {
         switch (e.Key)
         {
@@ -118,10 +118,10 @@ public partial class MainWindow : Window
     }
 
     // Clicking away keeps what was typed. Escape has already ended the rename, so this then does nothing.
-    private void OnTitleLostFocus(object sender, KeyboardFocusChangedEventArgs e) =>
+    private void OnWorkspaceNameLostFocus(object sender, KeyboardFocusChangedEventArgs e) =>
         _viewModel.CurrentWorkspace.CommitRename();
 
-    private void OnTitleBoxVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    private void OnWorkspaceNameVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if (e.NewValue is not true || sender is not System.Windows.Controls.TextBox box) return;
 

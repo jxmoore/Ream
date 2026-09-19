@@ -92,11 +92,11 @@ public sealed partial class AppViewModel : ObservableObject
 
     public const string AppName = "Ream";
 
-    /// <summary>"Ream - Work" for the current workspace, or just "Ream" where it has no name to show.</summary>
-    public string WindowTitle =>
+    /// <summary>The corner label: the workspace's name, "Workspace 2" if it has none, or "New workspace" on an empty edge.</summary>
+    public string WorkspaceLabel =>
         CurrentIndex >= 0 && CurrentIndex < Workspaces.Count && Workspaces[CurrentIndex].DisplayName is { } name
-            ? $"{AppName} - {name}"
-            : AppName;
+            ? name
+            : "New workspace";
 
     // The workspace that was current last time we looked. Compared by identity, so the index shifting
     // under a list edit isn't mistaken for leaving a workspace.
@@ -128,14 +128,14 @@ public sealed partial class AppViewModel : ObservableObject
             Workspaces[i].IsCurrent = i == CurrentIndex;
         }
 
-        OnPropertyChanged(nameof(WindowTitle));
+        OnPropertyChanged(nameof(WorkspaceLabel));
     }
 
-    // A rename or renumbering of the current workspace changes the title too.
+    // A rename or renumbering of the current workspace changes the label too.
     private void OnWorkspaceChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (ReferenceEquals(sender, _visited) && e.PropertyName is nameof(WorkspaceViewModel.DisplayName))
-            OnPropertyChanged(nameof(WindowTitle));
+            OnPropertyChanged(nameof(WorkspaceLabel));
     }
 
     /// <summary>Raised when the focused note's editor should take keyboard focus (after focus or workspace moves).</summary>

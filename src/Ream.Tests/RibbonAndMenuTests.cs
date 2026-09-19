@@ -293,7 +293,7 @@ public class FileMenuTests
     });
 
     [Fact]
-    public void PickingAWorkspaceFromTheMenu_SwitchesToIt_AndTheTitleFollows() => Ui.Run(() =>
+    public void PickingAWorkspaceFromTheMenu_SwitchesToIt_AndTheLabelFollows() => Ui.Run(() =>
     {
         using var fx = new WindowFixture(("Work", 1), ("Ideas", 1));
 
@@ -301,7 +301,7 @@ public class FileMenuTests
         Ui.Settle();
 
         Assert.Same(fx.App.Workspaces[2], fx.App.CurrentWorkspace);
-        Assert.Equal("Ream - Ideas", fx.Window.Title);
+        Assert.Equal("Ideas", ((System.Windows.Controls.TextBlock)fx.Window.FindName("WorkspaceLabel")).Text);
     });
 
     [Fact]

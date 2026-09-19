@@ -4,7 +4,7 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:controls="clr-namespace:Ream.App.Controls"
         xmlns:views="clr-namespace:Ream.App.Views"
-        Title="{Binding WindowTitle}" Height="720" Width="1200" MinWidth="480" MinHeight="320"
+        Title="Ream" Height="720" Width="1200" MinWidth="480" MinHeight="320"
         WindowStyle="None" AllowsTransparency="True" ResizeMode="CanResize"
         Background="Transparent" Foreground="{DynamicResource TextBrush}">
     <!--
@@ -88,8 +88,8 @@
             </Grid.RowDefinitions>
 
             <!--
-                Title bar: "Ream - Workspace" at the left (double-click it to rename the workspace), minimize / maximize /
-                close at the right. In app fullscreen it is hidden, except while a rename is in progress.
+                Title bar: just "Ream" at the left (a ream's own name will join it one day), minimize / maximize / close
+                at the right. In app fullscreen it is hidden. The workspace's name lives in the bottom-right corner.
             -->
             <Grid x:Name="TitleBar" Grid.Row="0" Height="32" Background="{DynamicResource CanvasBrush}">
                 <Grid.Style>
@@ -98,9 +98,6 @@
                             <Trigger Property="Tag" Value="fullscreen">
                                 <Setter Property="Visibility" Value="Collapsed"/>
                             </Trigger>
-                            <DataTrigger Binding="{Binding CurrentWorkspace.IsRenaming}" Value="True">
-                                <Setter Property="Visibility" Value="Visible"/>
-                            </DataTrigger>
                         </Style.Triggers>
                     </Style>
                 </Grid.Style>
@@ -109,42 +106,9 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <Grid Grid.Column="0" Margin="12,0,8,0" HorizontalAlignment="Left">
-                    <TextBlock x:Name="TitleText" VerticalAlignment="Center" FontSize="12"
-                               TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextBrush}"
-                               Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
-                               ToolTip="Double-click to rename this workspace"
-                               shell:WindowChrome.IsHitTestVisibleInChrome="True"
-                               MouseLeftButtonDown="OnTitleMouseDown">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding CurrentWorkspace.IsRenaming}" Value="True">
-                                        <Setter Property="Visibility" Value="Hidden"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                    <StackPanel x:Name="TitleEdit" Orientation="Horizontal" VerticalAlignment="Center"
-                                shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                        <StackPanel.Style>
-                            <Style TargetType="StackPanel">
-                                <Setter Property="Visibility" Value="Collapsed"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding CurrentWorkspace.IsRenaming}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </StackPanel.Style>
-                        <TextBlock Text="Ream - " VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextBrush}"/>
-                        <TextBox x:Name="TitleBox" MinWidth="200" MaxLength="40" FontSize="12" Padding="4,2"
-                                 Text="{Binding CurrentWorkspace.EditName, UpdateSourceTrigger=PropertyChanged}"
-                                 PreviewKeyDown="OnTitleKeyDown" LostKeyboardFocus="OnTitleLostFocus"
-                                 IsVisibleChanged="OnTitleBoxVisibleChanged"/>
-                    </StackPanel>
-                </Grid>
+                <TextBlock x:Name="TitleText" Grid.Column="0" Margin="12,0,8,0" VerticalAlignment="Center" FontSize="12"
+                           Foreground="{DynamicResource TextBrush}"
+                           Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"/>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button x:Name="MinimizeButton" Style="{StaticResource CaptionButtonStyle}" Content="&#xE921;"
@@ -228,6 +192,44 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+
+                <!--
+                    The current workspace's name, bottom right, in the gap under the notes. Double-click it (or Shift+F2)
+                    to rename in place. Plain text with no background of its own, so at 0% it floats over the desktop.
+                -->
+                <Grid x:Name="WorkspaceLabelHost" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,6">
+                    <TextBlock x:Name="WorkspaceLabel" Padding="6,2" FontSize="12" TextTrimming="CharacterEllipsis"
+                               MaxWidth="320" Background="Transparent"
+                               Foreground="{DynamicResource MutedTextBrush}"
+                               Text="{Binding WorkspaceLabel}"
+                               ToolTip="Double-click to rename this workspace"
+                               MouseLeftButtonDown="OnWorkspaceLabelMouseDown">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentWorkspace.IsRenaming}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBox x:Name="WorkspaceNameBox" MinWidth="180" MaxLength="40" FontSize="12" Padding="4,2"
+                             Text="{Binding CurrentWorkspace.EditName, UpdateSourceTrigger=PropertyChanged}"
+                             PreviewKeyDown="OnWorkspaceNameKeyDown" LostKeyboardFocus="OnWorkspaceNameLostFocus"
+                             IsVisibleChanged="OnWorkspaceNameVisibleChanged">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentWorkspace.IsRenaming}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
+                </Grid>
             </Grid>
         </Grid>
     </Border>

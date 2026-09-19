@@ -167,7 +167,7 @@ public class OwnWindowFrameTests
     {
         using var fx = new WindowFixture(("W", 1));
 
-        Assert.Equal("Ream - W", TitleOf(fx.Window).Text);
+        Assert.Equal("Ream", TitleOf(fx.Window).Text);
         var buttons = new[] { "MinimizeButton", "MaximizeButton", "CloseButton" }
             .Select(n => (Button)fx.Window.FindName(n)).ToList();
 

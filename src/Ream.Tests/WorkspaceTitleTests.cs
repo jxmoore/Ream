@@ -3,7 +3,7 @@ using Ream.Core.Models;
 
 namespace Ream.Tests;
 
-public class WorkspaceTitleTests
+public class WorkspaceLabelTests
 {
     private static WorkspaceViewModel Workspace(string? name, int notes = 1)
     {
@@ -15,11 +15,11 @@ public class WorkspaceTitleTests
     private static AppViewModel App(params WorkspaceViewModel[] workspaces) => new(new AppConfig(), workspaces);
 
     [Fact]
-    public void ANamedWorkspace_IsTheTitleAfterTheAppName()
+    public void ANamedWorkspace_IsItsOwnLabel()
     {
         var app = App(Workspace("Work"));
 
-        Assert.Equal("Ream - Work", app.WindowTitle);
+        Assert.Equal("Work", app.WorkspaceLabel);
     }
 
     [Fact]
@@ -28,75 +28,76 @@ public class WorkspaceTitleTests
         var app = App(Workspace("A"), Workspace(null));
         app.SwitchWorkspace(1);
 
-        Assert.Equal("Ream - Workspace 2", app.WindowTitle);
+        Assert.Equal("Workspace 2", app.WorkspaceLabel);
     }
 
     [Fact]
-    public void TheEmptyEdges_HaveNothingToShow_SoTheTitleIsJustTheAppName()
+    public void TheEmptyEdges_AreLabelledAsNew()
     {
         var app = App(Workspace("Work"));
 
         app.CurrentIndex = 0;
-        Assert.Equal("Ream", app.WindowTitle);
+        Assert.Equal("New workspace", app.WorkspaceLabel);
 
         app.CurrentIndex = 2;
-        Assert.Equal("Ream", app.WindowTitle);
+        Assert.Equal("New workspace", app.WorkspaceLabel);
     }
 
     [Fact]
-    public void TheTitleFollowsSwitches_AndRenames()
+    public void TheLabelFollowsSwitches_AndRenames()
     {
         var app = App(Workspace("A"), Workspace("B"));
         var titles = new List<string>();
         app.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(AppViewModel.WindowTitle)) titles.Add(app.WindowTitle);
+            if (e.PropertyName == nameof(AppViewModel.WorkspaceLabel)) titles.Add(app.WorkspaceLabel);
         };
 
         app.SwitchWorkspace(1);
         app.CurrentWorkspace.Name = "Renamed";
 
-        Assert.Equal("Ream - Renamed", app.WindowTitle);
-        Assert.Contains("Ream - B", titles);
-        Assert.Contains("Ream - Renamed", titles);
+        Assert.Equal("Renamed", app.WorkspaceLabel);
+        Assert.Contains("B", titles);
+        Assert.Contains("Renamed", titles);
     }
 
     [Fact]
-    public void RenamingAWorkspaceThatIsNotCurrent_LeavesTheTitleAlone()
+    public void RenamingAWorkspaceThatIsNotCurrent_LeavesTheLabelAlone()
     {
         var app = App(Workspace("A"), Workspace("B"));
         int changes = 0;
         app.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(AppViewModel.WindowTitle)) changes++;
+            if (e.PropertyName == nameof(AppViewModel.WorkspaceLabel)) changes++;
         };
 
         app.Workspaces[2].Name = "Elsewhere";
 
         Assert.Equal(0, changes);
-        Assert.Equal("Ream - A", app.WindowTitle);
+        Assert.Equal("A", app.WorkspaceLabel);
     }
 
     [Fact]
-    public void ANumberedTitle_UpdatesWhenAnEmptyWorkspaceAboveItIsPrunedAway()
+    public void ANumberedLabel_UpdatesWhenAnEmptyWorkspaceAboveItIsPrunedAway()
     {
         var app = App(Workspace("A"), Workspace(null, 0), Workspace(null));
         app.SelectWorkspaceCommand.Execute(app.Workspaces[3]);
-        Assert.Equal("Ream - Workspace 3", app.WindowTitle);
+        Assert.Equal("Workspace 3", app.WorkspaceLabel);
 
         app.PruneEmptyWorkspacesCommand.Execute(null);
 
-        Assert.Equal("Ream - Workspace 2", app.WindowTitle);
+        Assert.Equal("Workspace 2", app.WorkspaceLabel);
     }
+
     [Fact]
-    public void TheTitleIsSafeWhenTheIndexIsTemporarilyOutOfRange()
+    public void TheLabelIsSafeWhenTheIndexIsTemporarilyOutOfRange()
     {
         var app = App(Workspace("A"));
         app.CurrentIndex = 2;
 
         app.Workspaces.RemoveAt(2);
 
-        Assert.Equal("Ream", app.WindowTitle);
+        Assert.Equal("New workspace", app.WorkspaceLabel);
     }
 
     [Fact]
@@ -106,7 +107,7 @@ public class WorkspaceTitleTests
 
         app.CurrentWorkspace.Name = null;
 
-        Assert.Equal("Ream - Workspace 1", app.WindowTitle);
+        Assert.Equal("Workspace 1", app.WorkspaceLabel);
     }
 
     [Theory]
