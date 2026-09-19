@@ -25,9 +25,6 @@ public sealed partial class NoteViewModel : ObservableObject
     [ObservableProperty]
     private string _title = "";
 
-    [ObservableProperty]
-    private string _accentColor = "#7c9cff";
-
     /// <summary>Share of the row's width this column takes (a preset like 1/2, or any dragged-to value).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(WidthLabel))]

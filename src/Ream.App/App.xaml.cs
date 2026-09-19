@@ -21,6 +21,10 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // The test harness hosts this class only for its resources and must never run the real app
+        // (real config, real documents, a real window). See Ream.Tests/Ui.cs.
+        if (AppContext.TryGetSwitch("Ream.SkipStartup", out bool skip) && skip) return;
+
         try
         {
             var paths = AppPaths.Resolve(ParseHome(e.Args));

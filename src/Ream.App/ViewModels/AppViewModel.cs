@@ -205,13 +205,7 @@ public sealed partial class AppViewModel : ObservableObject
     private void NewNote()
     {
         _noteCounter++;
-        var id = Guid.NewGuid();
-        CurrentWorkspace.InsertAfterFocus(new NoteViewModel
-        {
-            Id = id,
-            Title = $"Untitled {_noteCounter}",
-            AccentColor = SnapshotMapper.AccentFor(id),
-        });
+        CurrentWorkspace.InsertAfterFocus(new NoteViewModel { Title = $"Untitled {_noteCounter}" });
         EnsureTrailingEmpty();
         RequestEditorFocus();
     }

@@ -398,7 +398,7 @@ public class MainWindowIntegrationTests
         using var fx = new WindowFixture(("Work", 1));
 
         var binding = fx.Window.InputBindings.OfType<KeyBinding>()
-            .Single(b => b.Key == Key.R && b.Modifiers == (ModifierKeys.Alt | ModifierKeys.Shift));
+            .Single(b => b.Key == Key.F2 && b.Modifiers == ModifierKeys.Shift);
 
         Assert.Same(fx.App.BeginRenameCommand, binding.Command);
     });

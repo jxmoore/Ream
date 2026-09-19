@@ -317,7 +317,7 @@ public class ConfigReloadTests
     {
         using var fx = new WindowFixture(new AppConfig { Animations = new AnimationConfig { Enabled = false } }, ("W", 2));
         using var dir = new TempDir();
-        var (reloader, _, _) = Reloader(dir, fx, Json("""{ "gapPx": 40 }""", """{ "enabled": false }"""));
+        var (reloader, _, _) = Reloader(dir, fx, Json("""{ "gapPx": 40, "centerFocusedColumn": false }""", """{ "enabled": false }"""));
         try
         {
             reloader.Reload();
@@ -334,7 +334,7 @@ public class ConfigReloadTests
     [Fact]
     public void CenteredFocus_TakesEffectWithoutARestart() => Ui.Run(() =>
     {
-        using var fx = new WindowFixture(new AppConfig { Animations = new AnimationConfig { Enabled = false } }, ("W", 3));
+        using var fx = new WindowFixture(new AppConfig { Layout = new LayoutConfig { CenterFocusedColumn = false }, Animations = new AnimationConfig { Enabled = false } }, ("W", 3));
         using var dir = new TempDir();
         var (reloader, _, _) = Reloader(dir, fx, Json("""{ "centerFocusedColumn": true }""", """{ "enabled": false }"""));
         try

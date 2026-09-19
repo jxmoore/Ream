@@ -177,7 +177,7 @@ public class WorkspaceViewModelTests
         var app = App(Workspace("A", 1));
 
         Assert.Same(app.BeginRenameCommand, app.Actions["renameWorkspace"]);
-        Assert.Equal("Alt+Shift+R", app.Config.Keybindings["renameWorkspace"]);
+        Assert.Equal("Shift+F2", app.Config.Keybindings["renameWorkspace"]);
     }
 
     [Fact]

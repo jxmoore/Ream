@@ -48,14 +48,8 @@ internal static class SnapshotMapper
                 Body = n.Body,
                 WidthFraction = n.WidthFraction,
                 IsFullscreen = n.IsFullscreen,
-                AccentColor = AccentFor(n.Id),
             }),
             snapshot.FocusedNoteId);
         return workspace;
     }
-
-    private static readonly string[] Accents = ["#f2a65a", "#7c9cff", "#8bd3a8", "#e57a9a", "#b48cf2"];
-
-    /// <summary>Accent colors aren't persisted; deriving one from the id keeps each note's color stable.</summary>
-    public static string AccentFor(Guid id) => Accents[id.ToByteArray()[0] % Accents.Length];
 }

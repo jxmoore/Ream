@@ -20,6 +20,11 @@ internal static class Ui
         Dispatcher? dispatcher = null;
         using var ready = new ManualResetEventSlim();
 
+        // WPF's Application constructor queues a call to OnStartup, and the real one loads the user's config and
+        // documents, applies their theme and shows a real window - none of which a test may ever do. This switch
+        // makes it return immediately, leaving just the app's resources (palette, control styles) loaded.
+        AppContext.SetSwitch("Ream.SkipStartup", true);
+
         var thread = new Thread(() =>
         {
             var app = new Ream.App.App { ShutdownMode = ShutdownMode.OnExplicitShutdown };

@@ -15,21 +15,18 @@
         </Border.Style>
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="4"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <Border Grid.Row="0" Background="{Binding AccentColor}"/>
-
-            <DockPanel Grid.Row="1" Margin="16,12,16,4" LastChildFill="True">
+            <DockPanel Grid.Row="0" Margin="16,14,16,4" LastChildFill="True">
                 <TextBlock DockPanel.Dock="Right" Text="{Binding WidthLabel}" VerticalAlignment="Center"
                            Foreground="{DynamicResource MutedTextBrush}" FontSize="12"/>
                 <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
                            Foreground="{DynamicResource TextBrush}"/>
             </DockPanel>
 
-            <RichTextBox x:Name="Editor" Grid.Row="2"
+            <RichTextBox x:Name="Editor" Grid.Row="1"
                          Background="Transparent" BorderThickness="0"
                          Foreground="{DynamicResource TextBrush}"
                          CaretBrush="{DynamicResource TextBrush}"
@@ -47,7 +44,7 @@
                 </RichTextBox.Resources>
             </RichTextBox>
 
-            <Thumb x:Name="ResizeHandle" Grid.RowSpan="3" HorizontalAlignment="Right" Width="10"
+            <Thumb x:Name="ResizeHandle" Grid.RowSpan="2" HorizontalAlignment="Right" Width="10"
                    Cursor="SizeWE" ToolTip="Drag to resize"
                    DragStarted="OnResizeStarted" DragDelta="OnResizeDelta" DragCompleted="OnResizeCompleted">
                 <Thumb.Template>

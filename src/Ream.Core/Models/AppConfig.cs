@@ -25,17 +25,17 @@ public sealed class AppConfig
         ["moveNoteToPrevWorkspace"] = "Alt+Shift+Up",
         ["moveNoteToNextWorkspace"] = "Alt+Shift+Down",
         ["cycleWidthPreset"] = "Alt+R",
-        ["toggleFullscreen"] = "Alt+F",
+        ["toggleFullscreen"] = "Shift+F11",
         ["newNote"] = "Alt+N",
         ["closeNote"] = "Alt+Q",
-        ["renameWorkspace"] = "Alt+Shift+R",
+        ["renameWorkspace"] = "Shift+F2",
     };
 }
 
 public sealed class LayoutConfig
 {
     public double GapPx { get; init; } = 16;
-    public bool CenterFocusedColumn { get; init; }
+    public bool CenterFocusedColumn { get; init; } = true;
 }
 
 public sealed class AnimationConfig
