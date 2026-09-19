@@ -118,7 +118,7 @@ public class KeyGestureTests
     [InlineData("sizeUp", Key.OemPlus, ModifierKeys.Alt)]
     [InlineData("sizeDown", Key.OemMinus, ModifierKeys.Alt)]
     [InlineData("toggleAppFullscreen", Key.F11, ModifierKeys.None)]
-    [InlineData("toggleFullscreen", Key.F11, ModifierKeys.Shift)]
+    [InlineData("toggleFullscreen", Key.F11, ModifierKeys.Alt)]
     public void TheNewDefaults_ParseToTheKeysTheyName(string action, Key key, ModifierKeys modifiers)
     {
         var app = new AppViewModel(new AppConfig(), []);
@@ -174,14 +174,14 @@ public class AppFullscreenCommandTests
     }
 
     [Fact]
-    public void TheMainWindowBindsF11ToItAndShiftF11ToTheNoteOne() => Ui.Run(() =>
+    public void TheMainWindowBindsF11ToItAndAltF11ToTheNoteOne() => Ui.Run(() =>
     {
         using var fx = new WindowFixture(("W", 1));
 
         var bindings = fx.Window.InputBindings.OfType<KeyBinding>().ToList();
 
         Assert.Same(fx.App.ToggleAppFullscreenCommand, bindings.Single(b => b.Key == Key.F11 && b.Modifiers == ModifierKeys.None).Command);
-        Assert.Same(fx.App.ToggleFullscreenCommand, bindings.Single(b => b.Key == Key.F11 && b.Modifiers == ModifierKeys.Shift).Command);
+        Assert.Same(fx.App.ToggleFullscreenCommand, bindings.Single(b => b.Key == Key.F11 && b.Modifiers == ModifierKeys.Alt).Command);
         Assert.Same(fx.App.SizeUpCommand, bindings.Single(b => b.Key == Key.OemPlus && b.Modifiers == ModifierKeys.Alt).Command);
         Assert.Same(fx.App.SizeDownCommand, bindings.Single(b => b.Key == Key.OemMinus && b.Modifiers == ModifierKeys.Alt).Command);
     });

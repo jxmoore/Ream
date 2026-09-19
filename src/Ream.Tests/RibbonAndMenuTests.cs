@@ -32,7 +32,7 @@ public class HelpContentTests
         Assert.Contains(entries, e => e.Description == "Make the note wider" && e.Gesture == "Alt + =");
         Assert.Contains(entries, e => e.Description == "Make the note narrower" && e.Gesture == "Alt + -");
         Assert.Contains(entries, e => e.Description == "App fullscreen, and back" && e.Gesture == "F11");
-        Assert.Contains(entries, e => e.Description == "Note fullscreen, and back" && e.Gesture == "Shift + F11");
+        Assert.Contains(entries, e => e.Description == "Note fullscreen, and back" && e.Gesture == "Alt + F11");
         Assert.Contains(entries, e => e.Description == "Rename the note" && e.Gesture == "F2");
         Assert.Contains(entries, e => e.Description == "Rename the workspace" && e.Gesture == "Shift + F2");
     }
