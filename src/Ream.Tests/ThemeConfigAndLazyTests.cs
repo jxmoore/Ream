@@ -255,7 +255,33 @@ public class ThemeTests
     });
 
     [Fact]
-    public void TheRibbon_FollowsTheCanvas_ButNeverGetsTooFaintToRead() => Ui.Run(() =>
+    public void AtZero_NoBlurIsAskedFor_ButOnePercentStillBlurs() => Ui.Run(() =>
+    {
+        var supported = new ThemeService(Application.Current, () => true);
+        try
+        {
+            supported.Apply("dark", canvasOpacity: 0, canvasBlur: true);
+            Assert.Equal(new WindowAppearance(SeeThrough: true, Blur: false), supported.Appearance);
+
+            supported.Apply("dark", canvasOpacity: 1, canvasBlur: true);
+            Assert.Equal(new WindowAppearance(SeeThrough: true, Blur: true), supported.Appearance);
+        }
+        finally
+        {
+            supported.Apply("dark");
+        }
+    });
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, true)]
+    [InlineData(100, true)]
+    [InlineData(-5, false)]
+    public void BlurIsOnlyAllowedAboveZero(int percent, bool expected) =>
+        Assert.Equal(expected, CanvasStyle.AllowsBlur(percent));
+
+    [Fact]
+    public void TheRibbon_FollowsTheCanvasExactly_AllTheWayDown() => Ui.Run(() =>
     {
         var theme = new ThemeService(Application.Current);
         try
@@ -267,11 +293,92 @@ public class ThemeTests
             Assert.Equal(204, Themes.Brush(ThemeService.RibbonBrushKey).A);
 
             theme.Apply("dark", canvasOpacity: 20);
-            Assert.Equal(ThemeService.RibbonMinimumAlpha, Themes.Brush(ThemeService.RibbonBrushKey).A);
+            Assert.Equal(51, Themes.Brush(ThemeService.RibbonBrushKey).A);
 
             theme.Apply("dark", canvasOpacity: 0);
-            Assert.Equal(ThemeService.RibbonMinimumAlpha, Themes.Brush(ThemeService.RibbonBrushKey).A);
+            Assert.Equal(1, Themes.Brush(ThemeService.RibbonBrushKey).A);
             Assert.Equal(Themes.Brush("ToolbarBrush").G, Themes.Brush(ThemeService.RibbonBrushKey).G);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Theory]
+    [InlineData(100, 255)]
+    [InlineData(50, 128)]
+    [InlineData(0, 1)]
+    public void TheWindowOutline_FollowsTheCanvasToo(int opacity, int alpha) => Ui.Run(() =>
+    {
+        var theme = new ThemeService(Application.Current);
+        try
+        {
+            theme.Apply("dark", canvasOpacity: opacity);
+
+            var border = Themes.Brush(ThemeService.WindowBorderBrushKey);
+            Assert.Equal(alpha, border.A);
+            var palette = Themes.Brush("ToolbarBorderBrush");
+            Assert.Equal((palette.R, palette.G, palette.B), (border.R, border.G, border.B));
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Theory]
+    [InlineData(100, 255)]
+    [InlineData(50, 128)]
+    [InlineData(0, 0)]
+    public void TheNoteBrush_FollowsNoteOpacity_IndependentlyOfTheCanvas(int noteOpacity, int alpha) => Ui.Run(() =>
+    {
+        var theme = new ThemeService(Application.Current);
+        try
+        {
+            theme.Apply("dark", canvasOpacity: 30, noteOpacity: noteOpacity);
+
+            var note = Themes.Brush(ThemeService.NoteBrushKey);
+            Assert.Equal(alpha, note.A);
+            var card = Themes.Brush("CardBrush");
+            Assert.Equal((card.R, card.G, card.B), (note.R, note.G, note.B));
+            Assert.Equal(77, Themes.Brush(ThemeService.CanvasBrushKey).A);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void ChangingOnlyTheNoteOpacity_StillRaisesChanged() => Ui.Run(() =>
+    {
+        var theme = new ThemeService(Application.Current, () => true);
+        try
+        {
+            theme.Apply("dark");
+            int changes = 0;
+            theme.Changed += () => changes++;
+
+            theme.Apply("dark", noteOpacity: 60);
+
+            Assert.Equal(1, changes);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void NoteOpacityFromTheConfig_ReachesTheBrush() => Ui.Run(() =>
+    {
+        var theme = new ThemeService(Application.Current);
+        try
+        {
+            theme.Apply(new AppConfig { CanvasOpacity = 40, NoteOpacity = 25 });
+
+            Assert.Equal(64, Themes.Brush(ThemeService.NoteBrushKey).A);
         }
         finally
         {

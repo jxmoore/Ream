@@ -6,17 +6,17 @@ namespace Ream.App.Services;
 
 /// <summary>
 /// Puts the chosen color theme into the app's resources: swaps the palette, and publishes the brushes that depend
-/// on settings as well as the palette - the canvas behind the notes (its see-through amount), the ribbon panel
-/// (which follows the canvas but never gets too faint to read), and the border around the focused note.
+/// on settings as well as the palette - the canvas behind the notes (its see-through amount), the ribbon panel and the
+/// window's outline (both follow the canvas exactly, so at 0% nothing of Ream is left behind the notes), each
+/// note's background, and the border around the focused note.
 /// </summary>
 internal sealed class ThemeService
 {
     public const string CanvasBrushKey = "CanvasBrush";
     public const string RibbonBrushKey = "RibbonBrush";
     public const string FocusBorderBrushKey = "FocusBorderBrush";
-
-    /// <summary>The ribbon floats over notes when it pops out, so its own 11 px labels need something behind them.</summary>
-    public const byte RibbonMinimumAlpha = 153; // 60%
+    public const string WindowBorderBrushKey = "WindowBorderBrush";
+    public const string NoteBrushKey = "NoteBrush";
 
     private readonly Application _application;
     private readonly Func<bool> _blurSupported;
@@ -25,6 +25,8 @@ internal sealed class ThemeService
     private Color _canvas;
     private Color _ribbon;
     private Color _focusBorder;
+    private Color _windowBorder;
+    private Color _note;
     private bool _isLight;
     private WindowAppearance _appearance;
 
@@ -49,9 +51,9 @@ internal sealed class ThemeService
     public WindowAppearance Appearance => _appearance;
 
     public void Apply(AppConfig config) =>
-        Apply(config.Theme, config.CanvasOpacity, config.CanvasBlur, config.Layout.FocusBorderColor);
+        Apply(config.Theme, config.CanvasOpacity, config.CanvasBlur, config.Layout.FocusBorderColor, config.NoteOpacity);
 
-    public void Apply(string? themeId, int canvasOpacity = 100, bool canvasBlur = true, string? focusBorderColor = null)
+    public void Apply(string? themeId, int canvasOpacity = 100, bool canvasBlur = true, string? focusBorderColor = null, int noteOpacity = 100)
     {
         var theme = ThemeCatalog.Resolve(themeId);
         bool changed = false;
@@ -73,7 +75,9 @@ internal sealed class ThemeService
 
         byte alpha = CanvasStyle.Alpha(canvasOpacity);
         var canvas = WithAlpha(BrushColor("WindowBackgroundBrush"), alpha);
-        var ribbon = WithAlpha(BrushColor("ToolbarBrush"), Math.Max(alpha, RibbonMinimumAlpha));
+        var ribbon = WithAlpha(BrushColor("ToolbarBrush"), alpha);
+        var windowBorder = WithAlpha(BrushColor("ToolbarBorderBrush"), alpha);
+        var note = WithAlpha(BrushColor("CardBrush"), CanvasStyle.NoteAlpha(noteOpacity));
 
         var accent = BrushColor("AccentBrush");
         var focusBorder = Rgba.TryParse(focusBorderColor, out var custom)
@@ -83,13 +87,17 @@ internal sealed class ThemeService
         if (canvas != _canvas || changed) { Publish(CanvasBrushKey, canvas); changed = true; }
         if (ribbon != _ribbon || changed) { Publish(RibbonBrushKey, ribbon); changed = true; }
         if (focusBorder != _focusBorder || changed) { Publish(FocusBorderBrushKey, focusBorder); changed = true; }
+        if (windowBorder != _windowBorder || changed) { Publish(WindowBorderBrushKey, windowBorder); changed = true; }
+        if (note != _note || changed) { Publish(NoteBrushKey, note); changed = true; }
 
         _canvas = canvas;
         _ribbon = ribbon;
         _focusBorder = focusBorder;
+        _windowBorder = windowBorder;
+        _note = note;
 
         bool seeThrough = CanvasStyle.IsSeeThrough(canvasOpacity);
-        var appearance = new WindowAppearance(seeThrough, Blur: seeThrough && canvasBlur && _blurSupported());
+        var appearance = new WindowAppearance(seeThrough, Blur: seeThrough && canvasBlur && CanvasStyle.AllowsBlur(canvasOpacity) && _blurSupported());
         changed |= appearance != _appearance;
         _appearance = appearance;
 

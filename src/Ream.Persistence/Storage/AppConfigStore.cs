@@ -181,6 +181,9 @@ public sealed class AppConfigStore
         if (config.CanvasOpacity is < 0 or > 100)
             return "canvasOpacity must be between 0 and 100";
 
+        if (config.NoteOpacity is < 0 or > 100)
+            return "noteOpacity must be between 0 and 100";
+
         string? border = config.Layout.FocusBorderColor;
         if (!string.IsNullOrWhiteSpace(border) && !Rgba.TryParse(border, out _))
             return "layout.focusBorderColor must look like #RRGGBB or #AARRGGBB";

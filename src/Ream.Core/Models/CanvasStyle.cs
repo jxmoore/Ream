@@ -12,4 +12,14 @@ public static class CanvasStyle
     /// </summary>
     public static byte Alpha(int opacityPercent) =>
         (byte)Math.Max(1, Math.Round(Math.Clamp(opacityPercent, 0, 100) * 255 / 100.0, MidpointRounding.AwayFromZero));
+
+    /// <summary>
+    /// Whether blurring the desktop behind the window makes sense at this opacity. At 0% the point is that nothing
+    /// of Ream sits behind the notes, and a blurred desktop is something of Ream: it is only ever asked for above 0.
+    /// </summary>
+    public static bool AllowsBlur(int opacityPercent) => Math.Clamp(opacityPercent, 0, 100) > 0;
+
+    /// <summary>The alpha (0-255) of a note's background. Unlike the canvas it may reach 0: the canvas under it keeps the window clickable.</summary>
+    public static byte NoteAlpha(int opacityPercent) =>
+        (byte)Math.Round(Math.Clamp(opacityPercent, 0, 100) * 255 / 100.0, MidpointRounding.AwayFromZero);
 }

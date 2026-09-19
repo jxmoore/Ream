@@ -78,7 +78,7 @@
         </Style>
     </Window.Resources>
 
-    <Border x:Name="WindowBorder" BorderThickness="1" BorderBrush="{DynamicResource ToolbarBorderBrush}">
+    <Border x:Name="WindowBorder" BorderThickness="1" BorderBrush="{DynamicResource WindowBorderBrush}">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -171,7 +171,7 @@
 
             <!-- The ribbon panel under the tab. -->
             <Border x:Name="RibbonPanel" Grid.Row="2" Background="{DynamicResource RibbonBrush}"
-                    BorderBrush="{DynamicResource ToolbarBorderBrush}" BorderThickness="0,0,0,1">
+                    BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="0,0,0,1">
                 <views:RibbonView x:Name="Ribbon" HorizontalAlignment="Left"/>
             </Border>
 

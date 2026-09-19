@@ -324,7 +324,7 @@ public class ChromeLooksTests
     });
 
     [Fact]
-    public void TheRibbonPanel_FollowsTheCanvas_ButStaysReadable() => Ui.Run(() =>
+    public void TheRibbonPanel_FollowsTheCanvasAllTheWayDown() => Ui.Run(() =>
     {
         using var fx = new WindowFixture(("W", 2));
         Apply("dark", 0, out var restore);
@@ -338,11 +338,78 @@ public class ChromeLooksTests
             var p = panel.TranslatePoint(new Point(panel.ActualWidth - 20, panel.ActualHeight / 2), fx.Window);
             var pixel = Ui.PixelAt(shot, (int)p.X, (int)p.Y);
 
-            Assert.Equal(ThemeService.RibbonMinimumAlpha, (int)pixel.A);
+            Assert.InRange((int)pixel.A, 1, 2);
         }
         finally
         {
             restore();
+        }
+    });
+
+    [Fact]
+    public void AtZero_TheOutlineOfTheWindowIsClearToo() => Ui.Run(() =>
+    {
+        using var fx = new WindowFixture(("W", 2));
+        Apply("dark", 0, out var restore);
+        try
+        {
+            Ui.Settle();
+            var shot = Ui.Render(fx.Window);
+
+            // The 1 px frame around the window: the middle of the left edge and of the bottom edge.
+            int h = (int)fx.Window.ActualHeight, w = (int)fx.Window.ActualWidth;
+            Assert.InRange((int)Ui.PixelAt(shot, 0, h / 2).A, 0, 2);
+            Assert.InRange((int)Ui.PixelAt(shot, w / 2, h - 1).A, 0, 2);
+        }
+        finally
+        {
+            restore();
+        }
+    });
+
+    [Fact]
+    public void AtZeroWithClearNotes_NothingOfReamIsLeftBehindThem() => Ui.Run(() =>
+    {
+        using var fx = new WindowFixture(("W", 2));
+        var service = new ThemeService(Application.Current, () => true);
+        service.Apply("dark", canvasOpacity: 0, noteOpacity: 0);
+        try
+        {
+            Ui.Settle();
+            var shot = Ui.Render(fx.Window);
+
+            foreach (var region in new[] { "TitleBar", "TabRow", "CanvasArea" })
+                Assert.InRange((int)Sample(fx, shot, region, 0.45).A, 0, 2);
+
+            // Inside a note, below its text: the card is clear as well.
+            var column = fx.Columns.First();
+            var p = column.TranslatePoint(new Point(column.ActualWidth / 2, column.ActualHeight - 24), fx.Window);
+            Assert.InRange((int)Ui.PixelAt(shot, (int)p.X, (int)p.Y).A, 0, 3);
+        }
+        finally
+        {
+            service.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void ANoteAt50Percent_IsHalfSolidOverAClearCanvas() => Ui.Run(() =>
+    {
+        using var fx = new WindowFixture(("W", 2));
+        var service = new ThemeService(Application.Current, () => true);
+        service.Apply("dark", canvasOpacity: 0, noteOpacity: 50);
+        try
+        {
+            Ui.Settle();
+            var shot = Ui.Render(fx.Window);
+
+            var column = fx.Columns.First();
+            var p = column.TranslatePoint(new Point(column.ActualWidth / 2, column.ActualHeight - 24), fx.Window);
+            Assert.InRange((int)Ui.PixelAt(shot, (int)p.X, (int)p.Y).A, 126, 131);
+        }
+        finally
+        {
+            service.Apply("dark");
         }
     });
 

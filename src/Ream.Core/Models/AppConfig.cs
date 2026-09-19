@@ -13,6 +13,9 @@ public sealed class AppConfig
     /// <summary>How opaque the canvas behind the notes is, as a percentage (100 = solid). Works with or without <see cref="CanvasBlur"/>.</summary>
     public int CanvasOpacity { get; init; } = 100;
 
+    /// <summary>How opaque each note's background is, as a percentage (100 = solid). The text stays solid at any value.</summary>
+    public int NoteOpacity { get; init; } = 100;
+
     /// <summary>Blurs what shows through when the canvas is see-through. Off shows the desktop crisp. Turn off if it misbehaves on your GPU.</summary>
     public bool CanvasBlur { get; init; } = true;
 
@@ -21,12 +24,13 @@ public sealed class AppConfig
     public Dictionary<string, string> Keybindings { get; init; } = DefaultKeybindings();
 
     /// <summary>A copy with the settings the Settings panel edits changed; everything else is carried over.</summary>
-    public AppConfig With(string? theme = null, int? canvasOpacity = null) => new()
+    public AppConfig With(string? theme = null, int? canvasOpacity = null, int? noteOpacity = null) => new()
     {
         SchemaVersion = SchemaVersion,
         DocumentsRoot = DocumentsRoot,
         Theme = theme ?? Theme,
         CanvasOpacity = canvasOpacity ?? CanvasOpacity,
+        NoteOpacity = noteOpacity ?? NoteOpacity,
         CanvasBlur = CanvasBlur,
         Layout = Layout,
         Animations = Animations,

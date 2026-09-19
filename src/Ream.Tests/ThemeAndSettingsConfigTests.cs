@@ -119,6 +119,7 @@ public class SettingsConfigTests
 
         Assert.Equal("dark", config.Theme);
         Assert.Equal(100, config.CanvasOpacity);
+        Assert.Equal(100, config.NoteOpacity);
         Assert.True(config.CanvasBlur);
         Assert.Null(config.Layout.FocusBorderColor);
     }
@@ -134,6 +135,7 @@ public class SettingsConfigTests
 
         Assert.Equal("dark", (string?)root["theme"]);
         Assert.Equal(100, (int?)root["canvasOpacity"]);
+        Assert.Equal(100, (int?)root["noteOpacity"]);
         Assert.True((bool?)root["canvasBlur"]);
     }
 
@@ -142,13 +144,14 @@ public class SettingsConfigTests
     {
         using var dir = new TempDir();
         string path = Write(dir, """
-            { "theme": "nord", "canvasOpacity": 65, "canvasBlur": false, "layout": { "focusBorderColor": "#ff8800" } }
+            { "theme": "nord", "canvasOpacity": 65, "noteOpacity": 40, "canvasBlur": false, "layout": { "focusBorderColor": "#ff8800" } }
             """);
 
         Assert.True(new AppConfigStore(path).TryLoad(out var config, out _));
 
         Assert.Equal("nord", config.Theme);
         Assert.Equal(65, config.CanvasOpacity);
+        Assert.Equal(40, config.NoteOpacity);
         Assert.False(config.CanvasBlur);
         Assert.Equal("#ff8800", config.Layout.FocusBorderColor);
     }
@@ -156,6 +159,8 @@ public class SettingsConfigTests
     [Theory]
     [InlineData("""{ "canvasOpacity": -1 }""", "canvasOpacity")]
     [InlineData("""{ "canvasOpacity": 101 }""", "canvasOpacity")]
+    [InlineData("""{ "noteOpacity": -1 }""", "noteOpacity")]
+    [InlineData("""{ "noteOpacity": 101 }""", "noteOpacity")]
     [InlineData("""{ "layout": { "focusBorderColor": "orange" } }""", "focusBorderColor")]
     [InlineData("""{ "layout": { "focusBorderColor": "#12345" } }""", "focusBorderColor")]
     public void BadValues_AreRefusedWithAClearReason(string json, string mentions)
@@ -195,10 +200,11 @@ public class SettingsConfigTests
         };
         original.Keybindings["newNote"] = "Ctrl+T";
 
-        var changed = original.With(theme: "gruvbox", canvasOpacity: 20);
+        var changed = original.With(theme: "gruvbox", canvasOpacity: 20, noteOpacity: 55);
 
         Assert.Equal("gruvbox", changed.Theme);
         Assert.Equal(20, changed.CanvasOpacity);
+        Assert.Equal(55, changed.NoteOpacity);
         Assert.Equal("D:/notes", changed.DocumentsRoot);
         Assert.False(changed.CanvasBlur);
         Assert.Same(original.Layout, changed.Layout);
@@ -209,6 +215,7 @@ public class SettingsConfigTests
         var same = original.With();
         Assert.Equal("nord", same.Theme);
         Assert.Equal(80, same.CanvasOpacity);
+        Assert.Equal(100, same.NoteOpacity);
     }
 
     // ----- Writing settings back -----
