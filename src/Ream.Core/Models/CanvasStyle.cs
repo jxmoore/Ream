@@ -19,6 +19,13 @@ public static class CanvasStyle
     /// </summary>
     public static bool AllowsBlur(int opacityPercent) => Math.Clamp(opacityPercent, 0, 100) > 0;
 
+    /// <summary>
+    /// How strong the backing plate behind Ream's own text (tab names, labels, the title) is: none while the canvas is
+    /// solid, and up to 85% when it is fully clear, so light text never floats straight over a bright desktop.
+    /// </summary>
+    public static byte PlateAlpha(int canvasOpacityPercent) =>
+        (byte)Math.Round(255 * 0.85 * (100 - Math.Clamp(canvasOpacityPercent, 0, 100)) / 100.0, MidpointRounding.AwayFromZero);
+
     /// <summary>The alpha (0-255) of a note's background. Unlike the canvas it may reach 0: the canvas under it keeps the window clickable.</summary>
     public static byte NoteAlpha(int opacityPercent) =>
         (byte)Math.Round(Math.Clamp(opacityPercent, 0, 100) * 255 / 100.0, MidpointRounding.AwayFromZero);

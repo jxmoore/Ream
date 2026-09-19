@@ -29,12 +29,14 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="Root" Padding="16,0" CornerRadius="6,6,0,0" Background="Transparent">
-                            <Grid>
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                <Border x:Name="Underline" Height="2" VerticalAlignment="Bottom" Margin="0,0,0,1"
-                                        Background="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
-                            </Grid>
+                        <Border x:Name="Plate" CornerRadius="6,6,0,0" Background="{DynamicResource ChromePlateBrush}">
+                            <Border x:Name="Root" Padding="16,0" CornerRadius="6,6,0,0" Background="Transparent">
+                                <Grid>
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <Border x:Name="Underline" Height="2" VerticalAlignment="Bottom" Margin="0,0,0,1"
+                                            Background="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
+                                </Grid>
+                            </Border>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -62,7 +64,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Root" Background="Transparent">
+                        <Border x:Name="Root" Background="{DynamicResource ChromePlateBrush}">
                             <ContentPresenter x:Name="Glyph" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -115,8 +117,8 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock x:Name="TitleText" Grid.Column="0" Margin="12,0,8,0" VerticalAlignment="Center" FontSize="12"
-                           Foreground="{DynamicResource TextBrush}"
+                <TextBlock x:Name="TitleText" Grid.Column="0" Margin="10,0,8,0" Padding="4,2" VerticalAlignment="Center" HorizontalAlignment="Left"
+                           FontSize="12" Foreground="{DynamicResource TextBrush}" Background="{DynamicResource ChromePlateBrush}"
                            Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"/>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
@@ -136,8 +138,8 @@
                 <ToggleButton x:Name="PinButton" DockPanel.Dock="Right" Margin="0,0,10,0" Width="30" Height="26" Padding="0"
                               Focusable="False" Click="OnPinClick" ToolTip="Keep the ribbon open"
                               FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13" Content="&#xE718;"/>
-                <TextBlock x:Name="ConfigProblem" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,12,0"
-                           FontSize="12" Text="Config problem (hover)" ToolTip="{Binding ConfigError}"
+                <TextBlock x:Name="ConfigProblem" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,12,0" Padding="6,2"
+                           Background="{DynamicResource ChromePlateBrush}" FontSize="12" Text="Config problem (hover)" ToolTip="{Binding ConfigError}"
                            Foreground="{DynamicResource ErrorBrush}">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
@@ -215,7 +217,7 @@
                 -->
                 <Grid x:Name="WorkspaceLabelHost" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,6">
                     <TextBlock x:Name="WorkspaceLabel" Padding="6,2" FontSize="12" TextTrimming="CharacterEllipsis"
-                               MaxWidth="320" Background="Transparent"
+                               MaxWidth="320" Background="{DynamicResource ChromePlateBrush}"
                                Foreground="{DynamicResource MutedTextBrush}"
                                Text="{Binding WorkspaceLabel}"
                                ToolTip="Double-click to rename this workspace"

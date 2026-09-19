@@ -34,7 +34,7 @@
 
         <!-- Opacity: two short sliders, stacked -->
         <StackPanel>
-            <Grid MinHeight="60" VerticalAlignment="Center" Margin="4,0">
+            <Grid MinHeight="60" VerticalAlignment="Center" Margin="4,0" Background="{DynamicResource ChromePlateBrush}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
@@ -45,21 +45,21 @@
                     <RowDefinition Height="28"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Canvas" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Canvas" FontSize="12" VerticalAlignment="Center" Margin="6,0,10,0"
                            Foreground="{DynamicResource ToolbarMutedBrush}"/>
                 <Slider x:Name="OpacitySlider" Grid.Row="0" Grid.Column="1" Width="110" VerticalAlignment="Center"
                         Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="1" Focusable="False"
                         Value="{Binding OpacityPercent, Mode=TwoWay}" ToolTip="{Binding OpacityHint}"/>
-                <TextBlock x:Name="CanvasOpacityLabel" Grid.Row="0" Grid.Column="2" Text="{Binding OpacityLabel}" MinWidth="38" Margin="8,0,0,0"
+                <TextBlock x:Name="CanvasOpacityLabel" Grid.Row="0" Grid.Column="2" Text="{Binding OpacityLabel}" MinWidth="38" Margin="8,0,6,0"
                            TextAlignment="Right" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}"/>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Notes" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Notes" FontSize="12" VerticalAlignment="Center" Margin="6,0,10,0"
                            Foreground="{DynamicResource ToolbarMutedBrush}"/>
                 <Slider x:Name="NoteOpacitySlider" Grid.Row="1" Grid.Column="1" Width="110" VerticalAlignment="Center"
                         Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="1" Focusable="False"
                         Value="{Binding NoteOpacityPercent, Mode=TwoWay}"
                         ToolTip="How solid each note's background is. The text always stays solid."/>
-                <TextBlock x:Name="NoteOpacityLabel" Grid.Row="1" Grid.Column="2" Text="{Binding NoteOpacityLabel}" MinWidth="38" Margin="8,0,0,0"
+                <TextBlock x:Name="NoteOpacityLabel" Grid.Row="1" Grid.Column="2" Text="{Binding NoteOpacityLabel}" MinWidth="38" Margin="8,0,6,0"
                            TextAlignment="Right" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}"/>
             </Grid>
             <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Opacity"/>

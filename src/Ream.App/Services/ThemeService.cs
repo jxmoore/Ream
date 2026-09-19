@@ -8,7 +8,7 @@ namespace Ream.App.Services;
 /// Puts the chosen color theme into the app's resources: swaps the palette, and publishes the brushes that depend
 /// on settings as well as the palette - the canvas behind the notes (its see-through amount), the ribbon panel and the
 /// window's outline (both follow the canvas exactly, so at 0% nothing of Ream is left behind the notes), each
-/// note's background, and the border around the focused note.
+/// note's background, a plate that keeps Ream's own text legible over a clear canvas, and the border around the focused note.
 /// </summary>
 internal sealed class ThemeService
 {
@@ -17,6 +17,7 @@ internal sealed class ThemeService
     public const string FocusBorderBrushKey = "FocusBorderBrush";
     public const string WindowBorderBrushKey = "WindowBorderBrush";
     public const string NoteBrushKey = "NoteBrush";
+    public const string ChromePlateBrushKey = "ChromePlateBrush";
 
     private readonly Application _application;
     private readonly Func<bool> _blurSupported;
@@ -27,6 +28,7 @@ internal sealed class ThemeService
     private Color _focusBorder;
     private Color _windowBorder;
     private Color _note;
+    private Color _plate;
     private bool _isLight;
     private WindowAppearance _appearance;
 
@@ -78,6 +80,7 @@ internal sealed class ThemeService
         var ribbon = WithAlpha(BrushColor("ToolbarBrush"), alpha);
         var windowBorder = WithAlpha(BrushColor("ToolbarBorderBrush"), alpha);
         var note = WithAlpha(BrushColor("CardBrush"), CanvasStyle.NoteAlpha(noteOpacity));
+        var plate = WithAlpha(BrushColor("WindowBackgroundBrush"), CanvasStyle.PlateAlpha(canvasOpacity));
 
         var accent = BrushColor("AccentBrush");
         var focusBorder = Rgba.TryParse(focusBorderColor, out var custom)
@@ -89,12 +92,14 @@ internal sealed class ThemeService
         if (focusBorder != _focusBorder || changed) { Publish(FocusBorderBrushKey, focusBorder); changed = true; }
         if (windowBorder != _windowBorder || changed) { Publish(WindowBorderBrushKey, windowBorder); changed = true; }
         if (note != _note || changed) { Publish(NoteBrushKey, note); changed = true; }
+        if (plate != _plate || changed) { Publish(ChromePlateBrushKey, plate); changed = true; }
 
         _canvas = canvas;
         _ribbon = ribbon;
         _focusBorder = focusBorder;
         _windowBorder = windowBorder;
         _note = note;
+        _plate = plate;
 
         bool seeThrough = CanvasStyle.IsSeeThrough(canvasOpacity);
         var appearance = new WindowAppearance(seeThrough, Blur: seeThrough && canvasBlur && CanvasStyle.AllowsBlur(canvasOpacity) && _blurSupported());
