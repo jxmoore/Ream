@@ -1,11 +1,12 @@
 using System.ComponentModel;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
 using Ream.App.Input;
 using Ream.App.Services;
+using Ream.App.Views;
+using Ream.Core.Models;
 using Ream.App.ViewModels;
 using Ream.Core.Utilities;
 
@@ -13,8 +14,6 @@ namespace Ream.App;
 
 public partial class MainWindow : Window
 {
-    private const int DwmUseImmersiveDarkMode = 20;
-
     private readonly AppViewModel _viewModel;
     private readonly WheelAccumulator _workspaceWheel = new();
     private readonly WheelAccumulator _rowWheel = new();
@@ -22,11 +21,20 @@ public partial class MainWindow : Window
     private readonly List<InputBinding> _configuredBindings = [];
     private readonly FullscreenController _fullscreen;
     private DateTime _settingsClosedAt;
-    private bool _titleBarIsLight;
+    private DateTime _fileMenuClosedAt;
+    private readonly IWindowBackdrop _backdrop;
+    private WindowAppearance? _appearance;
 
     /// <param name="settings">What the cogwheel panel edits; when omitted the panel works on this run only (tests).</param>
+    internal MainWindow(AppViewModel viewModel, SettingsViewModel? settings, IWindowBackdrop? backdrop)
+        : this(viewModel, settings)
+    {
+        _backdrop = backdrop ?? _backdrop;
+    }
+
     public MainWindow(AppViewModel viewModel, SettingsViewModel? settings = null)
     {
+        _backdrop = new WindowBackdrop(this);
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = viewModel;
@@ -49,6 +57,38 @@ public partial class MainWindow : Window
 
     public SettingsViewModel Settings { get; }
 
+    /// <summary>What the About window shows; the app fills in the real folders once it knows them.</summary>
+    internal AboutInfo About { get; set; } = AboutInfo.Create();
+
+    /// <summary>How Help and About are shown (modally, over this window). Tests replace it so nothing really opens.</summary>
+    internal Action<Window> ShowModal { get; set; } = window => window.ShowDialog();
+
+    private void OnFileClick(object sender, RoutedEventArgs e)
+    {
+        if (DateTime.UtcNow - _fileMenuClosedAt < TimeSpan.FromMilliseconds(250)) return;
+
+        FileMenu.PlacementTarget = FileButton;
+        FileMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        FileMenu.IsOpen = true;
+    }
+
+    private void OnFileMenuClosed(object sender, RoutedEventArgs e) => _fileMenuClosedAt = DateTime.UtcNow;
+
+    private void OnHelpClick(object sender, RoutedEventArgs e) => OpenHelp();
+
+    private void OnAboutClick(object sender, RoutedEventArgs e) => OpenAbout();
+
+    internal void OpenHelp() => Present(new HelpWindow(HelpContent.Build(_viewModel.Config.Keybindings)));
+
+    internal void OpenAbout() => Present(new AboutWindow(About));
+
+    private void Present(Window window)
+    {
+        window.Owner = this;
+        ShowModal(window);
+        _viewModel.RequestEditorFocus();
+    }
+
     private void OnSettingsClick(object sender, RoutedEventArgs e)
     {
         // Clicking the button while the panel is open first closes it (it lost focus); don't reopen it straight away.
@@ -62,20 +102,22 @@ public partial class MainWindow : Window
         _viewModel.RequestEditorFocus();
     }
 
-    /// <summary>Makes the title bar match the palette (Windows 10 20H1 and later; ignored where unsupported).</summary>
-    public void ApplyTitleBarTheme(bool isLight)
+    /// <summary>
+    /// Makes the title bar, border and blur match the theme. Safe to call before the window has a handle - it
+    /// is applied again as soon as it does.
+    /// </summary>
+    internal void ApplyAppearance(WindowAppearance appearance)
     {
-        _titleBarIsLight = isLight;
-
-        var handle = new WindowInteropHelper(this).Handle;
-        if (handle == IntPtr.Zero) return;
-
-        int useDark = isLight ? 0 : 1;
-        DwmSetWindowAttribute(handle, DwmUseImmersiveDarkMode, ref useDark, sizeof(int));
+        _appearance = appearance;
+        _backdrop.Apply(appearance);
     }
 
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
+    /// <summary>Keeps the window's chrome matching the theme from now on (and right now).</summary>
+    internal void FollowTheme(ThemeService theme)
+    {
+        theme.Changed += () => ApplyAppearance(theme.Appearance);
+        ApplyAppearance(theme.Appearance);
+    }
 
     /// <summary>Rebinds every shortcut from the current config, dropping the ones bound before.</summary>
     private void ApplyKeyBindings()
@@ -100,7 +142,7 @@ public partial class MainWindow : Window
     {
         base.OnSourceInitialized(e);
         HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(OnWindowMessage);
-        ApplyTitleBarTheme(_titleBarIsLight);
+        if (_appearance is { } appearance) _backdrop.Apply(appearance);
     }
 
     // WPF has no event for a horizontal (tilt) wheel, so read the raw message.

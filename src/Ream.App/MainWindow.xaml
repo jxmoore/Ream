@@ -5,13 +5,40 @@
         xmlns:views="clr-namespace:Ream.App.Views"
         Title="Ream" Height="720" Width="1200"
         Background="{DynamicResource CanvasBrush}">
+    <Window.Resources>
+        <!-- The File button: the one accent-colored control, like Word's blue File tab. -->
+        <Style x:Key="FileButtonStyle" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource ChipCurrentTextBrush}"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root" CornerRadius="4" Padding="16,3" Background="{DynamicResource ChipCurrentBrush}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Root" Property="Opacity" Value="0.7"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" Background="{DynamicResource ToolbarBrush}">
+        <!-- Tab row: File, Home, and (at the right) the settings and workspace chips. -->
+        <DockPanel Grid.Row="0" Background="{DynamicResource ToolbarBrush}" Height="36" LastChildFill="False">
             <TextBlock x:Name="ConfigProblem" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,12,0"
                        FontSize="12" Text="Config problem (hover)" ToolTip="{Binding ConfigError}"
                        Foreground="{DynamicResource ErrorBrush}">
@@ -35,10 +62,37 @@
                 <views:SettingsFlyout x:Name="SettingsPanel" Margin="0,4,12,12"/>
             </Popup>
             <views:WorkspaceTabs DockPanel.Dock="Right" Margin="12,0,10,0"/>
-            <views:EditorToolbar/>
+
+            <Button x:Name="FileButton" DockPanel.Dock="Left" Margin="8,0,6,0" Height="24" Content="File"
+                    Style="{StaticResource FileButtonStyle}" Click="OnFileClick" ToolTip="File">
+                <Button.ContextMenu>
+                    <ContextMenu x:Name="FileMenu" Closed="OnFileMenuClosed">
+                        <MenuItem x:Name="OpenMenuItem" Header="Open Ream…" IsEnabled="False"
+                                  ToolTipService.ShowOnDisabled="True" ToolTip="Coming soon"/>
+                        <Separator/>
+                        <MenuItem x:Name="HelpMenuItem" Header="Help" Click="OnHelpClick"/>
+                        <MenuItem x:Name="AboutMenuItem" Header="About" Click="OnAboutClick"/>
+                    </ContextMenu>
+                </Button.ContextMenu>
+            </Button>
+
+            <!-- The only tab for now; it sits on the ribbon below like Word's active tab. -->
+            <Border x:Name="HomeTab" DockPanel.Dock="Left" VerticalAlignment="Bottom" Height="30" Padding="16,0"
+                    CornerRadius="6,6,0,0" Background="{DynamicResource CardBrush}">
+                <Grid>
+                    <TextBlock Text="Home" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextBrush}"/>
+                    <Border Height="2" VerticalAlignment="Bottom" Margin="0,0,0,1" Background="{DynamicResource AccentBrush}"/>
+                </Grid>
+            </Border>
         </DockPanel>
 
-        <ItemsControl Grid.Row="1" ItemsSource="{Binding Workspaces}" Focusable="False">
+        <!-- The ribbon panel under the tab. -->
+        <Border Grid.Row="1" Background="{DynamicResource CardBrush}"
+                BorderBrush="{DynamicResource ToolbarBorderBrush}" BorderThickness="0,0,0,1">
+            <views:RibbonView x:Name="Ribbon" HorizontalAlignment="Left"/>
+        </Border>
+
+        <ItemsControl Grid.Row="2" ItemsSource="{Binding Workspaces}" Focusable="False">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <controls:WorkspaceStripPanel

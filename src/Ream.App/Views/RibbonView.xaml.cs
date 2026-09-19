@@ -8,10 +8,10 @@ using System.Windows.Media;
 namespace Ream.App.Views;
 
 /// <summary>
-/// Formatting controls for whichever note editor last had keyboard focus. Buttons never take focus,
-/// so the editor's selection and caret stay put while they're used.
+/// The Home tab of the ribbon: clipboard, font, paragraph and style controls for whichever note editor last
+/// had keyboard focus. Buttons never take focus, so the editor's selection and caret stay put while they're used.
 /// </summary>
-public partial class EditorToolbar : UserControl
+public partial class RibbonView : UserControl
 {
     private static readonly string[] PreferredFonts =
         ["Segoe UI", "Arial", "Calibri", "Cambria", "Consolas", "Courier New", "Georgia", "Times New Roman", "Trebuchet MS", "Verdana"];
@@ -37,11 +37,9 @@ public partial class EditorToolbar : UserControl
     private RichTextBox? _editor;
     private bool _refreshing;
 
-    public EditorToolbar()
+    public RibbonView()
     {
         InitializeComponent();
-
-        HeadingBox.ItemsSource = Headings.Select(h => h.Label).ToList();
 
         var installed = Fonts.SystemFontFamilies.Select(f => f.Source).ToHashSet(StringComparer.OrdinalIgnoreCase);
         FontBox.ItemsSource = PreferredFonts.Where(installed.Contains).ToList();
@@ -113,13 +111,17 @@ public partial class EditorToolbar : UserControl
             double? size = selection.GetPropertyValue(TextElement.FontSizeProperty) as double?;
             SizeBox.SelectedItem = size is { } value ? Sizes.Cast<double?>().FirstOrDefault(x => Math.Abs(x!.Value - value) < 0.5) : null;
 
-            HeadingBox.SelectedIndex = size switch
+            int heading = size switch
             {
                 >= 26 => 1,
                 >= 20 => 2,
                 >= 17 when BoldButton.IsChecked == true => 3,
                 _ => 0,
             };
+            StyleNormalButton.IsChecked = heading == 0;
+            StyleHeading1Button.IsChecked = heading == 1;
+            StyleHeading2Button.IsChecked = heading == 2;
+            StyleHeading3Button.IsChecked = heading == 3;
         }
         finally
         {
@@ -140,6 +142,9 @@ public partial class EditorToolbar : UserControl
         Refresh();
     }
 
+    private void OnPaste(object sender, RoutedEventArgs e) => Run(ApplicationCommands.Paste);
+    private void OnCut(object sender, RoutedEventArgs e) => Run(ApplicationCommands.Cut);
+    private void OnCopy(object sender, RoutedEventArgs e) => Run(ApplicationCommands.Copy);
     private void OnBold(object sender, RoutedEventArgs e) => Run(EditingCommands.ToggleBold);
     private void OnItalic(object sender, RoutedEventArgs e) => Run(EditingCommands.ToggleItalic);
     private void OnUnderline(object sender, RoutedEventArgs e) => Run(EditingCommands.ToggleUnderline);
@@ -179,12 +184,18 @@ public partial class EditorToolbar : UserControl
         Apply(TextElement.FontSizeProperty, size);
     }
 
-    private void OnHeadingChanged(object sender, SelectionChangedEventArgs e)
+    private void OnStyleTile(object sender, RoutedEventArgs e)
     {
-        if (_refreshing || _editor is null || HeadingBox.SelectedIndex < 0) return;
+        if (sender is ToggleButton { Tag: string tag } && int.TryParse(tag, out int index)) ApplyHeading(index);
+    }
+
+    /// <summary>Applies a paragraph style (0 = Normal, 1-3 = headings) to the paragraphs in the selection.</summary>
+    internal void ApplyHeading(int index)
+    {
+        if (_editor is null || index < 0 || index >= Headings.Length) return;
 
         // "Normal" applies the editor's own defaults: TextRange can't be told to clear a property.
-        var (_, size) = Headings[HeadingBox.SelectedIndex];
+        var (_, size) = Headings[index];
         foreach (var paragraph in ParagraphsInSelection(_editor))
         {
             var range = new TextRange(paragraph.ContentStart, paragraph.ContentEnd);

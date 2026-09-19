@@ -65,8 +65,8 @@ public partial class App : Application
             _persistence = _host.Services.GetRequiredService<PersistenceCoordinator>();
             _settings = _host.Services.GetRequiredService<SettingsViewModel>();
 
-            _theme.Changed += () => window.ApplyTitleBarTheme(_theme.IsLight);
-            window.ApplyTitleBarTheme(_theme.IsLight);
+            window.FollowTheme(_theme);
+            window.About = AboutInfo.Create(documentsRoot, paths.ConfigFile);
             _reloader = new ConfigReloader(store, _host.Services.GetRequiredService<AppViewModel>(), _theme, Dispatcher);
 
             window.Show();

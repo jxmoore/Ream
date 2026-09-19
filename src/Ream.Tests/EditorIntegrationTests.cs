@@ -25,7 +25,7 @@ internal sealed class EditorFixture : IDisposable
         Workspace.LoadNotes([Note], Note.Id);
 
         View = new NoteColumnView { DataContext = Note };
-        Toolbar = new EditorToolbar();
+        Toolbar = new RibbonView();
         var layout = new DockPanel();
         DockPanel.SetDock(Toolbar, Dock.Top);
         layout.Children.Add(Toolbar);
@@ -40,7 +40,7 @@ internal sealed class EditorFixture : IDisposable
     public WorkspaceViewModel Workspace { get; }
     public NoteViewModel Note { get; }
     public NoteColumnView View { get; }
-    public EditorToolbar Toolbar { get; }
+    public RibbonView Toolbar { get; }
     public Window Window { get; }
     public RichTextBox Editor => View.Editor;
 
@@ -254,12 +254,12 @@ public class EditorIntegrationTests
         using var fx = new EditorFixture(Plain);
         fx.Editor.SelectAll();
 
-        fx.Toolbar.HeadingBox.SelectedIndex = 1;
+        Click(fx.Toolbar.StyleHeading1Button);
         string heading = fx.Saved();
         Assert.Contains("size=\"28\"", heading);
         Assert.Contains("b=\"1\"", heading);
 
-        fx.Toolbar.HeadingBox.SelectedIndex = 0;
+        Click(fx.Toolbar.StyleNormalButton);
         string normal = fx.Saved();
         Assert.DoesNotContain("size=", normal);
         Assert.DoesNotContain("b=\"1\"", normal);

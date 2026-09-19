@@ -37,7 +37,8 @@ internal static class Ui
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
 
-        ready.Wait();
+        if (!ready.Wait(HostStartTimeout))
+            throw new TimeoutException($"The test UI thread did not start within {HostStartTimeout.TotalSeconds:0}s.");
         return dispatcher!;
     }
 
@@ -45,17 +46,37 @@ internal static class Ui
     // Keyboard focus is process-wide, so overlapping tests interfere; run them strictly one at a time.
     private static readonly object OneTestAtATime = new();
 
+    // A stuck test must fail loudly, naming who is stuck, instead of hanging the whole run (and CI) forever.
+    private static readonly TimeSpan HostStartTimeout = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan LockTimeout = TimeSpan.FromSeconds(90);
+    private static readonly TimeSpan RunTimeout = TimeSpan.FromSeconds(60);
+    private static string? _insideNow;
+
     public static void Run(Action action)
     {
+        if (!Monitor.TryEnter(OneTestAtATime, LockTimeout))
+            throw new TimeoutException($"Waited {LockTimeout.TotalSeconds:0}s to use the UI thread. It is held by:\n{_insideNow}");
+
         Exception? error = null;
-        lock (OneTestAtATime)
+        bool finished = false;
+        try
         {
+            _insideNow = new System.Diagnostics.StackTrace(1, fNeedFileInfo: false).ToString();
             Host.Value.Invoke(() =>
             {
                 try { action(); }
                 catch (Exception ex) { error = ex; }
-            });
+                finished = true;
+            }, DispatcherPriority.Normal, CancellationToken.None, RunTimeout);
         }
+        finally
+        {
+            if (finished) _insideNow = null;
+            Monitor.Exit(OneTestAtATime);
+        }
+
+        if (!finished)
+            throw new TimeoutException($"A UI test did not finish within {RunTimeout.TotalSeconds:0}s:\n{_insideNow}");
         if (error is not null) ExceptionDispatchInfo.Capture(error).Throw();
     }
 

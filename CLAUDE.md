@@ -42,14 +42,25 @@ snaps rather than animates when the list shifts under it.
 
 Status: the M0-M5 plan is complete (layout engine, on-disk persistence, config.json, rich-text
 editor with inline images, freeform column resize, workspace strip + rename, tilt-wheel,
-config live-reload, light/dark theme, lazy note loading, crash recovery, portable packaging).
-Anything further is new work; ask what the user wants next.
+config live-reload, themes, lazy note loading, crash recovery, portable packaging). A second
+round followed (centered focus, edge workspaces + draft notes, size keys, app fullscreen, editable
+note titles, 7 themes + settings panel + canvas opacity/blur + title bar, Word-style ribbon, File
+menu with Help/About); see below. Anything further is new work; ask what the user wants next.
 
-Theme: `Themes/Dark.xaml` and `Light.xaml` define the same brush keys (a test enforces it);
-`Themes/Controls.xaml` holds the themed Button/ToggleButton/ComboBox/TextBox/ScrollBar styles.
-Always reference brushes with `{DynamicResource ...}`, never StaticResource, or a theme switch
-won't reach them. `ThemeService` swaps `Application.Resources.MergedDictionaries[0]`; config
-`theme` is "system" (follow Windows), "light" or "dark".
+Themes: `Ream.Core/Models/ThemeCatalog.cs` lists the ids (dark = default, light, dracula, catppuccin,
+material, nord, gruvbox; unknown ids and the retired "system" fall back to dark). Every
+`Themes/<Id>.xaml` defines the same brush keys and stays readable (tests enforce both, incl.
+contrast ratios). `Themes/Controls.xaml` holds the themed Button/ToggleButton/ComboBox/TextBox/
+ScrollBar/Slider/ContextMenu/MenuItem styles. Always reference brushes with `{DynamicResource ...}`,
+never StaticResource, or a theme switch won't reach them. `ThemeService` swaps
+`Application.Resources.MergedDictionaries[0]` and publishes `CanvasBrush` (window background; alpha
+from `canvasOpacity`, only where the system backdrop exists and `canvasBlur` is on) and
+`FocusBorderBrush` (`layout.focusBorderColor`, else the theme accent). `ChromePlanner` /
+`WindowBackdrop` (behind `IWindowBackdrop`) set the title bar, border and blur through DWM by
+Windows build; the planner is unit-tested, the real DWM calls are not visible off-screen.
+Settings panel: `SettingsViewModel` applies theme/opacity live and saves them (debounced) via
+`AppConfigStore.Update`, which patches only the given keys and refuses to rewrite a file with
+comments; `ConfigReloader` ignores the file-change echo of that save (`IsOurOwnLastWrite`).
 
 Live reload: `ConfigReloader` re-reads config.json (via `ConfigWatcher`, debounced) and replaces
 `AppViewModel.Config`; panels/bindings and the window's key bindings follow. It uses the
@@ -73,13 +84,18 @@ clamped to 0.15-1.0). Presets (1/3, 1/2, 2/3, full) are only labels/cycle stops
 (`WidthPresets`); Alt+R goes to the next preset wider than the current width. Dragging a
 column's right edge (`NoteColumnView.ResizeHandle`) sets the fraction live via
 `RowLayout.FractionForWidth`; `NoteRowPanel.IsResizing` makes the panel follow the pointer
-instead of animating. `layout.json` stores `widthFraction`; older files' `"width": "half"`
-still load. Workspaces: `WorkspaceTabs` chips (click = switch, double-click or Alt+Shift+R =
-rename in place). Named workspaces are never pruned or dropped when empty; unnamed empty ones are.
+instead of animating. `layout.json` stores `widthFraction` (older files' `"width": "half"` still
+load) and an optional `customTitle`. Workspaces: `WorkspaceTabs` chips (click = switch,
+double-click or Shift+F2 = rename in place); the first and last chip are unnamed empty "+" edge
+workspaces. Named workspaces are never pruned; unnamed empty ones between the edges are.
+Draft notes (Alt+Left/Right past the end of a row, Alt+N): `NoteViewModel.IsDraft`, never stacked,
+not saved while blank, dropped when focus moves on (`WorkspaceViewModel.DiscardBlankDrafts`);
+the scroll wheels never create them.
 
 Editor: each `NoteColumnView` hosts a `RichTextBox`; `NoteViewModel` owns the note's live
 `FlowDocument` and only writes it into `Body` (the saved XML) in `FlushDocument()`, which
-`SnapshotMapper.ToSnapshot` calls before every save. `EditorToolbar` acts on whichever
+`SnapshotMapper.ToSnapshot` calls before every save. `RibbonView` (the Home tab of the Word-style
+ribbon; the File button, tab row and menus live in `MainWindow.xaml`) acts on whichever
 editor last had keyboard focus. Focus follows the app's note focus via
 `AppViewModel.RequestEditorFocus` -> `NoteViewModel.EditorFocusRequested`.
 
@@ -87,7 +103,9 @@ Persistence flow: `PersistenceCoordinator` (Ream.App/Services) watches the view 
 debounces 300ms, snapshots on the UI thread via `SnapshotMapper`, then saves on a
 background queue. `IDocumentRepository.Save` reconciles disk with the snapshot
 (creates/moves/trashes note files, rewrites only changed layout/metadata).
-The always-empty trailing workspace is never stored. `Flush()` runs on app exit.
+The two always-empty edge workspaces (above the first, below the last) are never stored: a
+workspace is persisted only if it is named or has a saveable note (blank drafts are not).
+`Flush()` runs on app exit.
 
 ## Storage
 
@@ -118,8 +136,10 @@ The always-empty trailing workspace is never stored. `Flush()` runs on app exit.
 
 - Plain mouse wheel is never intercepted at the shell level — it scrolls the
   note under the cursor. Alt+wheel switches workspaces, Shift+wheel pans the row.
-- Keybindings default to Alt+<key> but are read from config, not hardcoded
-  (hardcoded to defaults only until M2).
+- Keybindings are read from config: one gesture per action, defaults in
+  `AppConfig.DefaultKeybindings`. Every action also needs a description in `ActionCatalog` (a test
+  enforces it) so the Help window lists it. F11 = app fullscreen (`FullscreenController` behind
+  `IWindowFrame`), Shift+F11 = the focused note's fullscreen.
 - `RichTextBox.Document` is not a DependencyProperty — the editor owns its
   document in code-behind; don't try to bind it.
 - `XamlWriter`/`XamlReader` don't round-trip images; `NoteDocumentSerializer`
@@ -137,11 +157,17 @@ The always-empty trailing workspace is never stored. `Flush()` runs on app exit.
 - A `TextPointer` scan reports an `InlineUIContainer` at both its start and end; dedupe.
 - `TextRange` can't clear a property (`UnsetValue` throws). To return text to "automatic" color,
   apply a marker brush (which splits runs at the selection edge) then `ClearValue` on the
-  elements holding the marker (`EditorToolbar.ClearAutomaticColor`). Never copy today's theme
+  elements holding the marker (`RibbonView.ClearAutomaticColor`). Never copy today's theme
   brush into the document as a local value.
 - Don't name a field `_contentLoaded` in a XAML code-behind: the XAML compiler generates one.
 - A UserControl's own implicit `Button`/`ComboBox` style replaces the app-wide themed one unless it
-  has `BasedOn="{StaticResource {x:Type Button}}"` (see `EditorToolbar.xaml`).
+  has `BasedOn="{StaticResource {x:Type Button}}"` (see `RibbonView.xaml`).
+- `Ui.StartHost` sets the `Ream.SkipStartup` AppContext switch so constructing `App` never runs the
+  real `OnStartup` (real config, real documents, a real window). Keep it. The workspace list always
+  has an empty edge workspace at both ends, so `Workspaces[0]` is not the first real workspace.
+- Known open issue: the full suite hangs intermittently (roughly 1 run in 10, early on, with many
+  unrelated tests in flight); not yet diagnosed. `Ui.Run` has timeouts; run with
+  `--blame-hang --blame-hang-timeout 90s`.
 - Tests that change the theme must restore dark (`Themes.Use` in the tests does), since the
   `Application` is shared by every UI test.
 - `Ui.Run` serializes UI tests with a lock: `Settle()` pumps the shared UI thread, so without
