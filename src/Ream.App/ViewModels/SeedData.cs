@@ -48,7 +48,7 @@ internal static class SeedData
             <P><R>Paste an image straight into a note with Ctrl+V.</R></P>
             <P />
             <P><R>Plain scroll always scrolls the note under the cursor.</R></P>
-            <P><R>Shortcuts, gaps and animation timing can all be changed in config.json.</R></P>
+            <P><R>Shortcuts, gaps, animation timing and the light/dark theme can all be changed in config.json, and take effect as soon as you save it.</R></P>
           </Doc>
         </ReamNote>
         """;

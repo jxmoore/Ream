@@ -226,16 +226,58 @@ public partial class EditorToolbar : UserControl
     private void OnHighlight(object sender, RoutedEventArgs e) =>
         ShowColorMenu((Button)sender, HighlightColors, "None", ApplyHighlight);
 
+    // Dark enough to read on every highlight color, whichever theme is active.
+    private static readonly Color HighlightTextColor = Color.FromRgb(0x1a, 0x1a, 0x22);
+
     internal void ApplyTextColor(Color? color)
     {
         if (_editor is null) return;
-        Apply(TextElement.ForegroundProperty, color is { } c ? new SolidColorBrush(c) : _editor.Foreground);
+
+        if (color is { } c) Apply(TextElement.ForegroundProperty, new SolidColorBrush(c));
+        else ClearAutomaticColor();
     }
 
     internal void ApplyHighlight(Color? color)
     {
         if (_editor is null) return;
-        Apply(TextElement.BackgroundProperty, color is { } c ? new SolidColorBrush(c) : null);
+
+        if (color is { } c)
+        {
+            // Text on a pastel highlight must stay dark even in the dark theme.
+            _editor.Selection.ApplyPropertyValue(TextElement.BackgroundProperty, new SolidColorBrush(c));
+            _editor.Selection.ApplyPropertyValue(TextElement.ForegroundProperty, new SolidColorBrush(HighlightTextColor));
+            _editor.Focus();
+            Refresh();
+        }
+        else
+        {
+            _editor.Selection.ApplyPropertyValue(TextElement.BackgroundProperty, null);
+            ClearAutomaticColor();
+        }
+    }
+
+    /// <summary>
+    /// Returns the selection's text to the "automatic" color. That must be the absence of a color rather
+    /// than a copy of today's, or it would stay wrong after a theme change. TextRange can't clear a
+    /// property, so mark the range (which also splits runs at its edges) and clear what got marked.
+    /// </summary>
+    private void ClearAutomaticColor()
+    {
+        if (_editor is null) return;
+
+        var range = _editor.Selection;
+        var marker = new SolidColorBrush(Color.FromArgb(1, 1, 2, 3));
+        range.ApplyPropertyValue(TextElement.ForegroundProperty, marker);
+
+        for (var p = range.Start; p is not null && p.CompareTo(range.End) < 0; p = p.GetNextContextPosition(LogicalDirection.Forward))
+        {
+            if (p.GetAdjacentElement(LogicalDirection.Forward) is TextElement element
+                && ReferenceEquals(element.ReadLocalValue(TextElement.ForegroundProperty), marker))
+                element.ClearValue(TextElement.ForegroundProperty);
+        }
+
+        _editor.Focus();
+        Refresh();
     }
 
     private static void ShowColorMenu(Button anchor, (string Name, string Hex)[] colors, string resetLabel, Action<Color?> apply)

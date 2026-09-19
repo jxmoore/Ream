@@ -20,7 +20,10 @@ A Windows desktop note-taking app built around an infinitely scrollable,
 - **A real rich-text editor** — fonts, sizes, bold/italic/underline/strikethrough, colors and
   highlights, headings, lists, alignment, and images pasted straight in with Ctrl+V.
 - **Configurable** via a niri-style `config.json` (gaps, centered focus,
-  animation timing, keybindings).
+  animation timing, keybindings, light/dark/system theme). Edits apply as soon as you save
+  the file; if it can't be used, a warning appears in the toolbar and the previous settings stay.
+- **Fast with many notes:** a note's text is only loaded once it is near the screen.
+- **Safe on crashes:** interrupted writes are recovered or set aside, never lost.
 
 Notes are plain files on disk under a `ReemDocuments/` folder (by default in your
 Documents folder): one folder per workspace, one file per note, and a JSON layout file
@@ -38,6 +41,13 @@ Requires the .NET 8 SDK on Windows.
 dotnet build Ream.sln
 dotnet run --project src/Ream.App
 dotnet test
+```
+
+To make a portable copy you can hand to someone (no installer, no .NET needed):
+
+```
+.\build\publish.ps1                      # self-contained single exe + zip in artifacts\
+.\build\publish.ps1 -FrameworkDependent  # ~2 MB, needs the .NET 8 Desktop Runtime
 ```
 
 ## Layout

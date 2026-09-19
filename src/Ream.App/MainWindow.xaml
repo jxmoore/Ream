@@ -4,14 +4,28 @@
         xmlns:controls="clr-namespace:Ream.App.Controls"
         xmlns:views="clr-namespace:Ream.App.Views"
         Title="Ream" Height="720" Width="1200"
-        Background="{StaticResource WindowBackgroundBrush}">
+        Background="{DynamicResource WindowBackgroundBrush}">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" Background="{StaticResource ToolbarBrush}">
+        <DockPanel Grid.Row="0" Background="{DynamicResource ToolbarBrush}">
+            <TextBlock x:Name="ConfigProblem" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,12,0"
+                       FontSize="12" Text="Config problem (hover)" ToolTip="{Binding ConfigError}"
+                       Foreground="{DynamicResource ErrorBrush}">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Visible"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ConfigError}" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
             <views:WorkspaceTabs DockPanel.Dock="Right" Margin="12,0,10,0"/>
             <views:EditorToolbar/>
         </DockPanel>

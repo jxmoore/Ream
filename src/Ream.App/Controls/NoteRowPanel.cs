@@ -49,6 +49,13 @@ public sealed class NoteRowPanel : Panel
     public static readonly DependencyProperty IsResizingProperty = DependencyProperty.RegisterAttached(
         "IsResizing", typeof(bool), typeof(NoteRowPanel), new PropertyMetadata(false));
 
+    // Whether a column is within a screen of the viewport (in a workspace that is itself near). Views use it to
+    // load a note's text only when it is about to be seen. Inherited, so the view inside the column sees it.
+    // Defaults to true so a view outside any row just loads.
+    public static readonly DependencyProperty IsNearProperty = DependencyProperty.RegisterAttached(
+        "IsNear", typeof(bool), typeof(NoteRowPanel),
+        new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.Inherits, OnIsNearChanged));
+
     // 0 = normal column, 1 = covering the whole row viewport.
     public static readonly DependencyProperty FullscreenProgressProperty = DependencyProperty.RegisterAttached(
         "FullscreenProgress", typeof(double), typeof(NoteRowPanel),
@@ -89,6 +96,14 @@ public sealed class NoteRowPanel : Panel
     public static bool GetIsFullscreen(DependencyObject d) => (bool)d.GetValue(IsFullscreenProperty);
     public static void SetIsFullscreen(DependencyObject d, bool value) => d.SetValue(IsFullscreenProperty, value);
     public static double GetFullscreenProgress(DependencyObject d) => (double)d.GetValue(FullscreenProgressProperty);
+    public static bool GetIsNear(DependencyObject d) => (bool)d.GetValue(IsNearProperty);
+    public static void SetIsNear(DependencyObject d, bool value) => d.SetValue(IsNearProperty, value);
+
+    private static void OnIsNearChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is INearAware aware) aware.OnNearChanged((bool)e.NewValue);
+    }
+
     public static bool GetIsResizing(DependencyObject d) => (bool)d.GetValue(IsResizingProperty);
     public static void SetIsResizing(DependencyObject d, bool value) => d.SetValue(IsResizingProperty, value);
 
@@ -191,10 +206,17 @@ public sealed class NoteRowPanel : Panel
         _initialized = true;
 
         var full = new Rect(0, 0, w, h);
+        bool workspaceNear = WorkspaceStripPanel.GetIsNearWorkspace(this);
+        int focused = n == 0 ? -1 : Math.Clamp(FocusedIndex, 0, n - 1);
         for (int i = 0; i < n; i++)
         {
             var normal = new Rect(lefts[i] - offset, gap, widths[i], Math.Max(0, h - 2 * gap));
-            children[i].Arrange(Lerp(normal, full, GetFullscreenProgress(children[i])));
+            var rect = Lerp(normal, full, GetFullscreenProgress(children[i]));
+            children[i].Arrange(rect);
+
+            // One viewport of margin either side, so scrolling reveals text that is already loaded.
+            bool onScreenSoon = rect.Right > -w && rect.Left < 2 * w;
+            SetIsNear(children[i], workspaceNear && (i == focused || onScreenSoon));
         }
 
         return finalSize;

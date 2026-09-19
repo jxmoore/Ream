@@ -16,7 +16,7 @@
                             MouseLeftButtonDown="OnChipMouseDown">
                         <TextBlock x:Name="Label" Text="{Binding DisplayLabel}" FontSize="12"
                                    MaxWidth="160" TextTrimming="CharacterEllipsis"
-                                   Foreground="{StaticResource ToolbarMutedBrush}"/>
+                                   Foreground="{DynamicResource ToolbarMutedBrush}"/>
                     </Border>
                     <TextBox x:Name="NameBox" Visibility="Collapsed" MinWidth="110" MaxLength="40" FontSize="12"
                              Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}"
@@ -29,9 +29,9 @@
                         <Setter TargetName="Chip" Property="Opacity" Value="0.6"/>
                     </DataTrigger>
                     <DataTrigger Binding="{Binding IsCurrent}" Value="True">
-                        <Setter TargetName="Chip" Property="Background" Value="{StaticResource ChipCurrentBrush}"/>
+                        <Setter TargetName="Chip" Property="Background" Value="{DynamicResource ChipCurrentBrush}"/>
                         <Setter TargetName="Chip" Property="Opacity" Value="1"/>
-                        <Setter TargetName="Label" Property="Foreground" Value="White"/>
+                        <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource ChipCurrentTextBrush}"/>
                     </DataTrigger>
                     <DataTrigger Binding="{Binding IsRenaming}" Value="True">
                         <Setter TargetName="Chip" Property="Visibility" Value="Hidden"/>

@@ -15,7 +15,7 @@ public sealed partial class AppViewModel : ObservableObject
 
     public AppViewModel(AppConfig config, IEnumerable<WorkspaceViewModel> workspaces, int currentIndex = 0, IAssetStore? assets = null)
     {
-        Config = config;
+        _config = config;
         _assets = assets;
         Workspaces = new ObservableCollection<WorkspaceViewModel>(workspaces);
         EnsureTrailingEmpty();
@@ -42,7 +42,13 @@ public sealed partial class AppViewModel : ObservableObject
         };
     }
 
-    public AppConfig Config { get; }
+    /// <summary>The settings in force. Replaced (not edited) when config.json is reloaded, so bindings refresh.</summary>
+    [ObservableProperty]
+    private AppConfig _config;
+
+    /// <summary>Why the last reload of config.json was refused (the previous settings stay in force); null when fine.</summary>
+    [ObservableProperty]
+    private string? _configError;
 
     public ObservableCollection<WorkspaceViewModel> Workspaces { get; }
 
