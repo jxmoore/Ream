@@ -21,7 +21,7 @@ public class ConfigDefaultsTests
     }
 
     [Theory]
-    [InlineData("toggleFullscreen", "Shift+F11")]
+    [InlineData("toggleFullscreen", "Alt+F11")]
     [InlineData("renameWorkspace", "Shift+F2")]
     [InlineData("newNote", "Alt+N")]
     [InlineData("focusNextNote", "Alt+Right")]

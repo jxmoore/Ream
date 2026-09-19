@@ -49,7 +49,7 @@ public sealed class AppConfig
         ["resetAllSizes"] = "Ctrl+Alt+Shift+R",
         ["sizeUp"] = "Alt+OemPlus",
         ["sizeDown"] = "Alt+OemMinus",
-        ["toggleFullscreen"] = "Shift+F11",
+        ["toggleFullscreen"] = "Alt+F11",
         ["toggleAppFullscreen"] = "F11",
         ["newNote"] = "Alt+N",
         ["closeNote"] = "Alt+Q",

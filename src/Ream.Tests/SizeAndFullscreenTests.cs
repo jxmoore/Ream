@@ -323,7 +323,7 @@ public class WelcomeNoteTests
 
         Assert.True(NoteContent.TryParse(body, out _));
         string text = NoteContent.ToPlainText(body);
-        Assert.Contains("Shift+F11", text);
+        Assert.Contains("Alt+F11", text);
         Assert.Contains("F11", text);
         Assert.Contains("Alt+=", text);
         Assert.Contains("Alt+-", text);

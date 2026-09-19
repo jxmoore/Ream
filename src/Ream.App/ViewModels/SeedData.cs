@@ -38,7 +38,7 @@ internal static class SeedData
               <LI><P><R b="1">Shift+scroll</R><R> move focus along the row</R></P></LI>
               <LI><P><R b="1">Alt+R</R><R> cycle the note's width: 1/3, 1/2, 2/3, full</R></P></LI>
               <LI><P><R b="1">Alt+=</R><R> / </R><R b="1">Alt+-</R><R> make the note wider / narrower</R></P></LI>
-              <LI><P><R b="1">Shift+F11</R><R> toggle fullscreen for the focused note</R></P></LI>
+              <LI><P><R b="1">Alt+F11</R><R> toggle fullscreen for the focused note</R></P></LI>
               <LI><P><R b="1">F11</R><R> toggle fullscreen for the whole app</R></P></LI>
               <LI><P><R b="1">F2</R><R> rename the note (or click its title); </R><R b="1">Shift+F2</R><R> renames the workspace</R></P></LI>
               <LI><P><R b="1">Alt+Shift+Left / Right</R><R> move the note within the row</R></P></LI>
