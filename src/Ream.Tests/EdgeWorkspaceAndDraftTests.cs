@@ -63,16 +63,29 @@ public class EdgeWorkspaceTests
     }
 
     [Fact]
-    public void GoingUpFromTheFirstWorkspace_LandsOnTheEmptyOne_AndNoFurther()
+    public void GoingUpFromTheFirstWorkspace_LandsInANewOneHoldingADraft_WithAnEmptyOneStillAbove()
     {
         var app = App(Workspace("A", 1));
 
         app.SwitchWorkspaceUpCommand.Execute(null);
-        Assert.Equal(0, app.CurrentIndex);
-        Assert.True(app.CurrentWorkspace.IsEmpty);
 
+        Assert.Equal(4, app.Workspaces.Count);
+        Assert.Equal(1, app.CurrentIndex);
+        Assert.True(Assert.Single(app.CurrentWorkspace.Notes).IsDraft);
+        Assert.True(app.Workspaces[0].IsEmpty);
+    }
+
+    [Fact]
+    public void LeavingThatNewWorkspaceBlank_TakesItAwayAgain()
+    {
+        var app = App(Workspace("A", 1));
         app.SwitchWorkspaceUpCommand.Execute(null);
-        Assert.Equal(0, app.CurrentIndex);
+
+        app.SwitchWorkspaceDownCommand.Execute(null);
+        app.PruneEmptyWorkspacesCommand.Execute(null);
+
+        Assert.Equal(3, app.Workspaces.Count);
+        Assert.Equal("A", app.CurrentWorkspace.Name);
     }
 
     [Fact]
@@ -238,7 +251,7 @@ public class DraftNoteTests
     }
 
     [Fact]
-    public void GoingLeftFromTheFirstNote_OpensABlankDraftBeforeIt()
+    public void GoingLeftFromTheFirstNote_MakesNothing()
     {
         var app = App(Workspace("A", 2));
         var first = app.CurrentWorkspace.Notes[0];
@@ -246,10 +259,10 @@ public class DraftNoteTests
         app.FocusPrevNoteCommand.Execute(null);
 
         var notes = app.CurrentWorkspace.Notes;
-        Assert.Equal(3, notes.Count);
+        Assert.Equal(2, notes.Count);
         Assert.Equal(0, app.CurrentWorkspace.FocusedIndex);
-        Assert.True(notes[0].IsDraft);
-        Assert.Same(first, notes[1]);
+        Assert.Same(first, notes[0]);
+        Assert.DoesNotContain(notes, n => n.IsDraft);
     }
 
     [Fact]
@@ -290,17 +303,42 @@ public class DraftNoteTests
     }
 
     [Fact]
-    public void AnEmptyWorkspace_GetsADraftFromEitherArrow()
+    public void InAnEmptyWorkspace_OnlyTheRightArrowMakesADraft()
     {
         var right = App(Workspace("A", 1));
-        right.CurrentIndex = 0;
+        right.CurrentIndex = 0; // stand there without arriving, which would make one
         right.FocusNextNoteCommand.Execute(null);
-        Assert.Single(right.CurrentWorkspace.Notes);
+        Assert.True(Assert.Single(right.CurrentWorkspace.Notes).IsDraft);
 
         var left = App(Workspace("A", 1));
         left.CurrentIndex = 0;
         left.FocusPrevNoteCommand.Execute(null);
-        Assert.Single(left.CurrentWorkspace.Notes);
+        Assert.Empty(left.CurrentWorkspace.Notes);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(1)]
+    public void ArrivingInAnEmptyWorkspace_PopsADraft_FromEitherDirection(int direction)
+    {
+        var app = App(Workspace("A", 1));
+        app.CurrentIndex = 1;
+
+        app.SwitchWorkspace(direction);
+
+        Assert.True(Assert.Single(app.CurrentWorkspace.Notes).IsDraft);
+        Assert.True(app.CurrentWorkspace.FocusedNote!.IsFocused);
+    }
+
+    [Fact]
+    public void ArrivingInAWorkspaceThatHasNotes_MakesNoDraft()
+    {
+        var app = App(Workspace("A", 1), Workspace("B", 1));
+
+        app.SwitchWorkspace(1);
+
+        Assert.Single(app.CurrentWorkspace.Notes);
+        Assert.False(app.CurrentWorkspace.Notes[0].IsDraft);
     }
 
     [Fact]
@@ -346,13 +384,13 @@ public class DraftNoteTests
     }
 
     [Fact]
-    public void ABlankDraftBeforeTheFirstNote_VanishesAndFocusStaysOnTheRightNote()
+    public void ABlankDraftInTheMiddle_VanishesAndFocusStaysOnTheRightNote()
     {
         var app = App(Workspace("A", 2));
         var first = app.CurrentWorkspace.Notes[0];
-        app.FocusPrevNoteCommand.Execute(null);
+        app.NewNoteCommand.Execute(null);
 
-        app.FocusNextNoteCommand.Execute(null);
+        app.FocusPrevNoteCommand.Execute(null);
 
         var workspace = app.CurrentWorkspace;
         Assert.Equal(2, workspace.Notes.Count);

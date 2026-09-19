@@ -60,6 +60,9 @@ public sealed partial class NoteViewModel : ObservableObject
         string typed = EditTitle.Trim();
         if (typed.Length == 0) CustomTitle = null;
         else if (typed != DisplayTitle) CustomTitle = typed[..Math.Min(typed.Length, MaxCustomTitleLength)];
+
+        // A note somebody has named is theirs, not a draft.
+        if (!string.IsNullOrWhiteSpace(CustomTitle)) IsDraft = false;
     }
 
     public void CancelTitleEdit() => IsEditingTitle = false;
@@ -114,6 +117,22 @@ public sealed partial class NoteViewModel : ObservableObject
     {
         _contentDirty = true;
         OnPropertyChanged(ContentChangedProperty);
+
+        // The draft cue (dashed outline, "Draft" pill) goes away the moment there is something to keep.
+        if (IsDraft && DocumentHasContent()) IsDraft = false;
+    }
+
+    /// <summary>True when the live document holds any text or a picture. Cheap: a draft is small.</summary>
+    private bool DocumentHasContent()
+    {
+        if (_document is null) return false;
+        if (!string.IsNullOrWhiteSpace(new TextRange(_document.ContentStart, _document.ContentEnd).Text)) return true;
+
+        for (var p = _document.ContentStart; p is not null && p.CompareTo(_document.ContentEnd) < 0; p = p.GetNextContextPosition(LogicalDirection.Forward))
+        {
+            if (p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer) return true;
+        }
+        return false;
     }
 
     /// <summary>Writes pending edits into <see cref="Body"/> and refreshes the title from the text.</summary>

@@ -215,15 +215,16 @@ public class FocusFirstNoteOnSwitchTests
     }
 
     [Fact]
-    public void SwitchingToAnEmptyWorkspace_IsFine()
+    public void SwitchingToAnEmptyWorkspace_PopsADraftAndFocusesIt()
     {
         var a = Workspace("A", 2);
         var app = App(Config(true), a);
 
         app.SwitchWorkspaceUpCommand.Execute(null);
 
-        Assert.True(app.CurrentWorkspace.IsEmpty);
-        Assert.Null(app.CurrentWorkspace.FocusedNote);
+        var draft = Assert.Single(app.CurrentWorkspace.Notes);
+        Assert.True(draft.IsDraft);
+        Assert.Same(draft, app.CurrentWorkspace.FocusedNote);
     }
 
     [Fact]

@@ -154,18 +154,6 @@ public sealed partial class WorkspaceViewModel : ObservableObject
         UpdateFocusFlags();
     }
 
-    /// <summary>Inserts the note to the left of the focused one and focuses it.</summary>
-    public void InsertBeforeFocus(NoteViewModel note)
-    {
-        if (FocusedNote is { IsFullscreen: true } current)
-            current.IsFullscreen = false;
-
-        int at = Notes.Count == 0 ? 0 : Math.Clamp(FocusedIndex, 0, Notes.Count - 1);
-        note.Owner = this;
-        Notes.Insert(at, note);
-        FocusedIndex = at;
-        UpdateFocusFlags();
-    }
 
     /// <summary>Puts the note first in the row and focuses it (how a note arrives from another workspace).</summary>
     public void InsertFirst(NoteViewModel note)

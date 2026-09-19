@@ -36,10 +36,10 @@ public class WorkspaceTitleTests
     {
         var app = App(Workspace("Work"));
 
-        app.SwitchWorkspaceUpCommand.Execute(null);
+        app.CurrentIndex = 0;
         Assert.Equal("Ream", app.WindowTitle);
 
-        app.SwitchWorkspace(2);
+        app.CurrentIndex = 2;
         Assert.Equal("Ream", app.WindowTitle);
     }
 

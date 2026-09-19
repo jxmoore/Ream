@@ -332,7 +332,7 @@ public class MainWindowIntegrationTests
         Ui.Settle();
         Assert.Equal("Ream - Workspace 2", TitleText(fx).Text);
 
-        fx.App.SelectWorkspaceCommand.Execute(fx.App.Workspaces[0]);
+        fx.App.CurrentIndex = 0;
         Ui.Settle();
         Assert.Equal("Ream", TitleText(fx).Text);
         Assert.Equal("Ream", fx.Window.Title);
@@ -460,7 +460,7 @@ public class MainWindowIntegrationTests
     public void NamingAnEmptyEdgeWorkspace_Works() => Ui.Run(() =>
     {
         using var fx = new WindowFixture(("Work", 1));
-        fx.App.SelectWorkspaceCommand.Execute(fx.App.Workspaces[^1]);
+        fx.App.CurrentIndex = fx.App.Workspaces.Count - 1;
         Ui.Settle();
         Assert.Equal("Ream", TitleText(fx).Text);
 

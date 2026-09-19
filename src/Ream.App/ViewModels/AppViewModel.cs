@@ -152,7 +152,10 @@ public sealed partial class AppViewModel : ObservableObject
         if (Config.Layout.FocusFirstNoteOnSwitch) Workspaces[target].SetFocus(0);
 
         CurrentIndex = target;
-        RequestEditorFocus();
+
+        // An empty workspace you arrive in gets a draft to type into; it disappears again if you leave it blank.
+        if (CurrentWorkspace.IsEmpty) OpenDraft();
+        else RequestEditorFocus();
     }
 
     /// <summary>Writes every note's pending edits into its saved form. Call before taking a snapshot.</summary>
@@ -229,8 +232,9 @@ public sealed partial class AppViewModel : ObservableObject
     [RelayCommand] private void FocusNextNote() => StepNote(1);
 
     /// <summary>
-    /// The Alt+Left / Alt+Right behavior: move to the neighbouring note, and past the end of the row open a
-    /// blank draft there. Never stacks drafts. (Scroll wheels use <see cref="FocusNoteBy"/>, which just stops.)
+    /// The Alt+Left / Alt+Right behavior: move to the neighbouring note. Past the END of the row a blank draft
+    /// opens (never stacked); past the start nothing happens - going left never makes a note. (Scroll wheels use
+    /// <see cref="FocusNoteBy"/>, which just stops at either end.)
     /// </summary>
     private void StepNote(int direction)
     {
@@ -243,19 +247,23 @@ public sealed partial class AppViewModel : ObservableObject
             return;
         }
 
-        OpenDraft(before: direction < 0);
+        if (direction < 0)
+        {
+            RequestEditorFocus();
+            return;
+        }
+
+        OpenDraft();
     }
 
-    /// <summary>Adds a blank draft beside the focused note - unless the focused note already is one.</summary>
-    private void OpenDraft(bool before)
+    /// <summary>Adds a blank draft after the focused note - unless the focused note already is one.</summary>
+    private void OpenDraft()
     {
         var workspace = CurrentWorkspace;
         if (workspace.FocusedNote?.IsBlankDraft() != true)
         {
             _noteCounter++;
-            var draft = new NoteViewModel { Title = $"Untitled {_noteCounter}", IsDraft = true };
-            if (before) workspace.InsertBeforeFocus(draft);
-            else workspace.InsertAfterFocus(draft);
+            workspace.InsertAfterFocus(new NoteViewModel { Title = $"Untitled {_noteCounter}", IsDraft = true });
             EnsureEdgeWorkspaces();
         }
 
@@ -370,7 +378,7 @@ public sealed partial class AppViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void NewNote() => OpenDraft(before: false);
+    private void NewNote() => OpenDraft();
 
     [RelayCommand]
     private void CloseNote()
