@@ -7,7 +7,7 @@
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="MinWidth" Value="30"/>
             <Setter Property="Height" Value="28"/>
-            <Setter Property="Margin" Value="2,0"/>
+            <Setter Property="Margin" Value="2,1"/>
             <Setter Property="Padding" Value="7,0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
@@ -15,121 +15,155 @@
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="MinWidth" Value="30"/>
             <Setter Property="Height" Value="28"/>
-            <Setter Property="Margin" Value="2,0"/>
+            <Setter Property="Margin" Value="2,1"/>
             <Setter Property="Padding" Value="7,0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
         <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
             <Setter Property="Height" Value="28"/>
-            <Setter Property="Margin" Value="2,0,6,0"/>
+            <Setter Property="Margin" Value="2,1,4,1"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
-        <!-- A group's controls sit in one row, centered in a band as tall as the tallest tile. -->
-        <Style x:Key="GroupRow" TargetType="StackPanel">
+        <!-- A group is a band as tall as two rows of small controls; a group with fewer rows centers in it. -->
+        <Style x:Key="GroupBand" TargetType="StackPanel">
             <Setter Property="Orientation" Value="Horizontal"/>
-            <Setter Property="MinHeight" Value="54"/>
+            <Setter Property="MinHeight" Value="60"/>
         </Style>
-        <!-- Big buttons: an icon over a caption (Paste, Cut, Copy, the size resets). -->
+        <Style x:Key="GroupRows" TargetType="StackPanel">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="ToolRow" TargetType="StackPanel">
+            <Setter Property="Orientation" Value="Horizontal"/>
+        </Style>
+        <!-- Big buttons: an icon over a caption (Paste). -->
         <Style x:Key="ActionTile" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Height" Value="Auto"/>
-            <Setter Property="MinWidth" Value="56"/>
-            <Setter Property="Margin" Value="3,0"/>
+            <Setter Property="MinWidth" Value="52"/>
+            <Setter Property="Margin" Value="2,1,4,1"/>
             <Setter Property="Padding" Value="6,4"/>
+        </Style>
+        <!-- Cut / Copy: icon and caption side by side, stacked two high beside Paste. -->
+        <Style x:Key="SideAction" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="MinWidth" Value="70"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
+        <!-- The three small size-reset buttons, stacked three high. -->
+        <Style x:Key="TinyAction" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Height" Value="19"/>
+            <Setter Property="MinWidth" Value="96"/>
+            <Setter Property="Margin" Value="2,0.5"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
         </Style>
         <Style x:Key="StyleTile" TargetType="ToggleButton" BasedOn="{StaticResource ToggleTool}">
             <Setter Property="Height" Value="Auto"/>
             <Setter Property="MinWidth" Value="66"/>
-            <Setter Property="Margin" Value="3,0"/>
-            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Margin" Value="2,1"/>
+            <Setter Property="Padding" Value="8,3"/>
         </Style>
     </UserControl.Resources>
 
-    <!-- The Home tab of a Word-style ribbon: labelled groups, one row each, with the label underneath. -->
+    <!-- The Home tab of a Word-style ribbon: labelled groups, the busy ones two rows deep, the label underneath. -->
     <StackPanel Orientation="Horizontal" Margin="12,6,12,2">
         <StackPanel x:Name="Bar" Orientation="Horizontal" IsEnabled="False">
 
-            <!-- Clipboard -->
+            <!-- Clipboard: Paste big, Cut and Copy stacked beside it -->
             <StackPanel x:Name="ClipboardGroup">
-                <StackPanel Style="{StaticResource GroupRow}">
+                <StackPanel Style="{StaticResource GroupBand}">
                     <Button x:Name="PasteButton" Style="{StaticResource ActionTile}" ToolTip="Paste (Ctrl+V)" Click="OnPaste">
                         <StackPanel>
-                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE77F;" FontSize="20"/>
+                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE77F;" FontSize="22"/>
                             <TextBlock Text="Paste" HorizontalAlignment="Center" Margin="0,2,0,0" FontSize="12"/>
                         </StackPanel>
                     </Button>
-                    <Button x:Name="CutButton" Style="{StaticResource ActionTile}" ToolTip="Cut (Ctrl+X)" Click="OnCut">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8C6;" FontSize="20"/>
-                            <TextBlock Text="Cut" HorizontalAlignment="Center" Margin="0,2,0,0" FontSize="12"/>
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="CopyButton" Style="{StaticResource ActionTile}" ToolTip="Copy (Ctrl+C)" Click="OnCopy">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8C8;" FontSize="20"/>
-                            <TextBlock Text="Copy" HorizontalAlignment="Center" Margin="0,2,0,0" FontSize="12"/>
-                        </StackPanel>
-                    </Button>
+                    <StackPanel Style="{StaticResource GroupRows}">
+                        <Button x:Name="CutButton" Style="{StaticResource SideAction}" ToolTip="Cut (Ctrl+X)" Click="OnCut">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8C6;" FontSize="13" Margin="0,0,6,0"/>
+                                <TextBlock Text="Cut" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="CopyButton" Style="{StaticResource SideAction}" ToolTip="Copy (Ctrl+C)" Click="OnCopy">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8C8;" FontSize="13" Margin="0,0,6,0"/>
+                                <TextBlock Text="Copy" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
                 </StackPanel>
                 <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Clipboard"/>
             </StackPanel>
 
             <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
 
-            <!-- Font -->
+            <!-- Font: the typeface and size on top; emphasis and color below -->
             <StackPanel x:Name="FontGroup">
-                <StackPanel Style="{StaticResource GroupRow}">
-                    <ComboBox x:Name="FontBox" Width="130" ToolTip="Font" SelectionChanged="OnFontChanged"/>
-                    <ComboBox x:Name="SizeBox" Width="58" ToolTip="Font size" SelectionChanged="OnSizeChanged"/>
-                    <Button ToolTip="Smaller text" Click="OnSmaller" Content="A-" FontSize="11"/>
-                    <Button ToolTip="Larger text" Click="OnLarger" Content="A+" FontSize="15"/>
-                    <ToggleButton x:Name="BoldButton" Style="{StaticResource ToggleTool}" Content="B" FontWeight="Bold"
-                                  ToolTip="Bold (Ctrl+B)" Click="OnBold" Margin="10,0,2,0"/>
-                    <ToggleButton x:Name="ItalicButton" Style="{StaticResource ToggleTool}" Content="I" FontStyle="Italic"
-                                  ToolTip="Italic (Ctrl+I)" Click="OnItalic"/>
-                    <ToggleButton x:Name="UnderlineButton" Style="{StaticResource ToggleTool}"
-                                  ToolTip="Underline (Ctrl+U)" Click="OnUnderline">
-                        <TextBlock Text="U" TextDecorations="Underline"/>
-                    </ToggleButton>
-                    <ToggleButton x:Name="StrikeButton" Style="{StaticResource ToggleTool}"
-                                  ToolTip="Strikethrough" Click="OnStrikethrough">
-                        <TextBlock Text="S" TextDecorations="Strikethrough"/>
-                    </ToggleButton>
-                    <Button x:Name="TextColorButton" ToolTip="Text color" Click="OnTextColor" Margin="10,0,2,0">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="A" FontWeight="Bold"/>
-                            <TextBlock Text=" ▾" FontSize="9" VerticalAlignment="Center"/>
+                <StackPanel Style="{StaticResource GroupBand}">
+                    <StackPanel Style="{StaticResource GroupRows}">
+                        <StackPanel Style="{StaticResource ToolRow}">
+                            <ComboBox x:Name="FontBox" Width="130" ToolTip="Font" SelectionChanged="OnFontChanged"/>
+                            <ComboBox x:Name="SizeBox" Width="58" ToolTip="Font size" SelectionChanged="OnSizeChanged"/>
+                            <Button ToolTip="Smaller text" Click="OnSmaller" Content="A-" FontSize="11"/>
+                            <Button ToolTip="Larger text" Click="OnLarger" Content="A+" FontSize="15"/>
                         </StackPanel>
-                    </Button>
-                    <Button x:Name="HighlightButton" ToolTip="Highlight color" Click="OnHighlight">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="ab" Background="#fff3a3" Foreground="#1a1a1a" Padding="2,0"/>
-                            <TextBlock Text=" ▾" FontSize="9" VerticalAlignment="Center"/>
+                        <StackPanel Style="{StaticResource ToolRow}">
+                            <ToggleButton x:Name="BoldButton" Style="{StaticResource ToggleTool}" Content="B" FontWeight="Bold"
+                                          ToolTip="Bold (Ctrl+B)" Click="OnBold"/>
+                            <ToggleButton x:Name="ItalicButton" Style="{StaticResource ToggleTool}" Content="I" FontStyle="Italic"
+                                          ToolTip="Italic (Ctrl+I)" Click="OnItalic"/>
+                            <ToggleButton x:Name="UnderlineButton" Style="{StaticResource ToggleTool}"
+                                          ToolTip="Underline (Ctrl+U)" Click="OnUnderline">
+                                <TextBlock Text="U" TextDecorations="Underline"/>
+                            </ToggleButton>
+                            <ToggleButton x:Name="StrikeButton" Style="{StaticResource ToggleTool}"
+                                          ToolTip="Strikethrough" Click="OnStrikethrough">
+                                <TextBlock Text="S" TextDecorations="Strikethrough"/>
+                            </ToggleButton>
+                            <Button x:Name="TextColorButton" ToolTip="Text color" Click="OnTextColor" Margin="12,1,2,1">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="A" FontWeight="Bold"/>
+                                    <TextBlock Text=" ▾" FontSize="9" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="HighlightButton" ToolTip="Highlight color" Click="OnHighlight">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="ab" Background="#fff3a3" Foreground="#1a1a1a" Padding="2,0"/>
+                                    <TextBlock Text=" ▾" FontSize="9" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
                         </StackPanel>
-                    </Button>
+                    </StackPanel>
                 </StackPanel>
                 <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Font"/>
             </StackPanel>
 
             <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
 
-            <!-- Paragraph -->
+            <!-- Paragraph: lists and indent on top, alignment below -->
             <StackPanel x:Name="ParagraphGroup">
-                <StackPanel Style="{StaticResource GroupRow}">
-                    <ToggleButton x:Name="BulletsButton" Style="{StaticResource ToggleTool}" Content="•"
-                                  ToolTip="Bulleted list" Click="OnBullets"/>
-                    <ToggleButton x:Name="NumbersButton" Style="{StaticResource ToggleTool}" Content="1."
-                                  ToolTip="Numbered list" Click="OnNumbers"/>
-                    <Button ToolTip="Decrease indent" Click="OnOutdent" FontFamily="Segoe UI Symbol" Content="⇤"/>
-                    <Button ToolTip="Increase indent" Click="OnIndent" FontFamily="Segoe UI Symbol" Content="⇥"/>
-                    <ToggleButton x:Name="AlignLeftButton" Style="{StaticResource ToggleTool}" Content="L"
-                                  ToolTip="Align left (Ctrl+L)" Click="OnAlignLeft" Margin="10,0,2,0"/>
-                    <ToggleButton x:Name="AlignCenterButton" Style="{StaticResource ToggleTool}" Content="C"
-                                  ToolTip="Center (Ctrl+E)" Click="OnAlignCenter"/>
-                    <ToggleButton x:Name="AlignRightButton" Style="{StaticResource ToggleTool}" Content="R"
-                                  ToolTip="Align right (Ctrl+R)" Click="OnAlignRight"/>
-                    <ToggleButton x:Name="AlignJustifyButton" Style="{StaticResource ToggleTool}" Content="J"
-                                  ToolTip="Justify (Ctrl+J)" Click="OnAlignJustify"/>
+                <StackPanel Style="{StaticResource GroupBand}">
+                    <StackPanel Style="{StaticResource GroupRows}">
+                        <StackPanel Style="{StaticResource ToolRow}">
+                            <ToggleButton x:Name="BulletsButton" Style="{StaticResource ToggleTool}" Content="•"
+                                          ToolTip="Bulleted list" Click="OnBullets"/>
+                            <ToggleButton x:Name="NumbersButton" Style="{StaticResource ToggleTool}" Content="1."
+                                          ToolTip="Numbered list" Click="OnNumbers"/>
+                            <Button ToolTip="Decrease indent" Click="OnOutdent" FontFamily="Segoe UI Symbol" Content="⇤"/>
+                            <Button ToolTip="Increase indent" Click="OnIndent" FontFamily="Segoe UI Symbol" Content="⇥"/>
+                        </StackPanel>
+                        <StackPanel Style="{StaticResource ToolRow}">
+                            <ToggleButton x:Name="AlignLeftButton" Style="{StaticResource ToggleTool}" Content="L"
+                                          ToolTip="Align left (Ctrl+L)" Click="OnAlignLeft"/>
+                            <ToggleButton x:Name="AlignCenterButton" Style="{StaticResource ToggleTool}" Content="C"
+                                          ToolTip="Center (Ctrl+E)" Click="OnAlignCenter"/>
+                            <ToggleButton x:Name="AlignRightButton" Style="{StaticResource ToggleTool}" Content="R"
+                                          ToolTip="Align right (Ctrl+R)" Click="OnAlignRight"/>
+                            <ToggleButton x:Name="AlignJustifyButton" Style="{StaticResource ToggleTool}" Content="J"
+                                          ToolTip="Justify (Ctrl+J)" Click="OnAlignJustify"/>
+                        </StackPanel>
+                    </StackPanel>
                 </StackPanel>
                 <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Paragraph"/>
             </StackPanel>
@@ -138,31 +172,33 @@
 
             <!-- Styles -->
             <StackPanel x:Name="StylesGroup">
-                <StackPanel Style="{StaticResource GroupRow}">
-                    <ToggleButton x:Name="StyleNormalButton" Style="{StaticResource StyleTile}" ToolTip="Normal text" Click="OnStyleTile" Tag="0">
-                        <StackPanel>
-                            <TextBlock Text="AaBb" FontSize="14" HorizontalAlignment="Center"/>
-                            <TextBlock Text="Normal" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                        </StackPanel>
-                    </ToggleButton>
-                    <ToggleButton x:Name="StyleHeading1Button" Style="{StaticResource StyleTile}" ToolTip="Heading 1" Click="OnStyleTile" Tag="1">
-                        <StackPanel>
-                            <TextBlock Text="AaBb" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center"/>
-                            <TextBlock Text="Heading 1" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                        </StackPanel>
-                    </ToggleButton>
-                    <ToggleButton x:Name="StyleHeading2Button" Style="{StaticResource StyleTile}" ToolTip="Heading 2" Click="OnStyleTile" Tag="2">
-                        <StackPanel>
-                            <TextBlock Text="AaBb" FontSize="17" FontWeight="Bold" HorizontalAlignment="Center"/>
-                            <TextBlock Text="Heading 2" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                        </StackPanel>
-                    </ToggleButton>
-                    <ToggleButton x:Name="StyleHeading3Button" Style="{StaticResource StyleTile}" ToolTip="Heading 3" Click="OnStyleTile" Tag="3">
-                        <StackPanel>
-                            <TextBlock Text="AaBb" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center"/>
-                            <TextBlock Text="Heading 3" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                        </StackPanel>
-                    </ToggleButton>
+                <StackPanel Style="{StaticResource GroupBand}">
+                    <StackPanel Style="{StaticResource ToolRow}" VerticalAlignment="Center">
+                        <ToggleButton x:Name="StyleNormalButton" Style="{StaticResource StyleTile}" ToolTip="Normal text" Click="OnStyleTile" Tag="0">
+                            <StackPanel>
+                                <TextBlock Text="AaBb" FontSize="14" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Normal" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </ToggleButton>
+                        <ToggleButton x:Name="StyleHeading1Button" Style="{StaticResource StyleTile}" ToolTip="Heading 1" Click="OnStyleTile" Tag="1">
+                            <StackPanel>
+                                <TextBlock Text="AaBb" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Heading 1" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </ToggleButton>
+                        <ToggleButton x:Name="StyleHeading2Button" Style="{StaticResource StyleTile}" ToolTip="Heading 2" Click="OnStyleTile" Tag="2">
+                            <StackPanel>
+                                <TextBlock Text="AaBb" FontSize="17" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Heading 2" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </ToggleButton>
+                        <ToggleButton x:Name="StyleHeading3Button" Style="{StaticResource StyleTile}" ToolTip="Heading 3" Click="OnStyleTile" Tag="3">
+                            <StackPanel>
+                                <TextBlock Text="AaBb" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Heading 3" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </ToggleButton>
+                    </StackPanel>
                 </StackPanel>
                 <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Styles"/>
             </StackPanel>
@@ -172,28 +208,30 @@
         <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
 
         <StackPanel x:Name="SizeGroup">
-            <StackPanel Style="{StaticResource GroupRow}">
-                <Button x:Name="ResetNoteSizeButton" Style="{StaticResource ActionTile}" Command="{Binding ResetNoteSizeCommand}"
-                        ToolTip="Put this note back to its default width">
-                    <StackPanel>
-                        <TextBlock Text="↔" FontSize="20" HorizontalAlignment="Center"/>
-                        <TextBlock Text="Note" HorizontalAlignment="Center" Margin="0,2,0,0" FontSize="12"/>
-                    </StackPanel>
-                </Button>
-                <Button x:Name="ResetWorkspaceSizesButton" Style="{StaticResource ActionTile}" Command="{Binding ResetWorkspaceSizesCommand}"
-                        ToolTip="Put every note in this workspace back to its default width">
-                    <StackPanel>
-                        <TextBlock Text="↔" FontSize="20" HorizontalAlignment="Center"/>
-                        <TextBlock Text="Workspace" HorizontalAlignment="Center" Margin="0,2,0,0" FontSize="12"/>
-                    </StackPanel>
-                </Button>
-                <Button x:Name="ResetAllSizesButton" Style="{StaticResource ActionTile}" Command="{Binding ResetAllSizesCommand}"
-                        ToolTip="Put every note in every workspace back to its default width">
-                    <StackPanel>
-                        <TextBlock Text="↔" FontSize="20" HorizontalAlignment="Center"/>
-                        <TextBlock Text="All" HorizontalAlignment="Center" Margin="0,2,0,0" FontSize="12"/>
-                    </StackPanel>
-                </Button>
+            <StackPanel Style="{StaticResource GroupBand}">
+                <StackPanel Style="{StaticResource GroupRows}">
+                    <Button x:Name="ResetNoteSizeButton" Style="{StaticResource TinyAction}" Command="{Binding ResetNoteSizeCommand}"
+                            ToolTip="Put this note back to its default width">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="↔" Margin="0,0,6,0"/>
+                            <TextBlock Text="Note"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ResetWorkspaceSizesButton" Style="{StaticResource TinyAction}" Command="{Binding ResetWorkspaceSizesCommand}"
+                            ToolTip="Put every note in this workspace back to its default width">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="↔" Margin="0,0,6,0"/>
+                            <TextBlock Text="Workspace"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ResetAllSizesButton" Style="{StaticResource TinyAction}" Command="{Binding ResetAllSizesCommand}"
+                            ToolTip="Put every note in every workspace back to its default width">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="↔" Margin="0,0,6,0"/>
+                            <TextBlock Text="All"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
             </StackPanel>
             <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Reset size"/>
         </StackPanel>

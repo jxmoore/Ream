@@ -166,20 +166,29 @@
                 With ribbon.autoHide (the default) it is moved over the notes (row 3) and slides in and out, so showing it
                 never re-lays-out the notes; with autoHide off it stays in its own row above them.
             -->
-            <Border x:Name="RibbonPanel" Grid.Row="2" Height="100" Background="{DynamicResource RibbonBrush}"
+            <Border x:Name="RibbonPanel" Grid.Row="2" Height="90" Background="{DynamicResource RibbonBrush}"
                     BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="0,0,0,1"
                     MouseEnter="OnRibbonAreaMouse" MouseLeave="OnRibbonAreaMouse">
                 <Border.RenderTransform>
                     <TranslateTransform x:Name="RibbonSlide"/>
                 </Border.RenderTransform>
-                <ScrollViewer x:Name="RibbonScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
-                              PreviewMouseWheel="OnRibbonWheel" Focusable="False">
-                    <Grid>
-                        <views:FileRibbonView x:Name="FileRibbon" HorizontalAlignment="Left" Visibility="Collapsed"/>
-                        <views:RibbonView x:Name="Ribbon" HorizontalAlignment="Left"/>
-                        <views:ViewRibbonView x:Name="ViewRibbon" HorizontalAlignment="Left" Visibility="Collapsed"/>
-                    </Grid>
-                </ScrollViewer>
+                <Grid>
+                    <!-- No scrollbar: when there is more to the right (or left) a small chevron appears at that edge, and the wheel scrolls too. -->
+                    <ScrollViewer x:Name="RibbonScroll" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
+                                  PreviewMouseWheel="OnRibbonWheel" ScrollChanged="OnRibbonScrollChanged" Focusable="False">
+                        <Grid>
+                            <views:FileRibbonView x:Name="FileRibbon" HorizontalAlignment="Left" Visibility="Collapsed"/>
+                            <views:RibbonView x:Name="Ribbon" HorizontalAlignment="Left"/>
+                            <views:ViewRibbonView x:Name="ViewRibbon" HorizontalAlignment="Left" Visibility="Collapsed"/>
+                        </Grid>
+                    </ScrollViewer>
+                    <Button x:Name="RibbonScrollLeft" Tag="-1" Click="OnRibbonChevron" HorizontalAlignment="Left" VerticalAlignment="Center"
+                            Margin="3,0,0,10" Width="22" Height="44" Padding="0" MinWidth="0" Focusable="False" Visibility="Collapsed"
+                            ToolTip="More to the left" Content="‹" FontSize="20"/>
+                    <Button x:Name="RibbonScrollRight" Tag="1" Click="OnRibbonChevron" HorizontalAlignment="Right" VerticalAlignment="Center"
+                            Margin="0,0,3,10" Width="22" Height="44" Padding="0" MinWidth="0" Focusable="False" Visibility="Collapsed"
+                            ToolTip="More to the right" Content="›" FontSize="20"/>
+                </Grid>
             </Border>
 
             <Grid x:Name="CanvasArea" Grid.Row="3" Background="{DynamicResource CanvasBrush}">

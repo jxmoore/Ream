@@ -518,26 +518,89 @@ public class RibbonAutoHideTests
         Assert.All(all, n => Assert.Equal(WidthPresets.Default, n.WidthFraction));
     });
 
-    // ----- One row per group, and a ribbon that scrolls -----
+    // ----- Stacked groups, and a ribbon that scrolls without a scrollbar -----
+
+    private static double CenterY(WindowFixture fx, string name)
+    {
+        var home = (RibbonView)fx.Window.FindName("Ribbon");
+        var element = (FrameworkElement)home.FindName(name);
+        return element.TranslatePoint(new Point(0, element.ActualHeight / 2), fx.Window).Y;
+    }
+
+    private static void SameRow(WindowFixture fx, params string[] names)
+    {
+        var ys = names.Select(n => CenterY(fx, n)).ToList();
+        Assert.All(ys, y => Assert.InRange(y, ys[0] - 2, ys[0] + 2));
+    }
 
     [Fact]
-    public void EachGroupsControls_SitInOneRow() => Ui.Run(() =>
+    public void TheFontAndParagraphGroups_StackInTwoRows() => Ui.Run(() =>
     {
         using var fx = Fixture(autoHide: false);
-        var home = (RibbonView)fx.Window.FindName("Ribbon");
-        double CenterY(string name)
-        {
-            var element = (FrameworkElement)home.FindName(name);
-            return element.TranslatePoint(new Point(0, element.ActualHeight / 2), fx.Window).Y;
-        }
 
-        var font = new[] { "FontBox", "SizeBox", "BoldButton", "ItalicButton", "UnderlineButton", "StrikeButton", "TextColorButton", "HighlightButton" }.Select(CenterY).ToList();
-        var paragraph = new[] { "BulletsButton", "NumbersButton", "AlignLeftButton", "AlignCenterButton", "AlignRightButton", "AlignJustifyButton" }.Select(CenterY).ToList();
-        var clipboard = new[] { "PasteButton", "CutButton", "CopyButton" }.Select(CenterY).ToList();
+        SameRow(fx, "FontBox", "SizeBox");
+        SameRow(fx, "BoldButton", "ItalicButton", "UnderlineButton", "StrikeButton", "TextColorButton", "HighlightButton");
+        Assert.True(CenterY(fx, "BoldButton") - CenterY(fx, "FontBox") >= 24, "emphasis sits under the typeface row");
 
-        Assert.All(font, y => Assert.InRange(y, font[0] - 2, font[0] + 2));
-        Assert.All(paragraph, y => Assert.InRange(y, paragraph[0] - 2, paragraph[0] + 2));
-        Assert.All(clipboard, y => Assert.InRange(y, clipboard[0] - 2, clipboard[0] + 2));
+        SameRow(fx, "BulletsButton", "NumbersButton");
+        SameRow(fx, "AlignLeftButton", "AlignCenterButton", "AlignRightButton", "AlignJustifyButton");
+        Assert.True(CenterY(fx, "AlignLeftButton") - CenterY(fx, "BulletsButton") >= 24, "alignment sits under the lists row");
+    });
+
+    [Fact]
+    public void CutAndCopy_StackBesidePaste_AndTheResetsStackThreeHigh() => Ui.Run(() =>
+    {
+        using var fx = Fixture(autoHide: false);
+
+        Assert.True(CenterY(fx, "CopyButton") - CenterY(fx, "CutButton") >= 20);
+        Assert.InRange(CenterY(fx, "PasteButton"), CenterY(fx, "CutButton"), CenterY(fx, "CopyButton"));
+
+        double note = CenterY(fx, "ResetNoteSizeButton"), workspace = CenterY(fx, "ResetWorkspaceSizesButton"), all = CenterY(fx, "ResetAllSizesButton");
+        Assert.True(note < workspace && workspace < all);
+    });
+
+    [Fact]
+    public void TheWholeHomeRibbon_FitsInTheDefaultWindow_WithNoChevrons() => Ui.Run(() =>
+    {
+        using var fx = Fixture(autoHide: false);
+        var scroll = (ScrollViewer)fx.Window.FindName("RibbonScroll");
+
+        Assert.Equal(1200, fx.Window.Width);
+        Assert.Equal(0, scroll.ScrollableWidth);
+        Assert.Equal(Visibility.Collapsed, ((UIElement)fx.Window.FindName("RibbonScrollRight")).Visibility);
+    });
+
+    [Fact]
+    public void ThereIsNoScrollbar_ButAChevronAppearsWhereThereIsMoreToSee() => Ui.Run(() =>
+    {
+        using var fx = Fixture(autoHide: false);
+        var scroll = (ScrollViewer)fx.Window.FindName("RibbonScroll");
+        var left = (Button)fx.Window.FindName("RibbonScrollLeft");
+        var right = (Button)fx.Window.FindName("RibbonScrollRight");
+        Assert.Equal(ScrollBarVisibility.Hidden, scroll.HorizontalScrollBarVisibility);
+
+        fx.Window.Width = 1800;
+        Ui.Settle();
+        Assert.Equal((Visibility.Collapsed, Visibility.Collapsed), (left.Visibility, right.Visibility));
+
+        fx.Window.Width = 520;
+        Ui.Settle();
+        Assert.Equal((Visibility.Collapsed, Visibility.Visible), (left.Visibility, right.Visibility));
+        Assert.All(Ui.Descendants<ScrollBar>(scroll), bar => Assert.False(bar.IsVisible));
+
+        Click(right);
+        Ui.Settle();
+        Assert.True(scroll.HorizontalOffset > 0);
+        Assert.Equal(Visibility.Visible, left.Visibility);
+
+        for (int i = 0; i < 20; i++) Click(right);
+        Ui.Settle();
+        Assert.Equal(Visibility.Collapsed, right.Visibility);
+        Assert.Equal(Visibility.Visible, left.Visibility);
+
+        Click(left);
+        Ui.Settle();
+        Assert.Equal(Visibility.Visible, right.Visibility);
     });
 
     [Fact]

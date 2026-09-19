@@ -338,6 +338,20 @@ public partial class MainWindow : Window
         RibbonScroll.ScrollToHorizontalOffset(0);
     }
 
+    private void OnRibbonScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        RibbonScrollLeft.Visibility = RibbonScroll.HorizontalOffset > 0.5 ? Visibility.Visible : Visibility.Collapsed;
+        RibbonScrollRight.Visibility = RibbonScroll.HorizontalOffset < RibbonScroll.ScrollableWidth - 0.5
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void OnRibbonChevron(object sender, RoutedEventArgs e)
+    {
+        int direction = int.Parse((string)((FrameworkElement)sender).Tag);
+        RibbonScroll.ScrollToHorizontalOffset(RibbonScroll.HorizontalOffset + direction * RibbonScroll.ViewportWidth * 0.75);
+    }
+
     // The plain wheel over the ribbon scrolls it sideways (there is nothing to scroll vertically).
     private void OnRibbonWheel(object sender, MouseWheelEventArgs e)
     {
