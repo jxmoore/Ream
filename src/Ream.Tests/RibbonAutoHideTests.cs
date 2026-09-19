@@ -47,27 +47,46 @@ public class RibbonVisibilityTests
     }
 
     [Fact]
-    public void ClickingATabThatIsNotShowing_PinsItOpen()
+    public void ClickingATabThatIsNotShowing_HoldsItOpen_WithoutPinningIt()
     {
         var state = new RibbonVisibility();
 
         state.TabClicked(wasSelected: false);
 
-        Assert.True(state.Pinned);
+        Assert.True(state.Engaged);
+        Assert.False(state.Pinned);
         Assert.True(state.WantsOpen);
     }
 
     [Fact]
-    public void ClickingTheShowingTabAgain_TogglesThePin()
+    public void ClickingTheShowingTabAgain_TogglesIt()
     {
         var state = new RibbonVisibility();
         state.TabClicked(wasSelected: false);
 
         state.TabClicked(wasSelected: true);
-        Assert.False(state.Pinned);
+        Assert.False(state.Engaged);
 
         state.TabClicked(wasSelected: true);
+        Assert.True(state.Engaged);
+    }
+
+    [Fact]
+    public void DismissingForgetsTheTabClickAndThePointer_ButNotThePin()
+    {
+        var state = new RibbonVisibility { PointerInside = true };
+        state.TabClicked(wasSelected: false);
+        state.TogglePin();
+
+        state.Dismiss();
+
+        Assert.False(state.Engaged);
+        Assert.False(state.PointerInside);
         Assert.True(state.Pinned);
+        Assert.True(state.WantsOpen);
+
+        state.TogglePin();
+        Assert.False(state.WantsOpen);
     }
 
     [Fact]
@@ -77,19 +96,23 @@ public class RibbonVisibilityTests
 
         Assert.True(state.WantsOpen);
         state.TabClicked(wasSelected: false);
+        state.TogglePin();
+        Assert.False(state.Engaged);
         Assert.False(state.Pinned);
     }
 
     [Fact]
-    public void TurningAutoHideOff_DropsThePin_SoTurningItBackOnStartsTuckedAway()
+    public void TurningAutoHideOff_DropsThePinAndTheTabClick_SoTurningItBackOnStartsTuckedAway()
     {
         var state = new RibbonVisibility();
         state.TabClicked(wasSelected: false);
+        state.TogglePin();
 
         state.AutoHide = false;
         state.AutoHide = true;
 
         Assert.False(state.Pinned);
+        Assert.False(state.Engaged);
         Assert.False(state.WantsOpen);
     }
 }
@@ -264,38 +287,124 @@ public class RibbonAutoHideTests
         Assert.True(fx.Window.IsRibbonOpen);
     });
 
-    // ----- Pinning -----
+    // ----- Getting it out of the way -----
+
+    private static void MouseDown(UIElement target) =>
+        target.RaiseEvent(new MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, MouseButton.Left)
+        {
+            RoutedEvent = UIElement.PreviewMouseDownEvent,
+        });
+
+    private static void EscapeKey(WindowFixture fx) =>
+        fx.Window.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(fx.Window)!, 0, Key.Escape)
+        {
+            RoutedEvent = Keyboard.PreviewKeyDownEvent,
+        });
 
     [Fact]
-    public void ClickingATab_PinsThePanelOpen_UntilThatTabIsClickedAgain() => Ui.Run(() =>
+    public void ClickingATab_HoldsThePanelOpen_UntilYouClickElsewhere() => Ui.Run(() =>
     {
         using var fx = Fixture(autoHide: true);
         var view = (RadioButton)fx.Window.FindName("ViewTab");
 
         Click(view);
         Assert.True(fx.Window.IsRibbonOpen);
-        Assert.True(fx.Window.RibbonState.Pinned);
+        Assert.True(fx.Window.RibbonState.Engaged);
+        Assert.False(fx.Window.RibbonState.Pinned);
         Assert.Equal(RibbonTab.View, fx.Window.SelectedTab);
         Assert.Equal(Visibility.Visible, ((UIElement)fx.Window.FindName("ViewRibbon")).Visibility);
 
         Mouse(TabRow(fx), enter: false); // the pointer is nowhere near, and it stays
         Assert.False(fx.Window.RibbonHidePending);
 
-        Click(view);
-        Assert.False(fx.Window.RibbonState.Pinned);
+        MouseDown(fx.Canvas);
+
+        Assert.False(fx.Window.IsRibbonOpen);
+        Assert.Equal(Visibility.Collapsed, Panel(fx).Visibility);
+    });
+
+    [Fact]
+    public void ClickingInsideTheRibbon_DoesNotPutItAway() => Ui.Run(() =>
+    {
+        using var fx = Fixture(autoHide: true);
+        Mouse(TabRow(fx), enter: true);
+
+        MouseDown((UIElement)fx.Window.FindName("HomeTab"));
+        MouseDown(((RibbonView)fx.Window.FindName("Ribbon")).FindName("BoldButton") as UIElement ?? Panel(fx));
+
+        Assert.True(fx.Window.IsRibbonOpen);
+    });
+
+    [Fact]
+    public void Escape_PutsAnOpenRibbonAway_EvenWithThePointerOverIt() => Ui.Run(() =>
+    {
+        using var fx = Fixture(autoHide: true);
+        Mouse(TabRow(fx), enter: true);
+        Click((RadioButton)fx.Window.FindName("FileTab"));
+        Assert.True(fx.Window.IsRibbonOpen);
+
+        EscapeKey(fx);
+
+        Assert.False(fx.Window.IsRibbonOpen);
+        Assert.False(fx.Window.RibbonState.Engaged);
+        Assert.False(fx.Window.RibbonState.PointerInside);
+    });
+
+    [Fact]
+    public void ClickingTheShowingTabAgain_LetsTheRibbonGoWhenThePointerLeaves() => Ui.Run(() =>
+    {
+        using var fx = Fixture(autoHide: true);
+        var home = (RadioButton)fx.Window.FindName("HomeTab");
+        Mouse(TabRow(fx), enter: true);
+
+        Click(home); // engage
+        Click(home); // and let go
         Mouse(TabRow(fx), enter: false);
+        fx.Window.CompleteRibbonHide();
+
+        Assert.False(fx.Window.IsRibbonOpen);
+    });
+
+    [Fact]
+    public void ThePinButton_DocksTheRibbonAboveTheNotes_UntilItIsClickedAgain() => Ui.Run(() =>
+    {
+        using var fx = Fixture(autoHide: true);
+        var pin = (ToggleButton)fx.Window.FindName("PinButton");
+        Assert.Equal(Visibility.Visible, pin.Visibility);
+
+        Click(pin);
+        Assert.True(fx.Window.RibbonState.Pinned);
+        Assert.True(pin.IsChecked);
+        Assert.True(fx.Window.IsRibbonOpen);
+        Assert.Equal(2, Grid.GetRow((FrameworkElement)Panel(fx)));
+
+        MouseDown(fx.Canvas); // pinned: a click elsewhere leaves it alone
+        Mouse(TabRow(fx), enter: false);
+        Assert.True(fx.Window.IsRibbonOpen);
+
+        Click(pin);
+        Assert.False(fx.Window.RibbonState.Pinned);
+        Assert.Equal(3, Grid.GetRow((FrameworkElement)Panel(fx)));
         fx.Window.CompleteRibbonHide();
         Assert.False(fx.Window.IsRibbonOpen);
     });
 
     [Fact]
-    public void ChangingTabsBySelectTab_DoesNotPin() => Ui.Run(() =>
+    public void ThePinButton_IsOnlyThereWhenAutoHideIs() => Ui.Run(() =>
+    {
+        using var docked = Fixture(autoHide: false);
+
+        Assert.Equal(Visibility.Collapsed, ((UIElement)docked.Window.FindName("PinButton")).Visibility);
+    });
+
+    [Fact]
+    public void ChangingTabsBySelectTab_DoesNotHoldTheRibbonOpen() => Ui.Run(() =>
     {
         using var fx = Fixture(autoHide: true);
 
         fx.Window.SelectTab(RibbonTab.View);
 
-        Assert.False(fx.Window.RibbonState.Pinned);
+        Assert.False(fx.Window.RibbonState.Engaged);
         Assert.False(fx.Window.IsRibbonOpen);
     });
 

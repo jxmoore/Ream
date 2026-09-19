@@ -183,6 +183,56 @@ public partial class MainWindow : Window
     /// <summary>The pointer left and the panel is about to tuck away.</summary>
     internal bool RibbonHidePending => _ribbonHideTimer.IsEnabled;
 
+    private void OnPinClick(object sender, RoutedEventArgs e)
+    {
+        _ribbonState.TogglePin();
+        PinButton.IsChecked = _ribbonState.Pinned;
+        ApplyRibbonLayout();
+        UpdateRibbon();
+    }
+
+    /// <summary>A click outside the ribbon puts it away, unless it is pinned or one of its menus is open.</summary>
+    protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
+    {
+        if (_ribbonShown && _ribbonState.AutoHide && !_ribbonState.Pinned && !_ribbonState.MenuOpen
+            && !IsInsideRibbon(e.OriginalSource as DependencyObject))
+        {
+            DismissRibbon();
+        }
+
+        base.OnPreviewMouseDown(e);
+    }
+
+    /// <summary>Escape puts an open ribbon away (and still does its usual job elsewhere).</summary>
+    protected override void OnPreviewKeyDown(KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && _ribbonShown && _ribbonState.AutoHide && !_ribbonState.Pinned && !_ribbonState.MenuOpen)
+            DismissRibbon();
+
+        base.OnPreviewKeyDown(e);
+    }
+
+    private bool IsInsideRibbon(DependencyObject? source)
+    {
+        for (var node = source; node is not null;)
+        {
+            if (ReferenceEquals(node, TabRow) || ReferenceEquals(node, RibbonPanel)) return true;
+
+            // A control that has never been laid out has no visual parent yet, but it does have a logical one.
+            node = (node is Visual ? VisualTreeHelper.GetParent(node) : null) ?? LogicalTreeHelper.GetParent(node);
+        }
+        return false;
+    }
+
+    /// <summary>Forgets the tab click and the pointer, and tucks the panel away at once (no delay).</summary>
+    internal void DismissRibbon()
+    {
+        _ribbonState.Dismiss();
+        _overTabRow = false;
+        _overRibbonPanel = false;
+        CompleteRibbonHide();
+    }
+
     private void OnRibbonAreaMouse(object sender, MouseEventArgs e)
     {
         bool inside = e.RoutedEvent == Mouse.MouseEnterEvent;
@@ -197,13 +247,30 @@ public partial class MainWindow : Window
     internal void ApplyRibbonMode(bool autoHide)
     {
         _ribbonState.AutoHide = autoHide;
+        PinButton.IsChecked = _ribbonState.Pinned;
+        PinButton.Visibility = autoHide ? Visibility.Visible : Visibility.Collapsed;
 
-        Grid.SetRow(RibbonPanel, autoHide ? 3 : 2);
-        RibbonPanel.VerticalAlignment = autoHide ? VerticalAlignment.Top : VerticalAlignment.Stretch;
-        Panel.SetZIndex(RibbonPanel, autoHide ? 10 : 0);
-
+        ApplyRibbonLayout();
         _ribbonHideTimer.Stop();
         ShowRibbon(_ribbonState.WantsOpen, animate: false);
+    }
+
+    /// <summary>Docked (own row, notes below it) when auto-hide is off or the ribbon is pinned; otherwise floating over the notes.</summary>
+    private void ApplyRibbonLayout()
+    {
+        bool floating = _ribbonState.AutoHide && !_ribbonState.Pinned;
+
+        Grid.SetRow(RibbonPanel, floating ? 3 : 2);
+        RibbonPanel.VerticalAlignment = floating ? VerticalAlignment.Top : VerticalAlignment.Stretch;
+        Panel.SetZIndex(RibbonPanel, floating ? 10 : 0);
+
+        if (!floating)
+        {
+            _ribbonShown = true;
+            RibbonPanel.Visibility = Visibility.Visible;
+            RibbonSlide.BeginAnimation(TranslateTransform.YProperty, null);
+            RibbonSlide.Y = 0;
+        }
     }
 
     /// <summary>Brings the panel up at once if it should be, or starts the countdown to tucking it away.</summary>
