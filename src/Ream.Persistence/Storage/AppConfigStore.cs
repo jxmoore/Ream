@@ -13,6 +13,7 @@ public sealed class AppConfigStore
     private const int ReadAttempts = 3;
 
     private readonly string _path;
+    private string? _lastWrittenText;
 
     public AppConfigStore(string path)
     {
@@ -114,7 +115,9 @@ public sealed class AppConfigStore
 
         try
         {
-            AtomicFile.WriteAllText(_path, root.ToJsonString(JsonDefaults.Options));
+            string json = root.ToJsonString(JsonDefaults.Options);
+            AtomicFile.WriteAllText(_path, json);
+            _lastWrittenText = json;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -124,6 +127,20 @@ public sealed class AppConfigStore
 
         error = null;
         return true;
+    }
+
+    /// <summary>
+    /// True when config.json still holds exactly what <see cref="Update"/> last wrote - that is, a file-change
+    /// notification which is only our own save coming back. Anything else (the user edited it) clears the memory.
+    /// </summary>
+    public bool IsOurOwnLastWrite()
+    {
+        if (_lastWrittenText is null) return false;
+
+        if (ReadText(out _) == _lastWrittenText) return true;
+
+        _lastWrittenText = null;
+        return false;
     }
 
     private string? ReadText(out string? error)

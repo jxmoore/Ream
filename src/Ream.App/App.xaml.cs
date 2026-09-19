@@ -15,6 +15,7 @@ public partial class App : Application
     private IHost? _host;
     private PersistenceCoordinator? _persistence;
     private ThemeService? _theme;
+    private SettingsViewModel? _settings;
     private ConfigReloader? _reloader;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -52,6 +53,8 @@ public partial class App : Application
                         sp.GetRequiredService<IDocumentRepository>(),
                         sp.GetRequiredService<AppViewModel>(),
                         Dispatcher));
+                    services.AddSingleton(sp => new SettingsViewModel(
+                        sp.GetRequiredService<AppViewModel>(), _theme, store, Dispatcher));
                     services.AddSingleton<MainWindow>();
                 })
                 .Build();
@@ -60,6 +63,7 @@ public partial class App : Application
 
             var window = _host.Services.GetRequiredService<MainWindow>();
             _persistence = _host.Services.GetRequiredService<PersistenceCoordinator>();
+            _settings = _host.Services.GetRequiredService<SettingsViewModel>();
 
             _theme.Changed += () => window.ApplyTitleBarTheme(_theme.IsLight);
             window.ApplyTitleBarTheme(_theme.IsLight);
@@ -81,6 +85,8 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _reloader?.Dispose();
+        _settings?.Flush();
+        _settings?.Dispose();
         _persistence?.Flush();
 
         if (_host is not null)

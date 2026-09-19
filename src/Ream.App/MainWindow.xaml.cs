@@ -21,13 +21,18 @@ public partial class MainWindow : Window
     private readonly WheelAccumulator _tiltWheel = new();
     private readonly List<InputBinding> _configuredBindings = [];
     private readonly FullscreenController _fullscreen;
+    private DateTime _settingsClosedAt;
     private bool _titleBarIsLight;
 
-    public MainWindow(AppViewModel viewModel)
+    /// <param name="settings">What the cogwheel panel edits; when omitted the panel works on this run only (tests).</param>
+    public MainWindow(AppViewModel viewModel, SettingsViewModel? settings = null)
     {
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = viewModel;
+
+        Settings = settings ?? new SettingsViewModel(viewModel, new ThemeService(Application.Current));
+        SettingsPanel.DataContext = Settings;
 
         _fullscreen = new FullscreenController(new WindowFrame(this));
         viewModel.AppFullscreenToggleRequested += _fullscreen.Toggle;
@@ -40,6 +45,21 @@ public partial class MainWindow : Window
             DispatcherPriority.Loaded,
             () => viewModel.CurrentWorkspace.FocusedNote?.RequestEditorFocus());
         Loaded += (_, _) => viewModel.RequestEditorFocus();
+    }
+
+    public SettingsViewModel Settings { get; }
+
+    private void OnSettingsClick(object sender, RoutedEventArgs e)
+    {
+        // Clicking the button while the panel is open first closes it (it lost focus); don't reopen it straight away.
+        if (DateTime.UtcNow - _settingsClosedAt < TimeSpan.FromMilliseconds(250)) return;
+        SettingsPopup.IsOpen = true;
+    }
+
+    private void OnSettingsClosed(object? sender, EventArgs e)
+    {
+        _settingsClosedAt = DateTime.UtcNow;
+        _viewModel.RequestEditorFocus();
     }
 
     /// <summary>Makes the title bar match the palette (Windows 10 20H1 and later; ignored where unsupported).</summary>

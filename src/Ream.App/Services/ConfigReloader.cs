@@ -29,6 +29,9 @@ internal sealed class ConfigReloader : IDisposable
 
     public void Reload()
     {
+        // A settings change made in the app comes back through the file watcher; the app already has it.
+        if (_store.IsOurOwnLastWrite()) return;
+
         if (!_store.TryLoad(out var config, out var error))
         {
             _app.ConfigError = $"config.json: {error}";

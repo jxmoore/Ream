@@ -26,6 +26,14 @@
                     </Style>
                 </TextBlock.Style>
             </TextBlock>
+            <Button x:Name="SettingsButton" DockPanel.Dock="Right" Margin="0,0,10,0" Width="30" Height="26" Padding="0"
+                    Focusable="False" ToolTip="Settings" Click="OnSettingsClick"
+                    FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" Content="&#xE713;"/>
+            <Popup x:Name="SettingsPopup" PlacementTarget="{Binding ElementName=SettingsButton}" Placement="Bottom"
+                   HorizontalOffset="-272" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade"
+                   Closed="OnSettingsClosed">
+                <views:SettingsFlyout x:Name="SettingsPanel" Margin="0,4,12,12"/>
+            </Popup>
             <views:WorkspaceTabs DockPanel.Dock="Right" Margin="12,0,10,0"/>
             <views:EditorToolbar/>
         </DockPanel>
