@@ -266,17 +266,6 @@ public class WorkspaceViewModelTests
         Assert.Equal(1d / 3d, note.WidthFraction, 9);
     }
 
-    [Fact]
-    public void NoteWidthLabel_FollowsTheWidth()
-    {
-        var note = Note();
-
-        note.WidthFraction = 0.5;
-        Assert.Equal("1/2", note.WidthLabel);
-
-        note.WidthFraction = 0.37;
-        Assert.Equal("37%", note.WidthLabel);
-    }
 
     [Fact]
     public void DraggedWidth_IsSavedInTheSnapshot()

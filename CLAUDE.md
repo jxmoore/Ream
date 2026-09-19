@@ -88,7 +88,11 @@ instead of animating. `layout.json` stores `widthFraction` (older files' `"width
 load) and an optional `customTitle`. Workspaces: `WorkspaceTabs` chips (click = switch,
 double-click or Shift+F2 = rename in place); the first and last chip are unnamed empty "+" edge
 workspaces. Named workspaces are never pruned; unnamed empty ones between the edges are.
-Draft notes (Alt+Left/Right past the end of a row, Alt+N): `NoteViewModel.IsDraft`, never stacked,
+Switching workspace (keys, Alt+wheel, menu) lands on the first note when `layout.focusFirstNoteOnSwitch`
+(default true); moving a note keeps it focused. `NoteRowPanel.IsCurrentWorkspace` makes a row snap rather
+than scroll while its workspace is off-screen. Note width is not shown on the note: `NoteViewModel.ShowSizeToast`
+flashes "NN%" in the header (accent color) after Alt+=/-/R, resets (Alt+0, Alt+Shift+0, Ctrl+Alt+0) and edge drags.
+Default `layout.gapPx` is 28. Draft notes (Alt+Left/Right past the end of a row, Alt+N): `NoteViewModel.IsDraft`, never stacked,
 not saved while blank, dropped when focus moves on (`WorkspaceViewModel.DiscardBlankDrafts`);
 the scroll wheels never create them.
 

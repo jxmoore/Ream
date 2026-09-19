@@ -188,17 +188,20 @@ public class MainWindowIntegrationTests
     });
 
     [Fact]
-    public void ADraggedWidth_ShowsInTheLabel_AndIsSaved() => Ui.Run(() =>
+    public void ADraggedWidth_FlashesThePercentage_AndIsSaved() => Ui.Run(() =>
     {
         using var fx = new WindowFixture(("W", 2));
         var note = fx.App.CurrentWorkspace.Notes[0];
         var view = fx.ColumnOf(note);
+        var toasts = new List<string>();
+        note.SizeToastRequested += toasts.Add;
 
         DragStart(view);
         DragBy(view, 77);
         DragEnd(view);
 
-        Assert.EndsWith("%", note.WidthLabel);
+        Assert.NotEmpty(toasts);
+        Assert.Equal(WidthPresets.Percent(note.WidthFraction), toasts[^1]);
         Assert.Equal(note.WidthFraction, SnapshotMapper.ToSnapshot(fx.App).Workspaces[0].Notes[0].WidthFraction, 9);
     });
 

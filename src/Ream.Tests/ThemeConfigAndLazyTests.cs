@@ -514,7 +514,7 @@ public class ConfigReloadTests
             Ui.Settle();
 
             double after = view.TranslatePoint(new Point(0, 0), row).X;
-            Assert.Equal(16, before, 1);
+            Assert.Equal(new LayoutConfig().GapPx, before, 1);
             Assert.Equal((row.ActualWidth - view.ActualWidth) / 2, after, 1);
         }
         finally { reloader.Dispose(); Restore(); }

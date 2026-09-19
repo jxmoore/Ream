@@ -15,7 +15,7 @@ public class AppConfigStoreTests
 
         Assert.True(File.Exists(path));
         string json = File.ReadAllText(path);
-        Assert.Contains("\"gapPx\": 16", json);
+        Assert.Contains("\"gapPx\": 28", json);
         Assert.Contains("\"focusNextNote\": \"Alt+Right\"", json);
         Assert.Contains("ReemDocuments", json);
         Assert.Equal(@"C:\Docs\ReemDocuments", config.DocumentsRoot);
@@ -56,7 +56,7 @@ public class AppConfigStoreTests
 
         var config = new AppConfigStore(path).Load("docs");
 
-        Assert.Equal(16, config.Layout.GapPx);
+        Assert.Equal(28, config.Layout.GapPx);
         Assert.Single(Directory.GetFiles(dir.Path, "config.json.corrupt-*"));
         Assert.Contains("gapPx", File.ReadAllText(path));
     }

@@ -45,6 +45,9 @@ public sealed partial class AppViewModel : ObservableObject
             ["moveNoteToPrevWorkspace"] = MoveNoteToPrevWorkspaceCommand,
             ["moveNoteToNextWorkspace"] = MoveNoteToNextWorkspaceCommand,
             ["cycleWidthPreset"] = CycleWidthPresetCommand,
+            ["resetNoteSize"] = ResetNoteSizeCommand,
+            ["resetWorkspaceSizes"] = ResetWorkspaceSizesCommand,
+            ["resetAllSizes"] = ResetAllSizesCommand,
             ["sizeUp"] = SizeUpCommand,
             ["sizeDown"] = SizeDownCommand,
             ["toggleFullscreen"] = ToggleFullscreenCommand,
@@ -119,6 +122,9 @@ public sealed partial class AppViewModel : ObservableObject
     {
         int target = Math.Clamp(CurrentIndex + delta, 0, Workspaces.Count - 1);
         if (target == CurrentIndex) return;
+
+        // Set before the switch so the row behind the sliding workspace is already in place when it arrives.
+        if (Config.Layout.FocusFirstNoteOnSwitch) Workspaces[target].SetFocus(0);
 
         CurrentIndex = target;
         RequestEditorFocus();
@@ -283,8 +289,35 @@ public sealed partial class AppViewModel : ObservableObject
     [RelayCommand]
     private void CycleWidthPreset()
     {
-        if (CurrentWorkspace.FocusedNote is { } note)
-            note.WidthFraction = WidthPresets.Next(note.WidthFraction);
+        if (CurrentWorkspace.FocusedNote is not { } note) return;
+
+        note.WidthFraction = WidthPresets.Next(note.WidthFraction);
+        note.ShowSizeToast();
+    }
+
+    [RelayCommand]
+    private void ResetNoteSize()
+    {
+        if (CurrentWorkspace.FocusedNote is not { } note) return;
+
+        note.WidthFraction = WidthPresets.Default;
+        note.ShowSizeToast();
+    }
+
+    [RelayCommand]
+    private void ResetWorkspaceSizes()
+    {
+        foreach (var note in CurrentWorkspace.Notes) note.WidthFraction = WidthPresets.Default;
+        CurrentWorkspace.FocusedNote?.ShowSizeToast();
+    }
+
+    [RelayCommand]
+    private void ResetAllSizes()
+    {
+        foreach (var workspace in Workspaces)
+            foreach (var note in workspace.Notes)
+                note.WidthFraction = WidthPresets.Default;
+        CurrentWorkspace.FocusedNote?.ShowSizeToast();
     }
 
     [RelayCommand] private void SizeUp() => Nudge(1);
@@ -292,8 +325,10 @@ public sealed partial class AppViewModel : ObservableObject
 
     private void Nudge(int direction)
     {
-        if (CurrentWorkspace.FocusedNote is { } note)
-            note.WidthFraction = WidthPresets.Nudge(note.WidthFraction, direction);
+        if (CurrentWorkspace.FocusedNote is not { } note) return;
+
+        note.WidthFraction = WidthPresets.Nudge(note.WidthFraction, direction);
+        note.ShowSizeToast();
     }
 
     /// <summary>Raised when the whole window should go fullscreen or come back (the window owns that, not us).</summary>
