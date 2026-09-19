@@ -135,6 +135,56 @@ public class SettingsViewModelTests
     });
 
     [Fact]
+    public void TheNoteSlider_MovesTheNoteOpacity_LabelsIt_AndLeavesTheCanvasAlone() => Ui.Run(() =>
+    {
+        using var rig = new Rig();
+
+        rig.Settings.NoteOpacityPercent = 35;
+
+        Assert.Equal(35, rig.App.Config.NoteOpacity);
+        Assert.Equal("35%", rig.Settings.NoteOpacityLabel);
+        Assert.Equal(100, rig.App.Config.CanvasOpacity);
+        Assert.Equal(89, Themes.Brush(ThemeService.NoteBrushKey).A);
+    });
+
+    [Theory]
+    [InlineData(150, 100)]
+    [InlineData(-20, 0)]
+    public void NoteOpacity_IsKeptBetweenZeroAndAHundred(int typed, int expected) => Ui.Run(() =>
+    {
+        using var rig = new Rig();
+
+        rig.Settings.NoteOpacityPercent = typed;
+
+        Assert.Equal(expected, rig.Settings.NoteOpacityPercent);
+        Assert.Equal(expected, rig.App.Config.NoteOpacity);
+    });
+
+    [Fact]
+    public void NoteOpacity_IsSavedToTheConfigFile_WithoutDisturbingTheRest() => Ui.Run(() =>
+    {
+        using var rig = new Rig();
+
+        rig.Settings.NoteOpacityPercent = 45;
+        rig.Settings.Flush();
+
+        var saved = rig.Saved;
+        Assert.Equal(45, (int?)saved["noteOpacity"]);
+        Assert.Equal("Ctrl+T", (string?)saved["keybindings"]!["newNote"]);
+        Assert.Null(saved["canvasOpacity"]);
+    });
+
+    [Fact]
+    public void NoteOpacityEditedInTheFile_IsFollowedByTheSlider() => Ui.Run(() =>
+    {
+        using var rig = new Rig();
+
+        rig.App.Config = rig.App.Config.With(noteOpacity: 20);
+
+        Assert.Equal(20, rig.Settings.NoteOpacityPercent);
+    });
+
+    [Fact]
     public void OtherConfigSettings_AreCarriedAlong() => Ui.Run(() =>
     {
         var config = new AppConfig { Layout = new LayoutConfig { GapPx = 30 }, CanvasBlur = false };
@@ -315,29 +365,31 @@ public class SettingsViewModelTests
     });
 }
 
-public class SettingsFlyoutTests
+public class ViewRibbonTests
 {
     private static SettingsViewModel Make(AppViewModel app, ThemeService theme, bool supported = true) =>
         new(app, theme, store: null, dispatcher: null, blurSupported: () => supported);
 
-    private static IEnumerable<Button> ThemeRows(SettingsFlyout flyout) =>
-        Ui.Descendants<Button>(flyout).Where(b => b.Name == "Row");
+    private static IEnumerable<Button> ThemeRows(ViewRibbonView view) =>
+        Ui.Descendants<Button>(view).Where(b => b.Name == "Row");
 
     private static void Click(Button button) =>
         ((IInvokeProvider)new ButtonAutomationPeer(button).GetPattern(PatternInterface.Invoke)!).Invoke();
 
+    private static Slider SliderNamed(ViewRibbonView view, string name) => (Slider)view.FindName(name);
+
     [Fact]
-    public void ItShowsOneRowPerTheme_AndOnePicksIt() => Ui.Run(() =>
+    public void ItShowsOneTilePerTheme_AndOnePicksIt() => Ui.Run(() =>
     {
         var app = new AppViewModel(new AppConfig(), []);
         var theme = new ThemeService(Application.Current, () => true);
         var settings = Make(app, theme);
         try
         {
-            var flyout = new SettingsFlyout { DataContext = settings };
-            using var window = new WindowHolder(flyout);
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
 
-            var rows = ThemeRows(flyout).ToList();
+            var rows = ThemeRows(view).ToList();
             Assert.Equal(ThemeCatalog.All.Count, rows.Count);
             Assert.Equal(ThemeCatalog.All.Select(t => t.Name), rows.Select(r => Ui.Descendants<TextBlock>(r).Last().Text));
 
@@ -345,7 +397,7 @@ public class SettingsFlyoutTests
             Ui.Settle();
 
             Assert.Equal("dracula", app.Config.Theme);
-            var checks = Ui.Descendants<TextBlock>(flyout).Where(t => t.Name == "Check").Select(t => t.Visibility).ToList();
+            var checks = Ui.Descendants<TextBlock>(view).Where(t => t.Name == "Check").Select(t => t.Visibility).ToList();
             Assert.Equal(1, checks.Count(v => v == Visibility.Visible));
             Assert.Equal(Visibility.Visible, checks[2]);
         }
@@ -356,28 +408,34 @@ public class SettingsFlyoutTests
     });
 
     [Fact]
-    public void TheSlider_DrivesTheOpacity_AndItsLabel() => Ui.Run(() =>
+    public void TheSliders_DriveTheTwoOpacities_AndTheirLabels() => Ui.Run(() =>
     {
         var app = new AppViewModel(new AppConfig(), []);
         var theme = new ThemeService(Application.Current, () => true);
         var settings = Make(app, theme);
         try
         {
-            var flyout = new SettingsFlyout { DataContext = settings };
-            using var window = new WindowHolder(flyout);
-            var slider = Ui.Descendants<Slider>(flyout).Single();
-            Assert.Equal(100, slider.Value);
-            Assert.True(slider.IsEnabled);
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            var canvas = SliderNamed(view, "OpacitySlider");
+            var notes = SliderNamed(view, "NoteOpacitySlider");
+            Assert.Equal(100, canvas.Value);
+            Assert.Equal(100, notes.Value);
+            Assert.True(canvas.IsEnabled && notes.IsEnabled);
 
-            slider.Value = 30;
+            canvas.Value = 30;
+            notes.Value = 60;
             Ui.Settle();
 
             Assert.Equal(30, app.Config.CanvasOpacity);
-            Assert.Contains(Ui.Descendants<TextBlock>(flyout), t => t.Text == "30%");
+            Assert.Equal(60, app.Config.NoteOpacity);
+            Assert.Equal("30%", ((TextBlock)view.FindName("CanvasOpacityLabel")).Text);
+            Assert.Equal("60%", ((TextBlock)view.FindName("NoteOpacityLabel")).Text);
 
-            app.Config = app.Config.With(canvasOpacity: 75);
+            app.Config = app.Config.With(canvasOpacity: 75, noteOpacity: 10);
             Ui.Settle();
-            Assert.Equal(75, slider.Value);
+            Assert.Equal(75, canvas.Value);
+            Assert.Equal(10, notes.Value);
         }
         finally
         {
@@ -386,38 +444,24 @@ public class SettingsFlyoutTests
     });
 
     [Fact]
-    public void OnWindowsWithoutBlur_TheSliderStillWorks_AndTheHintSaysWhatIsMissing() => Ui.Run(() =>
+    public void OnWindowsWithoutBlur_TheSlidersStillWork_AndTheTooltipSaysWhatIsMissing() => Ui.Run(() =>
     {
         var app = new AppViewModel(new AppConfig(), []);
         var theme = new ThemeService(Application.Current, () => false);
         var settings = Make(app, theme, supported: false);
         try
         {
-            var flyout = new SettingsFlyout { DataContext = settings };
-            using var window = new WindowHolder(flyout);
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
 
-            Assert.True(Ui.Descendants<Slider>(flyout).Single().IsEnabled);
-            Assert.Contains(Ui.Descendants<TextBlock>(flyout), t => t.Text.Contains("Windows 10"));
+            var canvas = SliderNamed(view, "OpacitySlider");
+            Assert.True(canvas.IsEnabled);
+            Assert.Contains("Windows 10", (string)canvas.ToolTip);
         }
         finally
         {
             theme.Apply("dark");
         }
-    });
-    [Fact]
-    public void TheMainWindow_HasACogwheelAndAPanelBoundToTheSettings() => Ui.Run(() =>
-    {
-        using var fx = new WindowFixture(("W", 1));
-
-        var cog = (Button)fx.Window.FindName("SettingsButton");
-        var panel = (SettingsFlyout)fx.Window.FindName("SettingsPanel");
-        var popup = (System.Windows.Controls.Primitives.Popup)fx.Window.FindName("SettingsPopup");
-
-        Assert.NotNull(cog);
-        Assert.Equal("Settings", cog.ToolTip);
-        Assert.Same(fx.Window.Settings, panel.DataContext);
-        Assert.Same(panel, popup.Child);
-        Assert.False(popup.IsOpen);
     });
 
     /// <summary>Hosts a control in an off-screen window for the length of a test.</summary>
@@ -427,7 +471,7 @@ public class SettingsFlyoutTests
 
         public WindowHolder(FrameworkElement content)
         {
-            _window = Ui.Show(content, 340, 560);
+            _window = Ui.Show(content, 1000, 140);
         }
 
         public void Dispose() => _window.Close();

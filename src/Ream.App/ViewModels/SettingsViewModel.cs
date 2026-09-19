@@ -35,8 +35,8 @@ public sealed partial class ThemeOption : ObservableObject
 }
 
 /// <summary>
-/// The Settings panel: which theme is in use and how opaque the canvas is. Changes apply at once and are
-/// written to config.json shortly after (so dragging the slider doesn't write on every step).
+/// What the View tab edits: which theme is in use and how opaque the canvas and the notes are. Changes apply at
+/// once and are written to config.json shortly after (so dragging a slider doesn't write on every step).
 /// </summary>
 public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 {
@@ -51,6 +51,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     private bool _syncing;
     private string? _pendingTheme;
     private int? _pendingOpacity;
+    private int? _pendingNoteOpacity;
 
     /// <param name="store">Where changes are saved; null keeps them for this run only.</param>
     /// <param name="dispatcher">Runs the delayed save on the UI thread; null runs it on a pool thread.</param>
@@ -82,9 +83,15 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     private int _opacityPercent = 100;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NoteOpacityLabel))]
+    private int _noteOpacityPercent = 100;
+
+    [ObservableProperty]
     private string _selectedThemeId = ThemeCatalog.DefaultId;
 
     public string OpacityLabel => $"{OpacityPercent}%";
+
+    public string NoteOpacityLabel => $"{NoteOpacityPercent}%";
 
     /// <summary>What the slider does, and whether the blur behind the see-through canvas is on (canvasBlur in config.json).</summary>
     public string OpacityHint => !_app.Config.CanvasBlur
@@ -97,7 +104,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     private void SelectTheme(ThemeOption? option)
     {
         if (option is null || option.Id == SelectedThemeId) return;
-        Change(theme: option.Id, opacity: null);
+        Change(theme: option.Id, opacity: null, noteOpacity: null);
     }
 
     partial void OnOpacityPercentChanged(int value)
@@ -110,12 +117,25 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
             OpacityPercent = clamped;
             return;
         }
-        Change(theme: null, opacity: clamped);
+        Change(theme: null, opacity: clamped, noteOpacity: null);
     }
 
-    private void Change(string? theme, int? opacity)
+    partial void OnNoteOpacityPercentChanged(int value)
     {
-        var next = _app.Config.With(theme, opacity);
+        if (_syncing) return;
+
+        int clamped = Math.Clamp(value, 0, 100);
+        if (clamped != value)
+        {
+            NoteOpacityPercent = clamped;
+            return;
+        }
+        Change(theme: null, opacity: null, noteOpacity: clamped);
+    }
+
+    private void Change(string? theme, int? opacity, int? noteOpacity)
+    {
+        var next = _app.Config.With(theme, opacity, noteOpacity);
 
         _syncing = true;
         try
@@ -131,6 +151,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
         if (theme is not null) _pendingTheme = theme;
         if (opacity is not null) _pendingOpacity = opacity;
+        if (noteOpacity is not null) _pendingNoteOpacity = noteOpacity;
         _save.Trigger();
     }
 
@@ -155,6 +176,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         string id = ThemeCatalog.Resolve(config.Theme).Id;
         SelectedThemeId = id;
         OpacityPercent = config.CanvasOpacity;
+        NoteOpacityPercent = config.NoteOpacity;
         foreach (var option in Themes) option.IsSelected = option.Id == id;
 
         OnPropertyChanged(nameof(OpacityHint));
@@ -164,14 +186,17 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     {
         string? theme = _pendingTheme;
         int? opacity = _pendingOpacity;
+        int? noteOpacity = _pendingNoteOpacity;
         _pendingTheme = null;
         _pendingOpacity = null;
-        if (_store is null || (theme is null && opacity is null)) return;
+        _pendingNoteOpacity = null;
+        if (_store is null || (theme is null && opacity is null && noteOpacity is null)) return;
 
         bool saved = _store.Update(root =>
         {
             if (theme is not null) root["theme"] = theme;
             if (opacity is not null) root["canvasOpacity"] = opacity.Value;
+            if (noteOpacity is not null) root["noteOpacity"] = noteOpacity.Value;
         }, out var error);
 
         if (!saved) _app.ConfigError = $"Settings not saved: {error}";

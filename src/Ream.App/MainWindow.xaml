@@ -18,22 +18,31 @@
     </shell:WindowChrome.WindowChrome>
 
     <Window.Resources>
-        <!-- The File button: the one accent-colored control, like Word's blue File tab. -->
-        <Style x:Key="FileButtonStyle" TargetType="Button">
-            <Setter Property="Foreground" Value="{DynamicResource ChipCurrentTextBrush}"/>
+        <!-- A ribbon tab (File, Home, View): the selected one sits on the panel below it, like Word's. -->
+        <Style x:Key="RibbonTabStyle" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
             <Setter Property="Focusable" Value="False"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="VerticalAlignment" Value="Bottom"/>
+            <Setter Property="Margin" Value="0,0,2,0"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Root" CornerRadius="4" Padding="16,3" Background="{DynamicResource ChipCurrentBrush}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Root" Padding="16,0" CornerRadius="6,6,0,0" Background="Transparent">
+                            <Grid>
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Border x:Name="Underline" Height="2" VerticalAlignment="Bottom" Margin="0,0,0,1"
+                                        Background="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
+                            </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Opacity" Value="0.85"/>
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource ControlHoverBrush}"/>
                             </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Root" Property="Opacity" Value="0.7"/>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource RibbonBrush}"/>
+                                <Setter TargetName="Underline" Property="Visibility" Value="Visible"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -120,7 +129,7 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Tab row: File, Home, and (at the right) the settings. -->
+            <!-- Tab row: File | Home | View. Each tab swaps the ribbon panel below it. -->
             <DockPanel x:Name="TabRow" Grid.Row="1" Background="{DynamicResource CanvasBrush}" Height="36" LastChildFill="False">
                 <TextBlock x:Name="ConfigProblem" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,12,0"
                            FontSize="12" Text="Config problem (hover)" ToolTip="{Binding ConfigError}"
@@ -136,43 +145,28 @@
                         </Style>
                     </TextBlock.Style>
                 </TextBlock>
-                <Button x:Name="SettingsButton" DockPanel.Dock="Right" Margin="0,0,10,0" Width="30" Height="26" Padding="0"
-                        Focusable="False" ToolTip="Settings" Click="OnSettingsClick"
-                        FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" Content="&#xE713;"/>
-                <Popup x:Name="SettingsPopup" PlacementTarget="{Binding ElementName=SettingsButton}" Placement="Bottom"
-                       HorizontalOffset="-272" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade"
-                       Closed="OnSettingsClosed">
-                    <views:SettingsFlyout x:Name="SettingsPanel" Margin="0,4,12,12"/>
-                </Popup>
 
-                <Button x:Name="FileButton" DockPanel.Dock="Left" Margin="8,0,6,0" Height="24" Content="File"
-                        Style="{StaticResource FileButtonStyle}" Click="OnFileClick" ToolTip="File">
-                    <Button.ContextMenu>
-                        <ContextMenu x:Name="FileMenu" Closed="OnFileMenuClosed" Opened="OnFileMenuOpened">
-                            <MenuItem x:Name="OpenMenuItem" Header="Open Ream…" IsEnabled="False"
-                                      ToolTipService.ShowOnDisabled="True" ToolTip="Coming soon"/>
-                            <MenuItem x:Name="WorkspacesMenuItem" Header="Workspaces"/>
-                            <Separator/>
-                            <MenuItem x:Name="HelpMenuItem" Header="Help" Click="OnHelpClick"/>
-                            <MenuItem x:Name="AboutMenuItem" Header="About" Click="OnAboutClick"/>
-                        </ContextMenu>
-                    </Button.ContextMenu>
-                </Button>
-
-                <!-- The only tab for now; it sits on the ribbon below like Word's active tab. -->
-                <Border x:Name="HomeTab" DockPanel.Dock="Left" VerticalAlignment="Bottom" Height="30" Padding="16,0"
-                        CornerRadius="6,6,0,0" Background="{DynamicResource RibbonBrush}">
-                    <Grid>
-                        <TextBlock Text="Home" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextBrush}"/>
-                        <Border Height="2" VerticalAlignment="Bottom" Margin="0,0,0,1" Background="{DynamicResource AccentBrush}"/>
-                    </Grid>
-                </Border>
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Margin="8,0,0,0">
+                    <RadioButton x:Name="FileTab" GroupName="RibbonTabs" Content="File" Tag="File"
+                                 Style="{StaticResource RibbonTabStyle}" Click="OnTabClick" ToolTip="Ream, workspaces, help"/>
+                    <RadioButton x:Name="HomeTab" GroupName="RibbonTabs" Content="Home" Tag="Home"
+                                 Style="{StaticResource RibbonTabStyle}" Click="OnTabClick" ToolTip="Formatting"/>
+                    <RadioButton x:Name="ViewTab" GroupName="RibbonTabs" Content="View" Tag="View"
+                                 Style="{StaticResource RibbonTabStyle}" Click="OnTabClick" ToolTip="Theme and opacity"/>
+                </StackPanel>
             </DockPanel>
 
-            <!-- The ribbon panel under the tab. -->
-            <Border x:Name="RibbonPanel" Grid.Row="2" Background="{DynamicResource RibbonBrush}"
+            <!-- The ribbon panel under the tabs: whichever tab is selected. It scrolls sideways when the window is narrow. -->
+            <Border x:Name="RibbonPanel" Grid.Row="2" Height="96" Background="{DynamicResource RibbonBrush}"
                     BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="0,0,0,1">
-                <views:RibbonView x:Name="Ribbon" HorizontalAlignment="Left"/>
+                <ScrollViewer x:Name="RibbonScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                              PreviewMouseWheel="OnRibbonWheel" Focusable="False">
+                    <Grid>
+                        <views:FileRibbonView x:Name="FileRibbon" HorizontalAlignment="Left" Visibility="Collapsed"/>
+                        <views:RibbonView x:Name="Ribbon" HorizontalAlignment="Left"/>
+                        <views:ViewRibbonView x:Name="ViewRibbon" HorizontalAlignment="Left" Visibility="Collapsed"/>
+                    </Grid>
+                </ScrollViewer>
             </Border>
 
             <Grid x:Name="CanvasArea" Grid.Row="3" Background="{DynamicResource CanvasBrush}">

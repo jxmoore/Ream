@@ -12,6 +12,9 @@ using Ream.Core.Utilities;
 
 namespace Ream.App;
 
+/// <summary>The tabs above the ribbon panel.</summary>
+internal enum RibbonTab { File, Home, View }
+
 public partial class MainWindow : Window
 {
     private readonly AppViewModel _viewModel;
@@ -20,12 +23,10 @@ public partial class MainWindow : Window
     private readonly WheelAccumulator _tiltWheel = new();
     private readonly List<InputBinding> _configuredBindings = [];
     private readonly FullscreenController _fullscreen;
-    private DateTime _settingsClosedAt;
-    private DateTime _fileMenuClosedAt;
     private readonly IWindowBackdrop _backdrop;
     private WindowAppearance? _appearance;
 
-    /// <param name="settings">What the cogwheel panel edits; when omitted the panel works on this run only (tests).</param>
+    /// <param name="settings">What the View tab edits; when omitted the panel works on this run only (tests).</param>
     internal MainWindow(AppViewModel viewModel, SettingsViewModel? settings, IWindowBackdrop? backdrop)
         : this(viewModel, settings)
     {
@@ -39,10 +40,11 @@ public partial class MainWindow : Window
         _viewModel = viewModel;
         DataContext = viewModel;
 
-        RebuildWorkspaceMenu();
-
         Settings = settings ?? new SettingsViewModel(viewModel, new ThemeService(Application.Current));
-        SettingsPanel.DataContext = Settings;
+        ViewRibbon.DataContext = Settings;
+        FileRibbon.HelpRequested += OpenHelp;
+        FileRibbon.AboutRequested += OpenAbout;
+        SelectTab(RibbonTab.Home);
 
         _fullscreen = new FullscreenController(new WindowFrame(this));
         viewModel.AppFullscreenToggleRequested += () =>
@@ -132,47 +134,42 @@ public partial class MainWindow : Window
         });
     }
 
-    // ----- File > Workspaces -----
+    // ----- The ribbon tabs -----
 
-    private void OnFileMenuOpened(object sender, RoutedEventArgs e) => RebuildWorkspaceMenu();
+    /// <summary>Which tab's ribbon is showing.</summary>
+    internal RibbonTab SelectedTab { get; private set; }
 
-    /// <summary>Lists the workspaces as they are now (there is no live list: the menu is rebuilt each time it opens).</summary>
-    internal void RebuildWorkspaceMenu()
+    private void OnTabClick(object sender, RoutedEventArgs e) =>
+        SelectTab(Enum.Parse<RibbonTab>((string)((FrameworkElement)sender).Tag));
+
+    internal void SelectTab(RibbonTab tab)
     {
-        WorkspacesMenuItem.Items.Clear();
+        SelectedTab = tab;
 
-        foreach (var workspace in _viewModel.Workspaces)
-        {
-            var item = new System.Windows.Controls.MenuItem
-            {
-                Header = workspace.MenuLabel,
-                IsChecked = workspace.IsCurrent,
-            };
-            var target = workspace;
-            item.Click += (_, _) => _viewModel.SelectWorkspaceCommand.Execute(target);
-            WorkspacesMenuItem.Items.Add(item);
-        }
+        FileRibbon.Visibility = tab == RibbonTab.File ? Visibility.Visible : Visibility.Collapsed;
+        Ribbon.Visibility = tab == RibbonTab.Home ? Visibility.Visible : Visibility.Collapsed;
+        ViewRibbon.Visibility = tab == RibbonTab.View ? Visibility.Visible : Visibility.Collapsed;
+
+        FileTab.IsChecked = tab == RibbonTab.File;
+        HomeTab.IsChecked = tab == RibbonTab.Home;
+        ViewTab.IsChecked = tab == RibbonTab.View;
+        RibbonScroll.ScrollToHorizontalOffset(0);
     }
+
+    // The plain wheel over the ribbon scrolls it sideways (there is nothing to scroll vertically).
+    private void OnRibbonWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.None || RibbonScroll.ScrollableWidth <= 0) return;
+
+        RibbonScroll.ScrollToHorizontalOffset(RibbonScroll.HorizontalOffset - e.Delta);
+        e.Handled = true;
+    }
+
     /// <summary>What the About window shows; the app fills in the real folders once it knows them.</summary>
     internal AboutInfo About { get; set; } = AboutInfo.Create();
 
     /// <summary>How Help and About are shown (modally, over this window). Tests replace it so nothing really opens.</summary>
     internal Action<Window> ShowModal { get; set; } = window => window.ShowDialog();
-
-    private void OnFileClick(object sender, RoutedEventArgs e)
-    {
-        if (DateTime.UtcNow - _fileMenuClosedAt < TimeSpan.FromMilliseconds(250)) return;
-
-        FileMenu.PlacementTarget = FileButton;
-        FileMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
-        FileMenu.IsOpen = true;
-    }
-
-    private void OnFileMenuClosed(object sender, RoutedEventArgs e) => _fileMenuClosedAt = DateTime.UtcNow;
-
-    private void OnHelpClick(object sender, RoutedEventArgs e) => OpenHelp();
-
-    private void OnAboutClick(object sender, RoutedEventArgs e) => OpenAbout();
 
     internal void OpenHelp() => Present(new HelpWindow(HelpContent.Build(_viewModel.Config.Keybindings)));
 
@@ -182,19 +179,6 @@ public partial class MainWindow : Window
     {
         window.Owner = this;
         ShowModal(window);
-        _viewModel.RequestEditorFocus();
-    }
-
-    private void OnSettingsClick(object sender, RoutedEventArgs e)
-    {
-        // Clicking the button while the panel is open first closes it (it lost focus); don't reopen it straight away.
-        if (DateTime.UtcNow - _settingsClosedAt < TimeSpan.FromMilliseconds(250)) return;
-        SettingsPopup.IsOpen = true;
-    }
-
-    private void OnSettingsClosed(object? sender, EventArgs e)
-    {
-        _settingsClosedAt = DateTime.UtcNow;
         _viewModel.RequestEditorFocus();
     }
 

@@ -1,0 +1,78 @@
+<UserControl x:Class="Ream.App.Views.ViewRibbonView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- The View tab: how Ream looks. Everything here applies at once and is saved to config.json shortly after. -->
+    <StackPanel Orientation="Horizontal" Margin="12,8,12,6">
+
+        <StackPanel>
+            <ItemsControl x:Name="ThemeList" ItemsSource="{Binding Themes}" Focusable="False">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button x:Name="Row" Style="{StaticResource RibbonTile}" MinWidth="72" Padding="6,5"
+                                Command="{Binding DataContext.SelectThemeCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                CommandParameter="{Binding}" ToolTip="{Binding Name}">
+                            <StackPanel>
+                                <Border Width="48" Height="24" CornerRadius="5" HorizontalAlignment="Center"
+                                        BorderThickness="1" BorderBrush="{DynamicResource ControlBorderBrush}"
+                                        Background="{Binding Canvas}">
+                                    <Grid>
+                                        <Border Margin="6,5,0,5" Width="22" HorizontalAlignment="Left" CornerRadius="3" Background="{Binding Card}"/>
+                                        <Ellipse Width="8" Height="8" Margin="0,0,7,0" HorizontalAlignment="Right" Fill="{Binding Accent}"/>
+                                    </Grid>
+                                </Border>
+                                <DockPanel HorizontalAlignment="Center" Margin="0,4,0,0">
+                                    <TextBlock x:Name="Check" DockPanel.Dock="Right" Text="&#xE73E;" Visibility="Collapsed" Margin="4,0,0,0"
+                                               FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10"
+                                               Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding Name}" FontSize="11" VerticalAlignment="Center"/>
+                                </DockPanel>
+                            </StackPanel>
+                        </Button>
+                        <DataTemplate.Triggers>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter TargetName="Check" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="Row" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="Row" Property="BorderThickness" Value="2"/>
+                            </DataTrigger>
+                        </DataTemplate.Triggers>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Theme"/>
+        </StackPanel>
+
+        <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
+
+        <StackPanel>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Height="44">
+                <StackPanel VerticalAlignment="Center" Margin="4,0,18,0">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" x:Name="CanvasOpacityLabel" Text="{Binding OpacityLabel}" MinWidth="34" TextAlignment="Right"
+                                   FontSize="11" Foreground="{DynamicResource TextBrush}"/>
+                        <TextBlock Text="Canvas" FontSize="11" Foreground="{DynamicResource ToolbarMutedBrush}"/>
+                    </DockPanel>
+                    <Slider x:Name="OpacitySlider" Width="140" Minimum="0" Maximum="100" SmallChange="1" LargeChange="10"
+                            IsSnapToTickEnabled="True" TickFrequency="1" Focusable="False"
+                            Value="{Binding OpacityPercent, Mode=TwoWay}" ToolTip="{Binding OpacityHint}"/>
+                </StackPanel>
+                <StackPanel VerticalAlignment="Center" Margin="0,0,4,0">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" x:Name="NoteOpacityLabel" Text="{Binding NoteOpacityLabel}" MinWidth="34" TextAlignment="Right"
+                                   FontSize="11" Foreground="{DynamicResource TextBrush}"/>
+                        <TextBlock Text="Notes" FontSize="11" Foreground="{DynamicResource ToolbarMutedBrush}"/>
+                    </DockPanel>
+                    <Slider x:Name="NoteOpacitySlider" Width="140" Minimum="0" Maximum="100" SmallChange="1" LargeChange="10"
+                            IsSnapToTickEnabled="True" TickFrequency="1" Focusable="False"
+                            Value="{Binding NoteOpacityPercent, Mode=TwoWay}"
+                            ToolTip="How solid each note's background is. The text always stays solid."/>
+                </StackPanel>
+            </StackPanel>
+            <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Opacity"/>
+        </StackPanel>
+    </StackPanel>
+</UserControl>
