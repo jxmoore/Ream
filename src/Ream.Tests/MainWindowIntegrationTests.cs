@@ -306,9 +306,9 @@ public class MainWindowIntegrationTests
     {
         using var fx = new WindowFixture(("Work", 1), (null, 1));
 
-        Assert.Equal(3, fx.Tabs.Tabs.Items.Count);
+        Assert.Equal(4, fx.Tabs.Tabs.Items.Count);
         var labels = Ui.Descendants<TextBlock>(fx.Tabs).Where(t => t.Name == "Label").Select(t => t.Text).ToList();
-        Assert.Equal(["Work", "2", "3"], labels);
+        Assert.Equal(["+", "Work", "2", "+"], labels);
     });
 
     [Fact]
@@ -316,25 +316,25 @@ public class MainWindowIntegrationTests
     {
         using var fx = new WindowFixture(("Work", 1), (null, 1));
 
-        fx.App.SelectWorkspaceCommand.Execute(fx.App.Workspaces[1]);
-        fx.App.Workspaces[1].Name = "Home";
+        fx.App.SelectWorkspaceCommand.Execute(fx.App.Workspaces[2]);
+        fx.App.Workspaces[2].Name = "Home";
         Ui.Settle();
 
         var labels = Ui.Descendants<TextBlock>(fx.Tabs).Where(t => t.Name == "Label").Select(t => t.Text).ToList();
-        Assert.Equal(["Work", "Home", "3"], labels);
-        Assert.Equal([false, true, false], fx.App.Workspaces.Select(w => w.IsCurrent));
+        Assert.Equal(["+", "Work", "Home", "+"], labels);
+        Assert.Equal([false, false, true, false], fx.App.Workspaces.Select(w => w.IsCurrent));
     });
 
     [Fact]
     public void TheStrip_ShowsANewWorkspace_WhenOneIsAdded() => Ui.Run(() =>
     {
         using var fx = new WindowFixture(("Work", 1));
-        fx.App.SelectWorkspaceCommand.Execute(fx.App.Workspaces[1]);
+        fx.App.SelectWorkspaceCommand.Execute(fx.App.Workspaces[2]);
 
         fx.App.NewNoteCommand.Execute(null);
         Ui.Settle();
 
-        Assert.Equal(3, fx.Tabs.Tabs.Items.Count);
+        Assert.Equal(4, fx.Tabs.Tabs.Items.Count);
     });
 
     private static TextBox VisibleNameBox(WindowFixture fx)
@@ -371,8 +371,8 @@ public class MainWindowIntegrationTests
         Press(box, Key.Enter);
         Ui.Settle();
 
-        Assert.Equal("Projects", fx.App.Workspaces[0].Name);
-        Assert.False(fx.App.Workspaces[0].IsRenaming);
+        Assert.Equal("Projects", fx.App.Workspaces[1].Name);
+        Assert.False(fx.App.Workspaces[1].IsRenaming);
         Assert.Empty(Ui.Descendants<TextBox>(fx.Tabs).Where(b => b.Visibility == Visibility.Visible));
     });
 
@@ -388,8 +388,8 @@ public class MainWindowIntegrationTests
         Press(box, Key.Escape);
         Ui.Settle();
 
-        Assert.Equal("Work", fx.App.Workspaces[0].Name);
-        Assert.False(fx.App.Workspaces[0].IsRenaming);
+        Assert.Equal("Work", fx.App.Workspaces[1].Name);
+        Assert.False(fx.App.Workspaces[1].IsRenaming);
     });
 
     [Fact]
@@ -407,9 +407,9 @@ public class MainWindowIntegrationTests
     public void ARenamedWorkspace_SurvivesSaveAndReload() => Ui.Run(() =>
     {
         using var fx = new WindowFixture(("Work", 1));
-        fx.App.Workspaces[0].BeginRename();
-        fx.App.Workspaces[0].EditName = "Renamed";
-        fx.App.CommitRenameCommand.Execute(fx.App.Workspaces[0]);
+        fx.App.Workspaces[1].BeginRename();
+        fx.App.Workspaces[1].EditName = "Renamed";
+        fx.App.CommitRenameCommand.Execute(fx.App.Workspaces[1]);
 
         fx.Repo.Save(SnapshotMapper.ToSnapshot(fx.App));
         var reloaded = new DocumentRepository(fx.Repo.Root).Load();

@@ -18,8 +18,18 @@ public sealed partial class AppViewModel : ObservableObject
         _config = config;
         _assets = assets;
         Workspaces = new ObservableCollection<WorkspaceViewModel>(workspaces);
-        EnsureTrailingEmpty();
-        _currentIndex = Math.Clamp(currentIndex, 0, Workspaces.Count - 1);
+
+        // An empty workspace on each side; currentIndex counts within the list that was passed in.
+        int shift = 0;
+        if (NeedsLeadingEmpty)
+        {
+            Workspaces.Insert(0, new WorkspaceViewModel(null, _assets));
+            shift = 1;
+        }
+        if (NeedsTrailingEmpty) Workspaces.Add(new WorkspaceViewModel(null, _assets));
+
+        _currentIndex = Math.Clamp(currentIndex + shift, 0, Workspaces.Count - 1);
+        _visited = Workspaces[_currentIndex];
         _noteCounter = Workspaces.Sum(w => w.Notes.Count);
         RefreshWorkspaceState();
         Workspaces.CollectionChanged += (_, _) => RefreshWorkspaceState();
@@ -65,14 +75,33 @@ public sealed partial class AppViewModel : ObservableObject
 
     public WorkspaceViewModel CurrentWorkspace => Workspaces[CurrentIndex];
 
-    partial void OnCurrentIndexChanged(int value) => RefreshWorkspaceState();
+    // The workspace that was current last time we looked. Compared by identity, so the index shifting
+    // under a list edit isn't mistaken for leaving a workspace.
+    private WorkspaceViewModel _visited;
 
-    /// <summary>Keeps each workspace's number and current flag in step with the list and the selection.</summary>
+    partial void OnCurrentIndexChanged(int value)
+    {
+        var arrived = Workspaces[value];
+        var left = _visited;
+        _visited = arrived;
+
+        // A draft nobody typed into doesn't outlive the visit that made it.
+        if (!ReferenceEquals(left, arrived) && Workspaces.Contains(left))
+            left.DiscardBlankDrafts(keepFocused: false);
+
+        RefreshWorkspaceState();
+    }
+
+    /// <summary>
+    /// Keeps each workspace's number, edge and current flags in step with the list and the selection.
+    /// The first and last workspace are the always-empty edges; the ones between are numbered from 1.
+    /// </summary>
     private void RefreshWorkspaceState()
     {
         for (int i = 0; i < Workspaces.Count; i++)
         {
-            Workspaces[i].Number = i + 1;
+            Workspaces[i].IsEdge = i == 0 || i == Workspaces.Count - 1;
+            Workspaces[i].Number = i;
             Workspaces[i].IsCurrent = i == CurrentIndex;
         }
     }
@@ -99,15 +128,37 @@ public sealed partial class AppViewModel : ObservableObject
                 note.FlushDocument();
     }
 
-    /// <summary>Like niri: there is always exactly one empty workspace at the end.</summary>
-    private void EnsureTrailingEmpty()
+    private bool NeedsLeadingEmpty => Workspaces.Count == 0 || !Workspaces[0].IsEmpty;
+
+    // With a single workspace that is the leading empty one, so a second is needed to be the trailing one.
+    private bool NeedsTrailingEmpty => Workspaces.Count < 2 || !Workspaces[^1].IsEmpty;
+
+    /// <summary>
+    /// Like niri, but on both sides: there is always an empty workspace above the first and below the last.
+    /// A new one at the top pushes everything down, so the strip snaps rather than sliding.
+    /// </summary>
+    private void EnsureEdgeWorkspaces()
     {
-        if (Workspaces.Count == 0 || !Workspaces[^1].IsEmpty)
+        if (NeedsLeadingEmpty)
+        {
+            SuppressAnimation = true;
+            try
+            {
+                Workspaces.Insert(0, new WorkspaceViewModel(null, _assets));
+                CurrentIndex++;
+            }
+            finally
+            {
+                SuppressAnimation = false;
+            }
+        }
+
+        if (NeedsTrailingEmpty)
             Workspaces.Add(new WorkspaceViewModel(null, _assets));
     }
 
     /// <summary>
-    /// Removes empty, unnamed workspaces other than the current one and the trailing one (named
+    /// Removes empty, unnamed workspaces between the two edges, other than the current one (named
     /// workspaces stay, as in niri). Called once a switch has come to rest, so nothing visible
     /// disappears mid-animation.
     /// </summary>
@@ -117,7 +168,7 @@ public sealed partial class AppViewModel : ObservableObject
         SuppressAnimation = true;
         try
         {
-            for (int i = Workspaces.Count - 2; i >= 0; i--)
+            for (int i = Workspaces.Count - 2; i >= 1; i--)
             {
                 if (!Workspaces[i].IsEmpty || i == CurrentIndex || Workspaces[i].Name is not null) continue;
                 Workspaces.RemoveAt(i);
@@ -139,8 +190,42 @@ public sealed partial class AppViewModel : ObservableObject
         RequestEditorFocus();
     }
 
-    [RelayCommand] private void FocusPrevNote() => FocusNoteBy(-1);
-    [RelayCommand] private void FocusNextNote() => FocusNoteBy(1);
+    [RelayCommand] private void FocusPrevNote() => StepNote(-1);
+    [RelayCommand] private void FocusNextNote() => StepNote(1);
+
+    /// <summary>
+    /// The Alt+Left / Alt+Right behavior: move to the neighbouring note, and past the end of the row open a
+    /// blank draft there. Never stacks drafts. (Scroll wheels use <see cref="FocusNoteBy"/>, which just stops.)
+    /// </summary>
+    private void StepNote(int direction)
+    {
+        var workspace = CurrentWorkspace;
+        int next = workspace.FocusedIndex + direction;
+
+        if (workspace.Notes.Count > 0 && next >= 0 && next < workspace.Notes.Count)
+        {
+            FocusNoteBy(direction);
+            return;
+        }
+
+        OpenDraft(before: direction < 0);
+    }
+
+    /// <summary>Adds a blank draft beside the focused note - unless the focused note already is one.</summary>
+    private void OpenDraft(bool before)
+    {
+        var workspace = CurrentWorkspace;
+        if (workspace.FocusedNote?.IsBlankDraft() != true)
+        {
+            _noteCounter++;
+            var draft = new NoteViewModel { Title = $"Untitled {_noteCounter}", IsDraft = true };
+            if (before) workspace.InsertBeforeFocus(draft);
+            else workspace.InsertAfterFocus(draft);
+            EnsureEdgeWorkspaces();
+        }
+
+        RequestEditorFocus();
+    }
 
     [RelayCommand]
     private void SelectWorkspace(WorkspaceViewModel? workspace)
@@ -202,19 +287,13 @@ public sealed partial class AppViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void NewNote()
-    {
-        _noteCounter++;
-        CurrentWorkspace.InsertAfterFocus(new NoteViewModel { Title = $"Untitled {_noteCounter}" });
-        EnsureTrailingEmpty();
-        RequestEditorFocus();
-    }
+    private void NewNote() => OpenDraft(before: false);
 
     [RelayCommand]
     private void CloseNote()
     {
         CurrentWorkspace.RemoveFocused();
-        EnsureTrailingEmpty();
+        EnsureEdgeWorkspaces();
         RequestEditorFocus();
     }
 
@@ -225,9 +304,10 @@ public sealed partial class AppViewModel : ObservableObject
 
         if (CurrentWorkspace.RemoveFocused() is not { } note) return;
 
-        Workspaces[target].InsertAfterFocus(note);
-        EnsureTrailingEmpty();
-        CurrentIndex = target;
+        var destination = Workspaces[target];
+        destination.InsertAfterFocus(note);
+        EnsureEdgeWorkspaces();
+        CurrentIndex = Workspaces.IndexOf(destination);
         RequestEditorFocus();
     }
 }

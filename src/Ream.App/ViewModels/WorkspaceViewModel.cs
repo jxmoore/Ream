@@ -41,6 +41,11 @@ public sealed partial class WorkspaceViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(DisplayLabel))]
     private int _number;
 
+    /// <summary>True for the first and last workspace, which are never numbered (an unnamed one shows "+").</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayLabel))]
+    private bool _isEdge;
+
     [ObservableProperty]
     private bool _isCurrent;
 
@@ -53,7 +58,7 @@ public sealed partial class WorkspaceViewModel : ObservableObject
     [ObservableProperty]
     private int _focusedIndex;
 
-    public string DisplayLabel => Name ?? Number.ToString();
+    public string DisplayLabel => Name ?? (IsEdge ? "+" : Number.ToString());
 
     public void BeginRename()
     {
@@ -88,9 +93,33 @@ public sealed partial class WorkspaceViewModel : ObservableObject
 
         FocusedIndex = index;
         UpdateFocusFlags();
+        DiscardBlankDrafts(keepFocused: true);
     }
 
     public void FocusBy(int delta) => SetFocus(FocusedIndex + delta);
+
+    /// <summary>
+    /// Removes drafts that are still blank - the ones left behind when focus moves on. The focused note is
+    /// spared unless <paramref name="keepFocused"/> is false (the workspace itself is being left).
+    /// </summary>
+    public void DiscardBlankDrafts(bool keepFocused)
+    {
+        var focused = FocusedNote;
+        var doomed = Notes.Where(n => n.IsDraft && !(keepFocused && n == focused) && n.IsBlankDraft()).ToList();
+        if (doomed.Count == 0) return;
+
+        foreach (var note in doomed)
+        {
+            Notes.Remove(note);
+            note.Owner = null;
+            note.IsFullscreen = false;
+            note.IsFocused = false;
+        }
+
+        int kept = focused is null ? -1 : Notes.IndexOf(focused);
+        FocusedIndex = kept >= 0 ? kept : Math.Clamp(FocusedIndex, 0, Math.Max(0, Notes.Count - 1));
+        UpdateFocusFlags();
+    }
 
     /// <summary>Populates an empty workspace from storage, preserving each note's saved state.</summary>
     public void LoadNotes(IEnumerable<NoteViewModel> notes, Guid? focusedNoteId)
@@ -112,6 +141,19 @@ public sealed partial class WorkspaceViewModel : ObservableObject
             current.IsFullscreen = false;
 
         int at = Notes.Count == 0 ? 0 : Math.Clamp(FocusedIndex, 0, Notes.Count - 1) + 1;
+        note.Owner = this;
+        Notes.Insert(at, note);
+        FocusedIndex = at;
+        UpdateFocusFlags();
+    }
+
+    /// <summary>Inserts the note to the left of the focused one and focuses it.</summary>
+    public void InsertBeforeFocus(NoteViewModel note)
+    {
+        if (FocusedNote is { IsFullscreen: true } current)
+            current.IsFullscreen = false;
+
+        int at = Notes.Count == 0 ? 0 : Math.Clamp(FocusedIndex, 0, Notes.Count - 1);
         note.Owner = this;
         Notes.Insert(at, note);
         FocusedIndex = at;

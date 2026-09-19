@@ -536,11 +536,11 @@ public class LazyLoadingTests
         SettleLoads();
 
         var adjacent = fx.App.Workspaces[1].Notes.Select(fx.ColumnOf).ToList();
-        var far = fx.App.Workspaces[3].Notes.Select(fx.ColumnOf).ToList();
+        var far = fx.App.Workspaces[4].Notes.Select(fx.ColumnOf).ToList();
         Assert.All(adjacent, c => Assert.True(c.IsContentLoaded));
         Assert.All(far, c => Assert.False(c.IsContentLoaded));
 
-        fx.App.SelectWorkspaceCommand.Execute(fx.App.Workspaces[3]);
+        fx.App.SelectWorkspaceCommand.Execute(fx.App.Workspaces[4]);
         SettleLoads();
 
         Assert.All(far, c => Assert.True(c.IsContentLoaded));
@@ -551,10 +551,10 @@ public class LazyLoadingTests
     {
         using var fx = new WindowFixture(NoAnimation, ("A", 1), ("B", 1), ("C", 1), ("D", 1));
         SettleLoads();
-        var far = fx.ColumnOf(fx.App.Workspaces[3].Notes[0]);
+        var far = fx.ColumnOf(fx.App.Workspaces[4].Notes[0]);
         Assert.False(far.IsContentLoaded);
 
-        fx.App.Workspaces[3].Notes[0].RequestEditorFocus();
+        fx.App.Workspaces[4].Notes[0].RequestEditorFocus();
 
         Assert.True(far.IsContentLoaded);
     });
@@ -592,7 +592,7 @@ public class LazyLoadingTests
     public void PastingIntoAnUnloadedNote_LoadsItSoNothingIsOverwritten() => Ui.Run(() =>
     {
         using var fx = new WindowFixture(NoAnimation, ("A", 1), ("B", 1), ("C", 1), ("D", 1));
-        var note = fx.App.Workspaces[3].Notes[0];
+        var note = fx.App.Workspaces[4].Notes[0];
         note.Body = Body;
         SettleLoads();
         var far = fx.ColumnOf(note);

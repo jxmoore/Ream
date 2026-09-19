@@ -18,11 +18,9 @@ internal static class SnapshotMapper
         // Edits live in the editors' documents until now; bring the saved form up to date first.
         app.FlushPendingContent();
 
-        // The trailing empty workspace is always recreated on load, so it is not stored - unless the
-        // user has named it, in which case the name is theirs to keep.
-        var persisted = app.Workspaces.ToList();
-        if (persisted.Count > 0 && persisted[^1].IsEmpty && persisted[^1].Name is null)
-            persisted.RemoveAt(persisted.Count - 1);
+        // The empty workspaces at either edge are recreated on load, so a workspace is stored only when
+        // the user named it or it holds something worth keeping (a blank draft isn't).
+        var persisted = app.Workspaces.Where(w => w.Name is not null || SavedNotes(w).Count > 0).ToList();
 
         var current = app.CurrentWorkspace;
         Guid? currentId = persisted.Contains(current) ? current.Id : null;
@@ -30,12 +28,20 @@ internal static class SnapshotMapper
         return new DocumentSnapshot(persisted.Select(ToSnapshot).ToList(), currentId);
     }
 
-    private static WorkspaceSnapshot ToSnapshot(WorkspaceViewModel workspace) => new(
-        workspace.Id,
-        workspace.Name,
-        workspace.FolderName,
-        workspace.Notes.Select(n => new NoteSnapshot(n.Id, n.Title, n.Body, n.WidthFraction, n.IsFullscreen)).ToList(),
-        workspace.FocusedNote?.Id);
+    private static List<NoteViewModel> SavedNotes(WorkspaceViewModel workspace) =>
+        workspace.Notes.Where(n => !n.IsBlankDraft()).ToList();
+
+    private static WorkspaceSnapshot ToSnapshot(WorkspaceViewModel workspace)
+    {
+        var notes = SavedNotes(workspace);
+        var focused = workspace.FocusedNote;
+        return new WorkspaceSnapshot(
+            workspace.Id,
+            workspace.Name,
+            workspace.FolderName,
+            notes.Select(n => new NoteSnapshot(n.Id, n.Title, n.Body, n.WidthFraction, n.IsFullscreen)).ToList(),
+            focused is not null && notes.Contains(focused) ? focused.Id : null);
+    }
 
     private static WorkspaceViewModel ToWorkspace(WorkspaceSnapshot snapshot, IAssetStore assets)
     {

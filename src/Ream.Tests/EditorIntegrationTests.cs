@@ -432,7 +432,7 @@ public class EditorIntegrationTests
 
         var reloadedRepo = new DocumentRepository(fx.Repo.Root);
         var reloaded = SnapshotMapper.ToViewModel(reloadedRepo.Load(), new AppConfig(), reloadedRepo);
-        var note = reloaded.Workspaces[0].Notes[0];
+        var note = reloaded.Workspaces[1].Notes[0];
         var view = new NoteColumnView { DataContext = note };
         view.EnsureLoaded();
 

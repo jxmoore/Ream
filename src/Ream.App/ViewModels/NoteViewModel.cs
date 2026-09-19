@@ -30,6 +30,13 @@ public sealed partial class NoteViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(WidthLabel))]
     private double _widthFraction = WidthPresets.Default;
 
+    /// <summary>
+    /// A note made by navigating past the end of a row (or by New). It isn't saved and disappears if left
+    /// blank; the first time it has content it becomes an ordinary note.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isDraft;
+
     [ObservableProperty]
     private bool _isFullscreen;
 
@@ -88,6 +95,22 @@ public sealed partial class NoteViewModel : ObservableObject
             // Stay dirty so the next save retries; a failed image write must not take the app down.
             Debug.WriteLine($"Couldn't serialize note {Id}: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// True for a draft with nothing in it yet. Brings the saved form up to date first, and a draft that
+    /// has gained content stops being a draft.
+    /// </summary>
+    public bool IsBlankDraft()
+    {
+        FlushDocument();
+        if (!IsDraft) return false;
+
+        if (NoteContent.IsBlank(Body))
+            return true;
+
+        IsDraft = false;
+        return false;
     }
 
     /// <summary>Stores pasted image bytes next to the note and returns the asset name.</summary>
