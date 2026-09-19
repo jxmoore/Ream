@@ -10,7 +10,11 @@ internal static class SnapshotMapper
     {
         var workspaces = snapshot.Workspaces.Select(w => ToWorkspace(w, assets)).ToList();
         int current = workspaces.FindIndex(w => w.Id == snapshot.CurrentWorkspaceId);
-        return new AppViewModel(config, workspaces, Math.Max(0, current), assets);
+        var app = new AppViewModel(config, workspaces, Math.Max(0, current), assets);
+
+        // A launch starts at the beginning of the row, whichever note had focus when Ream was closed.
+        app.CurrentWorkspace.SetFocus(0);
+        return app;
     }
 
     public static DocumentSnapshot ToSnapshot(AppViewModel app)
