@@ -46,7 +46,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     private readonly ThemeService _theme;
     private readonly AppConfigStore? _store;
     private readonly DebouncedAction _save;
-    private readonly Func<bool> _backdropSupported;
+    private readonly Func<bool> _blurSupported;
 
     private bool _syncing;
     private string? _pendingTheme;
@@ -59,12 +59,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         ThemeService theme,
         AppConfigStore? store = null,
         Dispatcher? dispatcher = null,
-        Func<bool>? backdropSupported = null)
+        Func<bool>? blurSupported = null)
     {
         _app = app;
         _theme = theme;
         _store = store;
-        _backdropSupported = backdropSupported ?? (() => SystemBackdropSupport.IsAvailable);
+        _blurSupported = blurSupported ?? (() => BlurSupport.IsAvailable);
         _save = new DebouncedAction(Persist, SaveDelay, dispatcher is null ? null : action => dispatcher.BeginInvoke(action));
 
         Themes = ThemeCatalog.All.Select(ThemeSwatches.Load).ToList();
@@ -86,14 +86,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     public string OpacityLabel => $"{OpacityPercent}%";
 
-    /// <summary>The slider only does something where the canvas can be see-through.</summary>
-    public bool CanChangeOpacity => _backdropSupported() && _app.Config.CanvasBlur;
-
-    public string OpacityHint => !_backdropSupported()
-        ? "See-through needs Windows 11."
-        : !_app.Config.CanvasBlur
-            ? "Turned off by canvasBlur in config.json."
-            : "Lower it to see through to what is behind Ream.";
+    /// <summary>What the slider does, and whether the blur behind the see-through canvas is on (canvasBlur in config.json).</summary>
+    public string OpacityHint => !_app.Config.CanvasBlur
+        ? "Lower it to see the desktop through Ream. Blur is off (canvasBlur in config.json)."
+        : !_blurSupported()
+            ? "Lower it to see the desktop through Ream. Blur needs Windows 10 (1803) or later."
+            : "Lower it to see the desktop through Ream, blurred.";
 
     [RelayCommand]
     private void SelectTheme(ThemeOption? option)
@@ -159,7 +157,6 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         OpacityPercent = config.CanvasOpacity;
         foreach (var option in Themes) option.IsSelected = option.Id == id;
 
-        OnPropertyChanged(nameof(CanChangeOpacity));
         OnPropertyChanged(nameof(OpacityHint));
     }
 

@@ -53,11 +53,16 @@ material, nord, gruvbox; unknown ids and the retired "system" fall back to dark)
 contrast ratios). `Themes/Controls.xaml` holds the themed Button/ToggleButton/ComboBox/TextBox/
 ScrollBar/Slider/ContextMenu/MenuItem styles. Always reference brushes with `{DynamicResource ...}`,
 never StaticResource, or a theme switch won't reach them. `ThemeService` swaps
-`Application.Resources.MergedDictionaries[0]` and publishes `CanvasBrush` (window background; alpha
-from `canvasOpacity`, only where the system backdrop exists and `canvasBlur` is on) and
-`FocusBorderBrush` (`layout.focusBorderColor`, else the theme accent). `ChromePlanner` /
-`WindowBackdrop` (behind `IWindowBackdrop`) set the title bar, border and blur through DWM by
-Windows build; the planner is unit-tested, the real DWM calls are not visible off-screen.
+`Application.Resources.MergedDictionaries[0]` and publishes `CanvasBrush` (alpha from `canvasOpacity`,
+min 1 so a 0% window still catches clicks), `RibbonBrush` (follows the canvas, floor 60% alpha) and
+`FocusBorderBrush` (`layout.focusBorderColor`, else the theme accent).
+The window frame is drawn by Ream (`MainWindow.xaml`: `WindowStyle=None`, `AllowsTransparency`,
+`WindowChrome`, own title bar and min/max/close). The window itself is transparent and each region
+(`TitleBar`, `TabRow`, `RibbonPanel`, `CanvasArea`) paints its own brush once, so translucent brushes
+never stack; tests read the rendered pixels (`Ui.Render`/`Ui.PixelAt`) to check color and alpha.
+Blur behind is separate (`canvasBlur`): `WindowBackdrop` (behind `IWindowBackdrop`) asks Windows for it via
+`SetWindowCompositionAttribute`; `BlurPlan` is unit-tested, the real effect is not visible off-screen.
+Help/About are still ordinary native windows.
 Settings panel: `SettingsViewModel` applies theme/opacity live and saves them (debounced) via
 `AppConfigStore.Update`, which patches only the given keys and refuses to rewrite a file with
 comments; `ConfigReloader` ignores the file-change echo of that save (`IsOurOwnLastWrite`).

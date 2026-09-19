@@ -27,7 +27,7 @@ public class SettingsViewModelTests
             else File.WriteAllText(Path, """{ "theme": "dark", "keybindings": { "newNote": "Ctrl+T" } }""");
 
             Store = withStore ? new AppConfigStore(Path) : null;
-            Settings = new SettingsViewModel(App, Theme, Store, dispatcher: null, backdropSupported: () => supported);
+            Settings = new SettingsViewModel(App, Theme, Store, dispatcher: null, blurSupported: () => supported);
             Theme.Apply(App.Config);
         }
 
@@ -241,34 +241,36 @@ public class SettingsViewModelTests
         Assert.Equal(["dark"], rig.Settings.Themes.Where(t => t.IsSelected).Select(t => t.Id));
     });
 
-    // ----- When opacity can't apply -----
+    // ----- What the slider says about blur -----
 
     [Fact]
-    public void OnOlderWindows_TheSliderIsOff_AndSaysWhy() => Ui.Run(() =>
-    {
-        using var rig = new Rig(supported: false);
-
-        Assert.False(rig.Settings.CanChangeOpacity);
-        Assert.Contains("Windows 11", rig.Settings.OpacityHint);
-    });
-
-    [Fact]
-    public void WithBlurTurnedOffInConfig_TheSliderIsOff_AndSaysWhy() => Ui.Run(() =>
-    {
-        using var rig = new Rig(new AppConfig { CanvasBlur = false });
-
-        Assert.False(rig.Settings.CanChangeOpacity);
-        Assert.Contains("canvasBlur", rig.Settings.OpacityHint);
-    });
-
-    [Fact]
-    public void WhereItWorks_TheSliderIsOn() => Ui.Run(() =>
+    public void WithBlurOn_TheHintSaysTheDesktopIsBlurred() => Ui.Run(() =>
     {
         using var rig = new Rig();
 
-        Assert.True(rig.Settings.CanChangeOpacity);
+        Assert.Contains("blurred", rig.Settings.OpacityHint);
     });
 
+    [Fact]
+    public void WithBlurTurnedOffInConfig_TheHintSaysSo_ButOpacityStillWorks() => Ui.Run(() =>
+    {
+        using var rig = new Rig(new AppConfig { CanvasBlur = false });
+
+        Assert.Contains("canvasBlur", rig.Settings.OpacityHint);
+        rig.Settings.OpacityPercent = 30;
+        Assert.Equal(30, rig.App.Config.CanvasOpacity);
+        Assert.Equal(77, Themes.Brush(ThemeService.CanvasBrushKey).A);
+    });
+
+    [Fact]
+    public void OnWindowsWithoutBlur_OpacityStillWorks_AndTheHintSaysWhatIsMissing() => Ui.Run(() =>
+    {
+        using var rig = new Rig(supported: false);
+
+        Assert.Contains("Windows 10", rig.Settings.OpacityHint);
+        rig.Settings.OpacityPercent = 30;
+        Assert.Equal(77, Themes.Brush(ThemeService.CanvasBrushKey).A);
+    });
     // ----- Our own save coming back through the file watcher -----
 
     [Fact]
@@ -316,7 +318,7 @@ public class SettingsViewModelTests
 public class SettingsFlyoutTests
 {
     private static SettingsViewModel Make(AppViewModel app, ThemeService theme, bool supported = true) =>
-        new(app, theme, store: null, dispatcher: null, backdropSupported: () => supported);
+        new(app, theme, store: null, dispatcher: null, blurSupported: () => supported);
 
     private static IEnumerable<Button> ThemeRows(SettingsFlyout flyout) =>
         Ui.Descendants<Button>(flyout).Where(b => b.Name == "Row");
@@ -384,19 +386,24 @@ public class SettingsFlyoutTests
     });
 
     [Fact]
-    public void WhereSeeThroughIsUnavailable_TheSliderIsDisabled_WithTheReason() => Ui.Run(() =>
+    public void OnWindowsWithoutBlur_TheSliderStillWorks_AndTheHintSaysWhatIsMissing() => Ui.Run(() =>
     {
         var app = new AppViewModel(new AppConfig(), []);
         var theme = new ThemeService(Application.Current, () => false);
         var settings = Make(app, theme, supported: false);
+        try
+        {
+            var flyout = new SettingsFlyout { DataContext = settings };
+            using var window = new WindowHolder(flyout);
 
-        var flyout = new SettingsFlyout { DataContext = settings };
-        using var window = new WindowHolder(flyout);
-
-        Assert.False(Ui.Descendants<Slider>(flyout).Single().IsEnabled);
-        Assert.Contains(Ui.Descendants<TextBlock>(flyout), t => t.Text.Contains("Windows 11"));
+            Assert.True(Ui.Descendants<Slider>(flyout).Single().IsEnabled);
+            Assert.Contains(Ui.Descendants<TextBlock>(flyout), t => t.Text.Contains("Windows 10"));
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
     });
-
     [Fact]
     public void TheMainWindow_HasACogwheelAndAPanelBoundToTheSettings() => Ui.Run(() =>
     {

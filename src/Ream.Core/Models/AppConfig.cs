@@ -10,10 +10,10 @@ public sealed class AppConfig
     /// <summary>A theme id from <see cref="ThemeCatalog"/>; anything else is the dark default.</summary>
     public string Theme { get; init; } = ThemeCatalog.DefaultId;
 
-    /// <summary>How opaque the canvas behind the notes is, as a percentage (100 = solid). Needs <see cref="CanvasBlur"/>.</summary>
+    /// <summary>How opaque the canvas behind the notes is, as a percentage (100 = solid). Works with or without <see cref="CanvasBlur"/>.</summary>
     public int CanvasOpacity { get; init; } = 100;
 
-    /// <summary>Lets the canvas be see-through by blurring what is behind the window. Turn off if it misbehaves on your GPU.</summary>
+    /// <summary>Blurs what shows through when the canvas is see-through. Off shows the desktop crisp. Turn off if it misbehaves on your GPU.</summary>
     public bool CanvasBlur { get; init; } = true;
 
     public LayoutConfig Layout { get; init; } = new();

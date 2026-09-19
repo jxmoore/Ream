@@ -189,31 +189,39 @@ public class ThemeTests
     });
 
     [Fact]
-    public void TheCanvas_FadesWithOpacity_OnlyWhereBlurIsAvailable() => Ui.Run(() =>
+    public void TheCanvas_FadesWithOpacity_EverywhereAndNeverToNothing() => Ui.Run(() =>
+    {
+        var theme = new ThemeService(Application.Current, () => true);
+        try
+        {
+            theme.Apply("dark", canvasOpacity: 40);
+            Assert.Equal(102, Themes.Brush(ThemeService.CanvasBrushKey).A);
+            Assert.Equal(Themes.Brush("WindowBackgroundBrush").R, Themes.Brush(ThemeService.CanvasBrushKey).R);
+
+            theme.Apply("dark", canvasOpacity: 0);
+            Assert.Equal(1, Themes.Brush(ThemeService.CanvasBrushKey).A); // not 0: a fully clear pixel lets clicks fall through
+
+            theme.Apply("dark", canvasOpacity: 100);
+            Assert.Equal(255, Themes.Brush(ThemeService.CanvasBrushKey).A);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void Opacity_DoesNotDependOnBlurOrOnTheWindowsVersion() => Ui.Run(() =>
     {
         var supported = new ThemeService(Application.Current, () => true);
         var unsupported = new ThemeService(Application.Current, () => false);
         try
         {
-            supported.Apply("dark", canvasOpacity: 40);
-            Assert.Equal(102, Themes.Brush(ThemeService.CanvasBrushKey).A);
-            Assert.Equal(Themes.Brush("WindowBackgroundBrush").R, Themes.Brush(ThemeService.CanvasBrushKey).R);
-            Assert.True(supported.Appearance.SeeThrough);
-
             supported.Apply("dark", canvasOpacity: 40, canvasBlur: false);
-            Assert.Equal(255, Themes.Brush(ThemeService.CanvasBrushKey).A);
-            Assert.False(supported.Appearance.SeeThrough);
+            Assert.Equal(102, Themes.Brush(ThemeService.CanvasBrushKey).A);
 
             unsupported.Apply("dark", canvasOpacity: 40);
-            Assert.Equal(255, Themes.Brush(ThemeService.CanvasBrushKey).A);
-            Assert.False(unsupported.Appearance.SeeThrough);
-
-            supported.Apply("dark", canvasOpacity: 0);
-            Assert.Equal(0, Themes.Brush(ThemeService.CanvasBrushKey).A);
-
-            supported.Apply("dark", canvasOpacity: 100);
-            Assert.Equal(255, Themes.Brush(ThemeService.CanvasBrushKey).A);
-            Assert.False(supported.Appearance.SeeThrough);
+            Assert.Equal(102, Themes.Brush(ThemeService.CanvasBrushKey).A);
         }
         finally
         {
@@ -221,6 +229,55 @@ public class ThemeTests
         }
     });
 
+    [Fact]
+    public void TheBlurIsAskedFor_OnlyWhenSeeThroughWithBlurOnAndSupported() => Ui.Run(() =>
+    {
+        var supported = new ThemeService(Application.Current, () => true);
+        var unsupported = new ThemeService(Application.Current, () => false);
+        try
+        {
+            supported.Apply("dark", canvasOpacity: 40);
+            Assert.Equal(new WindowAppearance(SeeThrough: true, Blur: true), supported.Appearance);
+
+            supported.Apply("dark", canvasOpacity: 40, canvasBlur: false);
+            Assert.Equal(new WindowAppearance(SeeThrough: true, Blur: false), supported.Appearance);
+
+            supported.Apply("dark", canvasOpacity: 100);
+            Assert.Equal(new WindowAppearance(SeeThrough: false, Blur: false), supported.Appearance);
+
+            unsupported.Apply("dark", canvasOpacity: 0);
+            Assert.Equal(new WindowAppearance(SeeThrough: true, Blur: false), unsupported.Appearance);
+        }
+        finally
+        {
+            unsupported.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void TheRibbon_FollowsTheCanvas_ButNeverGetsTooFaintToRead() => Ui.Run(() =>
+    {
+        var theme = new ThemeService(Application.Current);
+        try
+        {
+            theme.Apply("dark", canvasOpacity: 100);
+            Assert.Equal(255, Themes.Brush(ThemeService.RibbonBrushKey).A);
+
+            theme.Apply("dark", canvasOpacity: 80);
+            Assert.Equal(204, Themes.Brush(ThemeService.RibbonBrushKey).A);
+
+            theme.Apply("dark", canvasOpacity: 20);
+            Assert.Equal(ThemeService.RibbonMinimumAlpha, Themes.Brush(ThemeService.RibbonBrushKey).A);
+
+            theme.Apply("dark", canvasOpacity: 0);
+            Assert.Equal(ThemeService.RibbonMinimumAlpha, Themes.Brush(ThemeService.RibbonBrushKey).A);
+            Assert.Equal(Themes.Brush("ToolbarBrush").G, Themes.Brush(ThemeService.RibbonBrushKey).G);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
     [Fact]
     public void ChangingOnlyTheOpacity_StillRaisesChanged() => Ui.Run(() =>
     {
@@ -298,12 +355,12 @@ public class ThemeTests
 
         Themes.Use("light", _ =>
         {
-            Assert.Equal(Themes.Brush("WindowBackgroundBrush"), ((SolidColorBrush)fx.Window.Background).Color);
+            Assert.Equal(Themes.Brush("WindowBackgroundBrush"), ((SolidColorBrush)fx.Canvas.Background).Color);
             var card = Ui.Descendants<Border>(fx.Columns.First()).First(b => b.CornerRadius.TopLeft == 10);
             Assert.Equal(Themes.Brush("CardBrush"), ((SolidColorBrush)card.Background).Color);
         });
 
-        Assert.Equal(Themes.Brush("WindowBackgroundBrush"), ((SolidColorBrush)fx.Window.Background).Color);
+        Assert.Equal(Themes.Brush("WindowBackgroundBrush"), ((SolidColorBrush)fx.Canvas.Background).Color);
     });
 
     [Fact]
@@ -600,18 +657,18 @@ public class ConfigReloadTests
         var (reloader, _, path) = Reloader(dir, fx, Json(theme: "light"));
         try
         {
-            var darkBackground = ((SolidColorBrush)fx.Window.Background).Color;
+            var darkBackground = ((SolidColorBrush)fx.Canvas.Background).Color;
 
             reloader.Reload();
             Ui.Settle();
-            var lightBackground = ((SolidColorBrush)fx.Window.Background).Color;
+            var lightBackground = ((SolidColorBrush)fx.Canvas.Background).Color;
 
             File.WriteAllText(path, Json(theme: "dark"));
             reloader.Reload();
             Ui.Settle();
 
             Assert.NotEqual(darkBackground, lightBackground);
-            Assert.Equal(darkBackground, ((SolidColorBrush)fx.Window.Background).Color);
+            Assert.Equal(darkBackground, ((SolidColorBrush)fx.Canvas.Background).Color);
         }
         finally { reloader.Dispose(); Restore(); }
     });

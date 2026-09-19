@@ -78,31 +78,29 @@ public class RgbaTests
 public class CanvasStyleTests
 {
     [Theory]
-    [InlineData(100, true, true, 255)]
-    [InlineData(0, true, true, 0)]
-    [InlineData(50, true, true, 128)]
-    [InlineData(40, true, true, 102)]
-    [InlineData(40, false, true, 255)]
-    [InlineData(40, true, false, 255)]
-    [InlineData(-10, true, true, 0)]
-    [InlineData(250, true, true, 255)]
-    public void TheAlpha_FollowsThePercentage_OnlyWhereBlurWorks(int percent, bool blur, bool supported, int expected)
+    [InlineData(100, 255)]
+    [InlineData(50, 128)]
+    [InlineData(40, 102)]
+    [InlineData(1, 3)]
+    [InlineData(0, 1)]
+    [InlineData(-10, 1)]
+    [InlineData(250, 255)]
+    public void TheAlpha_FollowsThePercentage_AndNeverReachesZero(int percent, int expected)
     {
-        Assert.Equal(expected, CanvasStyle.Alpha(percent, blur, supported));
+        Assert.Equal(expected, CanvasStyle.Alpha(percent));
     }
 
     [Theory]
-    [InlineData(99, true, true, true)]
-    [InlineData(0, true, true, true)]
-    [InlineData(100, true, true, false)]
-    [InlineData(50, false, true, false)]
-    [InlineData(50, true, false, false)]
-    public void SeeThrough_NeedsBlurSupportAndLessThanFull(int percent, bool blur, bool supported, bool expected)
+    [InlineData(99, true)]
+    [InlineData(50, true)]
+    [InlineData(0, true)]
+    [InlineData(100, false)]
+    [InlineData(250, false)]
+    public void SeeThrough_IsAnythingBelowFull(int percent, bool expected)
     {
-        Assert.Equal(expected, CanvasStyle.IsSeeThrough(percent, blur, supported));
+        Assert.Equal(expected, CanvasStyle.IsSeeThrough(percent));
     }
 }
-
 public class SettingsConfigTests
 {
     private static string Write(TempDir dir, string json)

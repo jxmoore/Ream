@@ -43,7 +43,11 @@ public partial class MainWindow : Window
         SettingsPanel.DataContext = Settings;
 
         _fullscreen = new FullscreenController(new WindowFrame(this));
-        viewModel.AppFullscreenToggleRequested += _fullscreen.Toggle;
+        viewModel.AppFullscreenToggleRequested += () =>
+        {
+            _fullscreen.Toggle();
+            ApplyFullscreenChrome(_fullscreen.IsFullscreen);
+        };
 
         ApplyKeyBindings();
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
@@ -57,6 +61,34 @@ public partial class MainWindow : Window
 
     public SettingsViewModel Settings { get; }
 
+    // ----- The window frame (drawn by Ream, so these do what the native buttons would) -----
+
+    private void OnMinimize(object sender, RoutedEventArgs e) => SystemCommands.MinimizeWindow(this);
+
+    private void OnMaximize(object sender, RoutedEventArgs e)
+    {
+        if (WindowState == WindowState.Maximized) SystemCommands.RestoreWindow(this);
+        else SystemCommands.MaximizeWindow(this);
+    }
+
+    private void OnClose(object sender, RoutedEventArgs e) => SystemCommands.CloseWindow(this);
+
+    protected override void OnStateChanged(EventArgs e)
+    {
+        base.OnStateChanged(e);
+
+        bool maximized = WindowState == WindowState.Maximized;
+        MaximizeButton.Content = maximized ? "\uE923" : "\uE922";
+        MaximizeButton.ToolTip = maximized ? "Restore" : "Maximize";
+
+        // A maximized borderless window is laid out slightly bigger than the screen (by the resize border);
+        // pull the content back in so nothing is cut off.
+        WindowBorder.Margin = maximized ? SystemParameters.WindowResizeBorderThickness : new Thickness(0);
+    }
+
+    /// <summary>In app fullscreen the title bar goes away too (the rest of the top bar stays).</summary>
+    internal void ApplyFullscreenChrome(bool fullscreen) =>
+        TitleBar.Visibility = fullscreen ? Visibility.Collapsed : Visibility.Visible;
     /// <summary>What the About window shows; the app fills in the real folders once it knows them.</summary>
     internal AboutInfo About { get; set; } = AboutInfo.Create();
 

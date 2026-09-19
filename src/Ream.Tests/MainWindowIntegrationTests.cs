@@ -53,6 +53,9 @@ internal sealed class WindowFixture : IDisposable
     public AppViewModel App { get; }
     public Ream.App.MainWindow Window { get; }
 
+    /// <summary>The panel behind the notes; it carries the canvas color.</summary>
+    public Panel Canvas => (Panel)Window.FindName("CanvasArea");
+
     public WorkspaceTabs Tabs => Ui.Descendants<WorkspaceTabs>(Window).Single();
 
     public IEnumerable<NoteColumnView> Columns => Ui.Descendants<NoteColumnView>(Window);

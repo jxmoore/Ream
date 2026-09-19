@@ -123,6 +123,33 @@ internal static class Ui
         return null;
     }
 
+    /// <summary>Renders an element to a bitmap so a test can look at the pixels (and their alpha) it really draws.</summary>
+    public static RenderTargetBitmap Render(FrameworkElement element)
+    {
+        var target = new RenderTargetBitmap((int)element.ActualWidth, (int)element.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+        target.Render(element);
+        return target;
+    }
+
+    /// <summary>One pixel as (alpha, r, g, b), un-premultiplied so colors can be compared with brush colors.</summary>
+    public static (byte A, byte R, byte G, byte B) PixelAt(BitmapSource bitmap, int x, int y)
+    {
+        var px = new byte[4];
+        bitmap.CopyPixels(new Int32Rect(x, y, 1, 1), px, 4, 0);
+        byte a = px[3];
+        if (a == 0) return (0, 0, 0, 0);
+
+        byte Un(byte c) => (byte)Math.Min(255, (int)Math.Round(c * 255.0 / a));
+        return (a, Un(px[2]), Un(px[1]), Un(px[0]));
+    }
+
+    /// <summary>A point in the middle of an element's empty space, in the coordinates of the window being rendered.</summary>
+    public static (int X, int Y) CenterOf(FrameworkElement element, FrameworkElement window, double xFraction = 0.5)
+    {
+        var p = element.TranslatePoint(new Point(element.ActualWidth * xFraction, element.ActualHeight / 2), window);
+        return ((int)p.X, (int)p.Y);
+    }
+
     public static void RenderToPng(FrameworkElement element, string path)
     {
         var target = new RenderTargetBitmap((int)element.ActualWidth, (int)element.ActualHeight, 96, 96, PixelFormats.Pbgra32);
