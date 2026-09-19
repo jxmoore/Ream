@@ -91,7 +91,7 @@ workspaces. Named workspaces are never pruned; unnamed empty ones between the ed
 Switching workspace (keys, Alt+wheel, menu) lands on the first note when `layout.focusFirstNoteOnSwitch`
 (default true); moving a note keeps it focused. `NoteRowPanel.IsCurrentWorkspace` makes a row snap rather
 than scroll while its workspace is off-screen. Note width is not shown on the note: `NoteViewModel.ShowSizeToast`
-flashes "NN%" in the header (accent color) after Alt+=/-/R, resets (Alt+0, Alt+Shift+0, Ctrl+Alt+0) and edge drags.
+flashes "NN%" in the header (accent color) after Alt+=/-/R, resets (Alt+Shift+R note, Ctrl+Alt+R workspace, Ctrl+Alt+Shift+R all; Alt+0-9 are reserved for jumping to workspaces) and edge drags.
 Default `layout.gapPx` is 28. Draft notes (Alt+Left/Right past the end of a row, Alt+N): `NoteViewModel.IsDraft`, never stacked,
 not saved while blank, dropped when focus moves on (`WorkspaceViewModel.DiscardBlankDrafts`);
 the scroll wheels never create them.

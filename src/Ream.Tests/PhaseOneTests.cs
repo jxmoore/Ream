@@ -52,18 +52,18 @@ public class PhaseOneConfigTests
     }
 
     [Theory]
-    [InlineData("resetNoteSize", "Alt+0")]
-    [InlineData("resetWorkspaceSizes", "Alt+Shift+0")]
-    [InlineData("resetAllSizes", "Ctrl+Alt+0")]
+    [InlineData("resetNoteSize", "Alt+Shift+R")]
+    [InlineData("resetWorkspaceSizes", "Ctrl+Alt+R")]
+    [InlineData("resetAllSizes", "Ctrl+Alt+Shift+R")]
     public void TheResetActions_HaveTheirDefaultKeys(string action, string gesture)
     {
         Assert.Equal(gesture, AppConfig.DefaultKeybindings()[action]);
     }
 
     [Theory]
-    [InlineData("resetNoteSize", Key.D0, ModifierKeys.Alt)]
-    [InlineData("resetWorkspaceSizes", Key.D0, ModifierKeys.Alt | ModifierKeys.Shift)]
-    [InlineData("resetAllSizes", Key.D0, ModifierKeys.Control | ModifierKeys.Alt)]
+    [InlineData("resetNoteSize", Key.R, ModifierKeys.Alt | ModifierKeys.Shift)]
+    [InlineData("resetWorkspaceSizes", Key.R, ModifierKeys.Control | ModifierKeys.Alt)]
+    [InlineData("resetAllSizes", Key.R, ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift)]
     public void TheResetKeys_ParseToTheKeysTheyName(string action, Key key, ModifierKeys modifiers)
     {
         var app = new AppViewModel(new AppConfig(), []);
@@ -76,13 +76,38 @@ public class PhaseOneConfigTests
     }
 
     [Fact]
+    public void AltPlusTheDigitKeys_AreKeptFreeForJumpingToWorkspaces()
+    {
+        var app = new AppViewModel(new AppConfig(), []);
+        var bindings = KeyBindingsRegistry.Build(AppConfig.DefaultKeybindings(), app.Actions);
+        var digits = new[]
+        {
+            Key.D0, Key.D1, Key.D2, Key.D3, Key.D4, Key.D5, Key.D6, Key.D7, Key.D8, Key.D9,
+            Key.NumPad0, Key.NumPad1, Key.NumPad2, Key.NumPad3, Key.NumPad4, Key.NumPad5, Key.NumPad6, Key.NumPad7, Key.NumPad8, Key.NumPad9,
+        };
+
+        Assert.NotEmpty(bindings);
+        Assert.DoesNotContain(bindings, b => b.Modifiers == ModifierKeys.Alt && digits.Contains(b.Key));
+    }
+
+    [Fact]
+    public void TheResetKeys_FormOneFamilyOnR_NextToCycleWidth()
+    {
+        var keys = AppConfig.DefaultKeybindings();
+
+        Assert.Equal("Alt+R", keys["cycleWidthPreset"]);
+        Assert.All(new[] { "resetNoteSize", "resetWorkspaceSizes", "resetAllSizes" }, a => Assert.EndsWith("+R", keys[a]));
+        Assert.Equal(keys.Count, keys.Values.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+    }
+
+    [Fact]
     public void TheResetActions_AreDescribedInHelp()
     {
         var entries = HelpContent.Build(AppConfig.DefaultKeybindings()).SelectMany(s => s.Entries).ToList();
 
-        Assert.Contains(entries, e => e.Description.Contains("this note's width") && e.Gesture == "Alt + 0");
-        Assert.Contains(entries, e => e.Description.Contains("in this workspace") && e.Gesture == "Alt + Shift + 0");
-        Assert.Contains(entries, e => e.Description.Contains("every workspace") && e.Gesture == "Ctrl + Alt + 0");
+        Assert.Contains(entries, e => e.Description.Contains("this note's width") && e.Gesture == "Alt + Shift + R");
+        Assert.Contains(entries, e => e.Description.Contains("in this workspace") && e.Gesture == "Ctrl + Alt + R");
+        Assert.Contains(entries, e => e.Description.Contains("every workspace") && e.Gesture == "Ctrl + Alt + Shift + R");
     }
 
     [Theory]
