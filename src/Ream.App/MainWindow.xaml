@@ -29,7 +29,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="Plate" CornerRadius="6,6,0,0" Background="{DynamicResource ChromePlateBrush}">
+                        <Border x:Name="Plate" CornerRadius="6,6,0,0" Background="Transparent">
                             <Border x:Name="Root" Padding="16,0" CornerRadius="6,6,0,0" Background="Transparent">
                                 <Grid>
                                     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -64,7 +64,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Root" Background="{DynamicResource ChromePlateBrush}">
+                        <Border x:Name="Root" Background="Transparent">
                             <ContentPresenter x:Name="Glyph" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -102,10 +102,15 @@
                 Title bar: just "Ream" at the left (a ream's own name will join it one day), minimize / maximize / close
                 at the right. In app fullscreen it is hidden. The workspace's name lives in the bottom-right corner.
             -->
-            <Grid x:Name="TitleBar" Grid.Row="0" Height="32" Background="{DynamicResource CanvasBrush}">
+            <Grid x:Name="TitleBar" Grid.Row="0" Height="32">
                 <Grid.Style>
                     <Style TargetType="Grid">
+                        <Setter Property="Background" Value="{DynamicResource CanvasBrush}"/>
                         <Style.Triggers>
+                            <!-- Reaching for the title or the window buttons puts a backdrop behind them (matters when the canvas is clear). -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource ChromeHoverBrush}"/>
+                            </Trigger>
                             <Trigger Property="Tag" Value="fullscreen">
                                 <Setter Property="Visibility" Value="Collapsed"/>
                             </Trigger>
@@ -117,8 +122,8 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock x:Name="TitleText" Grid.Column="0" Margin="10,0,8,0" Padding="4,2" VerticalAlignment="Center" HorizontalAlignment="Left"
-                           FontSize="12" Foreground="{DynamicResource TextBrush}" Background="{DynamicResource ChromePlateBrush}"
+                <TextBlock x:Name="TitleText" Grid.Column="0" Margin="12,0,8,0" VerticalAlignment="Center" HorizontalAlignment="Left"
+                           FontSize="12" Foreground="{DynamicResource TextBrush}"
                            Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"/>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
@@ -132,14 +137,20 @@
             </Grid>
 
             <!-- Tab row: File | Home | View. Each tab swaps the ribbon panel below it. -->
-            <DockPanel x:Name="TabRow" Grid.Row="1" Background="{DynamicResource CanvasBrush}" Height="36" LastChildFill="False"
+            <DockPanel x:Name="TabRow" Grid.Row="1" Height="36" LastChildFill="False"
                        MouseEnter="OnRibbonAreaMouse" MouseLeave="OnRibbonAreaMouse">
-                <!-- Keeps the panel open (docked above the notes) until clicked again. Only meaningful with auto-hide. -->
-                <ToggleButton x:Name="PinButton" DockPanel.Dock="Right" Margin="0,0,10,0" Width="30" Height="26" Padding="0"
-                              Focusable="False" Click="OnPinClick" ToolTip="Keep the ribbon open"
-                              FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13" Content="&#xE718;"/>
-                <TextBlock x:Name="ConfigProblem" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,12,0" Padding="6,2"
-                           Background="{DynamicResource ChromePlateBrush}" FontSize="12" Text="Config problem (hover)" ToolTip="{Binding ConfigError}"
+                <DockPanel.Style>
+                    <Style TargetType="DockPanel">
+                        <Setter Property="Background" Value="{DynamicResource CanvasBrush}"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource ChromeHoverBrush}"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </DockPanel.Style>
+                <TextBlock x:Name="ConfigProblem" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,12,0"
+                           FontSize="12" Text="Config problem (hover)" ToolTip="{Binding ConfigError}"
                            Foreground="{DynamicResource ErrorBrush}">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
@@ -165,31 +176,50 @@
 
             <!--
                 The ribbon panel under the tabs: whichever tab is selected. It scrolls sideways when the window is narrow.
-                With ribbon.autoHide (the default) it is moved over the notes (row 3) and slides in and out, so showing it
-                never re-lays-out the notes; with autoHide off it stays in its own row above them.
+                With ribbon.autoHide (the default) its height grows from 0 when it is summoned and back to 0 when it is put
+                away, so it pushes the notes down instead of covering them; the pin button inside it keeps it open.
             -->
-            <Border x:Name="RibbonPanel" Grid.Row="2" Height="90" Background="{DynamicResource RibbonBrush}"
+            <Border x:Name="RibbonPanel" Grid.Row="2" Height="90" ClipToBounds="True"
                     BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="0,0,0,1"
                     MouseEnter="OnRibbonAreaMouse" MouseLeave="OnRibbonAreaMouse">
-                <Border.RenderTransform>
-                    <TranslateTransform x:Name="RibbonSlide"/>
-                </Border.RenderTransform>
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="{DynamicResource RibbonBrush}"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource RibbonHoverBrush}"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <Grid>
-                    <!-- No scrollbar: when there is more to the right (or left) a small chevron appears at that edge, and the wheel scrolls too. -->
-                    <ScrollViewer x:Name="RibbonScroll" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
-                                  PreviewMouseWheel="OnRibbonWheel" ScrollChanged="OnRibbonScrollChanged" Focusable="False">
-                        <Grid>
-                            <views:FileRibbonView x:Name="FileRibbon" HorizontalAlignment="Left" Visibility="Collapsed"/>
-                            <views:RibbonView x:Name="Ribbon" HorizontalAlignment="Left"/>
-                            <views:ViewRibbonView x:Name="ViewRibbon" HorizontalAlignment="Left" Visibility="Collapsed"/>
-                        </Grid>
-                    </ScrollViewer>
-                    <Button x:Name="RibbonScrollLeft" Tag="-1" Click="OnRibbonChevron" HorizontalAlignment="Left" VerticalAlignment="Center"
-                            Margin="3,0,0,10" Width="22" Height="44" Padding="0" MinWidth="0" Focusable="False" Visibility="Collapsed"
-                            ToolTip="More to the left" Content="‹" FontSize="20"/>
-                    <Button x:Name="RibbonScrollRight" Tag="1" Click="OnRibbonChevron" HorizontalAlignment="Right" VerticalAlignment="Center"
-                            Margin="0,0,3,10" Width="22" Height="44" Padding="0" MinWidth="0" Focusable="False" Visibility="Collapsed"
-                            ToolTip="More to the right" Content="›" FontSize="20"/>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Grid Grid.Column="0">
+                        <!-- No scrollbar: when there is more to the right (or left) a small chevron appears at that edge, and the wheel scrolls too. -->
+                        <ScrollViewer x:Name="RibbonScroll" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
+                                      PreviewMouseWheel="OnRibbonWheel" ScrollChanged="OnRibbonScrollChanged" Focusable="False">
+                            <Grid>
+                                <views:FileRibbonView x:Name="FileRibbon" HorizontalAlignment="Left" Visibility="Collapsed"/>
+                                <views:RibbonView x:Name="Ribbon" HorizontalAlignment="Left"/>
+                                <views:ViewRibbonView x:Name="ViewRibbon" HorizontalAlignment="Left" Visibility="Collapsed"/>
+                            </Grid>
+                        </ScrollViewer>
+                        <Button x:Name="RibbonScrollLeft" Tag="-1" Click="OnRibbonChevron" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                Margin="3,0,0,10" Width="22" Height="44" Padding="0" MinWidth="0" Focusable="False" Visibility="Collapsed"
+                                ToolTip="More to the left" Content="‹" FontSize="20"/>
+                        <Button x:Name="RibbonScrollRight" Tag="1" Click="OnRibbonChevron" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                Margin="0,0,3,10" Width="22" Height="44" Padding="0" MinWidth="0" Focusable="False" Visibility="Collapsed"
+                                ToolTip="More to the right" Content="›" FontSize="20"/>
+                    </Grid>
+
+                    <!-- Keeps the ribbon open until clicked again. Only meaningful with auto-hide. -->
+                    <ToggleButton x:Name="PinButton" Grid.Column="1" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="4,6,8,0"
+                                  Width="28" Height="26" Padding="0" MinWidth="0" Focusable="False" Click="OnPinClick"
+                                  ToolTip="Keep the ribbon open" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13" Content="&#xE718;"/>
                 </Grid>
             </Border>
 
@@ -213,18 +243,23 @@
 
                 <!--
                     The current workspace's name, bottom right, in the gap under the notes. Double-click it (or Shift+F2)
-                    to rename in place. Plain text with no background of its own, so at 0% it floats over the desktop.
+                    to rename in place. Plain text with no background of its own, so at 0% it floats over the desktop;
+                    it gets a backdrop while the pointer is on it.
                 -->
                 <Grid x:Name="WorkspaceLabelHost" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,6">
                     <TextBlock x:Name="WorkspaceLabel" Padding="6,2" FontSize="12" TextTrimming="CharacterEllipsis"
-                               MaxWidth="320" Background="{DynamicResource ChromePlateBrush}"
+                               MaxWidth="320"
                                Foreground="{DynamicResource MutedTextBrush}"
                                Text="{Binding WorkspaceLabel}"
                                ToolTip="Double-click to rename this workspace"
                                MouseLeftButtonDown="OnWorkspaceLabelMouseDown">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
+                                <Setter Property="Background" Value="Transparent"/>
                                 <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource ChromeHoverBrush}"/>
+                                    </Trigger>
                                     <DataTrigger Binding="{Binding CurrentWorkspace.IsRenaming}" Value="True">
                                         <Setter Property="Visibility" Value="Collapsed"/>
                                     </DataTrigger>

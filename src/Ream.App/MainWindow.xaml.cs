@@ -173,6 +173,7 @@ public partial class MainWindow : Window
     internal static readonly TimeSpan RibbonHideDelay = TimeSpan.FromMilliseconds(400);
 
     private const int RibbonSlideMs = 140;
+    private const double RibbonHeight = 90;
 
     /// <summary>What decides whether the panel is up (tests read it; the window feeds it).</summary>
     internal RibbonVisibility RibbonState => _ribbonState;
@@ -187,7 +188,6 @@ public partial class MainWindow : Window
     {
         _ribbonState.TogglePin();
         PinButton.IsChecked = _ribbonState.Pinned;
-        ApplyRibbonLayout();
         UpdateRibbon();
     }
 
@@ -243,34 +243,15 @@ public partial class MainWindow : Window
         UpdateRibbon();
     }
 
-    /// <summary>Docks the panel above the notes, or floats it over them and tucks it away until wanted.</summary>
+    /// <summary>Puts the panel away until it is wanted (auto-hide on) or leaves it up for good (off).</summary>
     internal void ApplyRibbonMode(bool autoHide)
     {
         _ribbonState.AutoHide = autoHide;
         PinButton.IsChecked = _ribbonState.Pinned;
         PinButton.Visibility = autoHide ? Visibility.Visible : Visibility.Collapsed;
 
-        ApplyRibbonLayout();
         _ribbonHideTimer.Stop();
         ShowRibbon(_ribbonState.WantsOpen, animate: false);
-    }
-
-    /// <summary>Docked (own row, notes below it) when auto-hide is off or the ribbon is pinned; otherwise floating over the notes.</summary>
-    private void ApplyRibbonLayout()
-    {
-        bool floating = _ribbonState.AutoHide && !_ribbonState.Pinned;
-
-        Grid.SetRow(RibbonPanel, floating ? 3 : 2);
-        RibbonPanel.VerticalAlignment = floating ? VerticalAlignment.Top : VerticalAlignment.Stretch;
-        Panel.SetZIndex(RibbonPanel, floating ? 10 : 0);
-
-        if (!floating)
-        {
-            _ribbonShown = true;
-            RibbonPanel.Visibility = Visibility.Visible;
-            RibbonSlide.BeginAnimation(TranslateTransform.YProperty, null);
-            RibbonSlide.Y = 0;
-        }
     }
 
     /// <summary>Brings the panel up at once if it should be, or starts the countdown to tucking it away.</summary>
@@ -294,18 +275,19 @@ public partial class MainWindow : Window
         if (!_ribbonState.WantsOpen && _ribbonShown) ShowRibbon(false, animate: true);
     }
 
+    /// <summary>Grows the panel to its height, or shrinks it to nothing; the notes below move with it.</summary>
     private void ShowRibbon(bool open, bool animate)
     {
         _ribbonShown = open;
-        double to = open ? 0 : -RibbonPanel.Height;
+        double to = open ? RibbonHeight : 0;
 
         if (open) RibbonPanel.Visibility = Visibility.Visible;
 
         var animations = _viewModel.Config.Animations;
         if (!animate || !animations.Enabled)
         {
-            RibbonSlide.BeginAnimation(TranslateTransform.YProperty, null);
-            RibbonSlide.Y = to;
+            RibbonPanel.BeginAnimation(HeightProperty, null);
+            RibbonPanel.Height = to;
             RibbonPanel.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
             return;
         }
@@ -321,7 +303,7 @@ public partial class MainWindow : Window
                 if (!_ribbonShown) RibbonPanel.Visibility = Visibility.Collapsed;
             };
         }
-        RibbonSlide.BeginAnimation(TranslateTransform.YProperty, slide);
+        RibbonPanel.BeginAnimation(HeightProperty, slide);
     }
 
     internal void SelectTab(RibbonTab tab)

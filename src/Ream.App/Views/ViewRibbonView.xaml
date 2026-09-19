@@ -34,7 +34,7 @@
 
         <!-- Opacity: two short sliders, stacked -->
         <StackPanel>
-            <Grid MinHeight="60" VerticalAlignment="Center" Margin="4,0" Background="{DynamicResource ChromePlateBrush}">
+            <Grid MinHeight="60" VerticalAlignment="Center" Margin="4,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>

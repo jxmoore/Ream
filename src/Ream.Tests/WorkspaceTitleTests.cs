@@ -130,7 +130,7 @@ public class DefaultBrushTests
     [Fact]
     public void EveryBrushTheWindowUses_ExistsBeforeAnyThemeIsApplied() => Ui.Run(() =>
     {
-        foreach (var key in new[] { "CanvasBrush", "RibbonBrush", "FocusBorderBrush", "WindowBorderBrush", "NoteBrush", "ChromePlateBrush" })
+        foreach (var key in new[] { "CanvasBrush", "RibbonBrush", "FocusBorderBrush", "WindowBorderBrush", "NoteBrush", "ChromeHoverBrush", "RibbonHoverBrush" })
             Assert.True(System.Windows.Application.Current.Resources.Contains(key), $"{key} has no default in App.xaml");
     });
 }

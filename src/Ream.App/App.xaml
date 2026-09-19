@@ -9,7 +9,8 @@
             <SolidColorBrush x:Key="FocusBorderBrush" Color="#7c9cff"/>
             <SolidColorBrush x:Key="WindowBorderBrush" Color="#33333d"/>
             <SolidColorBrush x:Key="NoteBrush" Color="#23232b"/>
-            <SolidColorBrush x:Key="ChromePlateBrush" Color="#0015151a"/>
+            <SolidColorBrush x:Key="ChromeHoverBrush" Color="#15151a"/>
+            <SolidColorBrush x:Key="RibbonHoverBrush" Color="#1d1d24"/>
             <ResourceDictionary.MergedDictionaries>
                 <!-- Index 0 is the active palette; ThemeService swaps it for the chosen theme's file. -->
                 <ResourceDictionary Source="Themes/Dark.xaml"/>

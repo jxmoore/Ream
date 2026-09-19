@@ -8,7 +8,7 @@ namespace Ream.App.Services;
 /// Puts the chosen color theme into the app's resources: swaps the palette, and publishes the brushes that depend
 /// on settings as well as the palette - the canvas behind the notes (its see-through amount), the ribbon panel and the
 /// window's outline (both follow the canvas exactly, so at 0% nothing of Ream is left behind the notes), each
-/// note's background, a plate that keeps Ream's own text legible over a clear canvas, and the border around the focused note.
+/// note's background, the backdrops that appear behind Ream's own text on hover, and the border around the focused note.
 /// </summary>
 internal sealed class ThemeService
 {
@@ -17,7 +17,8 @@ internal sealed class ThemeService
     public const string FocusBorderBrushKey = "FocusBorderBrush";
     public const string WindowBorderBrushKey = "WindowBorderBrush";
     public const string NoteBrushKey = "NoteBrush";
-    public const string ChromePlateBrushKey = "ChromePlateBrush";
+    public const string ChromeHoverBrushKey = "ChromeHoverBrush";
+    public const string RibbonHoverBrushKey = "RibbonHoverBrush";
 
     private readonly Application _application;
     private readonly Func<bool> _blurSupported;
@@ -28,7 +29,8 @@ internal sealed class ThemeService
     private Color _focusBorder;
     private Color _windowBorder;
     private Color _note;
-    private Color _plate;
+    private Color _chromeHover;
+    private Color _ribbonHover;
     private bool _isLight;
     private WindowAppearance _appearance;
 
@@ -80,7 +82,9 @@ internal sealed class ThemeService
         var ribbon = WithAlpha(BrushColor("ToolbarBrush"), alpha);
         var windowBorder = WithAlpha(BrushColor("ToolbarBorderBrush"), alpha);
         var note = WithAlpha(BrushColor("CardBrush"), CanvasStyle.NoteAlpha(noteOpacity));
-        var plate = WithAlpha(BrushColor("WindowBackgroundBrush"), CanvasStyle.PlateAlpha(canvasOpacity));
+        byte hoverAlpha = CanvasStyle.HoverBackdropAlpha(canvasOpacity);
+        var chromeHover = WithAlpha(BrushColor("WindowBackgroundBrush"), hoverAlpha);
+        var ribbonHover = WithAlpha(BrushColor("ToolbarBrush"), hoverAlpha);
 
         var accent = BrushColor("AccentBrush");
         var focusBorder = Rgba.TryParse(focusBorderColor, out var custom)
@@ -92,14 +96,16 @@ internal sealed class ThemeService
         if (focusBorder != _focusBorder || changed) { Publish(FocusBorderBrushKey, focusBorder); changed = true; }
         if (windowBorder != _windowBorder || changed) { Publish(WindowBorderBrushKey, windowBorder); changed = true; }
         if (note != _note || changed) { Publish(NoteBrushKey, note); changed = true; }
-        if (plate != _plate || changed) { Publish(ChromePlateBrushKey, plate); changed = true; }
+        if (chromeHover != _chromeHover || changed) { Publish(ChromeHoverBrushKey, chromeHover); changed = true; }
+        if (ribbonHover != _ribbonHover || changed) { Publish(RibbonHoverBrushKey, ribbonHover); changed = true; }
 
         _canvas = canvas;
         _ribbon = ribbon;
         _focusBorder = focusBorder;
         _windowBorder = windowBorder;
         _note = note;
-        _plate = plate;
+        _chromeHover = chromeHover;
+        _ribbonHover = ribbonHover;
 
         bool seeThrough = CanvasStyle.IsSeeThrough(canvasOpacity);
         var appearance = new WindowAppearance(seeThrough, Blur: seeThrough && canvasBlur && CanvasStyle.AllowsBlur(canvasOpacity) && _blurSupported());

@@ -180,23 +180,23 @@ public class RibbonAutoHideTests
     // ----- Where the panel lives -----
 
     [Fact]
-    public void ByDefault_ThePanelIsTuckedAway_OverTheNotes_AndTheTabsAreStillThere() => Ui.Run(() =>
+    public void ByDefault_ThePanelIsTuckedAway_AndTheTabsAreStillThere() => Ui.Run(() =>
     {
         using var fx = new WindowFixture(("W", 2));
 
-        Assert.Equal(3, Grid.GetRow((UIElement)fx.Window.FindName("RibbonPanel")));
         Assert.False(fx.Window.IsRibbonOpen);
+        Assert.Equal(0, ((FrameworkElement)Panel(fx)).ActualHeight);
         Assert.Equal(Visibility.Collapsed, Panel(fx).Visibility);
         Assert.Equal(Visibility.Visible, TabRow(fx).Visibility);
         Assert.True(((FrameworkElement)fx.Window.FindName("HomeTab")).IsVisible);
     });
 
     [Fact]
-    public void ShowingThePanel_NeverMovesTheNotes() => Ui.Run(() =>
+    public void ShowingThePanel_PushesTheNotesDown_AndPuttingItAwayBringsThemBack() => Ui.Run(() =>
     {
         using var fx = Fixture(autoHide: true);
         var canvas = (FrameworkElement)fx.Window.FindName("CanvasArea");
-        double before = canvas.ActualHeight;
+        double height = canvas.ActualHeight;
         double top = canvas.TranslatePoint(new Point(0, 0), fx.Window).Y;
 
         Mouse(TabRow(fx), enter: true);
@@ -204,12 +204,40 @@ public class RibbonAutoHideTests
 
         Assert.True(fx.Window.IsRibbonOpen);
         Assert.Equal(Visibility.Visible, Panel(fx).Visibility);
-        Assert.Equal(before, canvas.ActualHeight);
-        Assert.Equal(top, canvas.TranslatePoint(new Point(0, 0), fx.Window).Y);
+        double panel = ((FrameworkElement)Panel(fx)).ActualHeight;
+        Assert.True(panel >= 85, $"the panel is {panel} px tall");
+        Assert.Equal(height - panel, canvas.ActualHeight, 1);
+        Assert.Equal(top + panel, canvas.TranslatePoint(new Point(0, 0), fx.Window).Y, 1);
+
+        Mouse(TabRow(fx), enter: false);
+        fx.Window.CompleteRibbonHide();
+        Ui.Settle();
+
+        Assert.Equal(height, canvas.ActualHeight, 1);
+        Assert.Equal(top, canvas.TranslatePoint(new Point(0, 0), fx.Window).Y, 1);
     });
 
     [Fact]
-    public void WithAutoHideOff_ThePanelIsDocked_AboveTheNotes() => Ui.Run(() =>
+    public void WithAnimationsOn_ThePanelEasesOpen_AndEndsAtItsFullHeight() => Ui.Run(() =>
+    {
+        using var fx = new WindowFixture(("W", 2)); // the default config: animations on
+        var panel = (FrameworkElement)Panel(fx);
+
+        Mouse(TabRow(fx), enter: true);
+        Assert.True(panel.HasAnimatedProperties, "the height is animating");
+
+        // The animation runs on the wall clock, and an off-screen layered window renders slowly: give it time.
+        for (int i = 0; i < 100 && panel.ActualHeight < 89.5; i++)
+        {
+            Ui.Settle();
+            Thread.Sleep(30);
+        }
+
+        Assert.InRange(panel.ActualHeight, 89.5, 90.5);
+    });
+
+    [Fact]
+    public void WithAutoHideOff_ThePanelIsAlwaysThere_AboveTheNotes() => Ui.Run(() =>
     {
         using var docked = Fixture(autoHide: false);
         using var hidden = Fixture(autoHide: true);
@@ -220,7 +248,7 @@ public class RibbonAutoHideTests
 
         var dockedCanvas = (FrameworkElement)docked.Window.FindName("CanvasArea");
         var hiddenCanvas = (FrameworkElement)hidden.Window.FindName("CanvasArea");
-        Assert.True(hiddenCanvas.ActualHeight - dockedCanvas.ActualHeight >= 90, "docking the ribbon takes room from the notes");
+        Assert.True(hiddenCanvas.ActualHeight - dockedCanvas.ActualHeight >= 90, "a shown ribbon takes room from the notes");
     });
 
     // ----- Hover -----
@@ -366,7 +394,7 @@ public class RibbonAutoHideTests
     });
 
     [Fact]
-    public void ThePinButton_DocksTheRibbonAboveTheNotes_UntilItIsClickedAgain() => Ui.Run(() =>
+    public void ThePinButton_KeepsTheRibbonOpen_UntilItIsClickedAgain() => Ui.Run(() =>
     {
         using var fx = Fixture(autoHide: true);
         var pin = (ToggleButton)fx.Window.FindName("PinButton");
@@ -376,7 +404,6 @@ public class RibbonAutoHideTests
         Assert.True(fx.Window.RibbonState.Pinned);
         Assert.True(pin.IsChecked);
         Assert.True(fx.Window.IsRibbonOpen);
-        Assert.Equal(2, Grid.GetRow((FrameworkElement)Panel(fx)));
 
         MouseDown(fx.Canvas); // pinned: a click elsewhere leaves it alone
         Mouse(TabRow(fx), enter: false);
@@ -384,9 +411,25 @@ public class RibbonAutoHideTests
 
         Click(pin);
         Assert.False(fx.Window.RibbonState.Pinned);
-        Assert.Equal(3, Grid.GetRow((FrameworkElement)Panel(fx)));
         fx.Window.CompleteRibbonHide();
         Assert.False(fx.Window.IsRibbonOpen);
+    });
+
+    [Fact]
+    public void ThePinButton_LivesInTheRibbonPanel_NotInTheTabRow() => Ui.Run(() =>
+    {
+        using var fx = Fixture(autoHide: true);
+        var pin = (DependencyObject)fx.Window.FindName("PinButton");
+
+        bool Inside(DependencyObject child, DependencyObject ancestor)
+        {
+            for (var n = child; n is not null; n = (n is System.Windows.Media.Visual ? System.Windows.Media.VisualTreeHelper.GetParent(n) : null) ?? LogicalTreeHelper.GetParent(n))
+                if (ReferenceEquals(n, ancestor)) return true;
+            return false;
+        }
+
+        Assert.True(Inside(pin, (DependencyObject)Panel(fx)));
+        Assert.False(Inside(pin, (DependencyObject)TabRow(fx)));
     });
 
     [Fact]
@@ -462,12 +505,12 @@ public class RibbonAutoHideTests
         fx.App.Config = Config(autoHide: false);
         Ui.Settle();
         Assert.True(fx.Window.IsRibbonOpen);
-        Assert.Equal(2, Grid.GetRow((FrameworkElement)Panel(fx)));
+        Assert.Equal(Visibility.Visible, Panel(fx).Visibility);
 
         fx.App.Config = Config(autoHide: true);
         Ui.Settle();
         Assert.False(fx.Window.IsRibbonOpen);
-        Assert.Equal(3, Grid.GetRow((FrameworkElement)Panel(fx)));
+        Assert.Equal(Visibility.Collapsed, Panel(fx).Visibility);
     });
 
     // ----- The Size group -----
