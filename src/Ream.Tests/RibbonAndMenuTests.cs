@@ -260,20 +260,106 @@ public class FileMenuTests
     });
 
     [Fact]
-    public void TheMenuHasOpenDisabled_ThenHelpAndAbout() => Ui.Run(() =>
+    public void TheMenuHasOpenDisabled_ThenWorkspaces_ThenHelpAndAbout() => Ui.Run(() =>
     {
         using var fx = new WindowFixture(("W", 1));
         var menu = (ContextMenu)fx.Window.FindName("FileMenu");
 
         var items = menu.Items.OfType<MenuItem>().ToList();
 
-        Assert.Equal(["Open Ream…", "Help", "About"], items.Select(i => (string)i.Header));
+        Assert.Equal(["Open Ream…", "Workspaces", "Help", "About"], items.Select(i => (string)i.Header));
         Assert.False(items[0].IsEnabled);
         Assert.Equal("Coming soon", items[0].ToolTip);
         Assert.True(items[1].IsEnabled);
         Assert.True(items[2].IsEnabled);
+        Assert.True(items[3].IsEnabled);
         Assert.Single(menu.Items.OfType<Separator>());
     });
+
+    private static List<MenuItem> WorkspaceItems(WindowFixture fx) =>
+        ((MenuItem)fx.Window.FindName("WorkspacesMenuItem")).Items.OfType<MenuItem>().ToList();
+
+    [Fact]
+    public void TheWorkspacesSubmenu_ListsEveryWorkspace_WithTheCurrentOneChecked() => Ui.Run(() =>
+    {
+        using var fx = new WindowFixture(("Work", 1), (null, 1));
+
+        var items = WorkspaceItems(fx);
+
+        Assert.Equal(
+            ["New workspace above", "Work", "Workspace 2", "New workspace below"],
+            items.Select(i => (string)i.Header));
+        Assert.Equal([false, true, false, false], items.Select(i => i.IsChecked));
+    });
+
+    [Fact]
+    public void PickingAWorkspaceFromTheMenu_SwitchesToIt_AndTheTitleFollows() => Ui.Run(() =>
+    {
+        using var fx = new WindowFixture(("Work", 1), ("Ideas", 1));
+
+        Click(WorkspaceItems(fx)[2]);
+        Ui.Settle();
+
+        Assert.Same(fx.App.Workspaces[2], fx.App.CurrentWorkspace);
+        Assert.Equal("Ream - Ideas", fx.Window.Title);
+    });
+
+    [Fact]
+    public void PickingOneFromTheMenu_LandsOnItsFirstNote() => Ui.Run(() =>
+    {
+        using var fx = new WindowFixture(("Work", 1), ("Ideas", 4));
+        fx.App.Workspaces[2].SetFocus(3);
+
+        Click(WorkspaceItems(fx)[2]);
+
+        Assert.Equal(0, fx.App.Workspaces[2].FocusedIndex);
+    });
+
+    [Fact]
+    public void TheSubmenu_IsRebuiltToMatchTheWorkspacesAsTheyAreNow() => Ui.Run(() =>
+    {
+        using var fx = new WindowFixture(("Work", 1));
+        Assert.Equal(["New workspace above", "Work", "New workspace below"], WorkspaceItems(fx).Select(i => (string)i.Header));
+
+        fx.App.CurrentWorkspace.Name = "Renamed";
+        fx.App.NewNoteCommand.Execute(null); // a note in the last empty workspace makes another appear
+        fx.App.SelectWorkspaceCommand.Execute(fx.App.Workspaces[^1]);
+        fx.App.NewNoteCommand.Execute(null);
+        fx.Window.RebuildWorkspaceMenu();
+
+        var items = WorkspaceItems(fx);
+        Assert.Equal(fx.App.Workspaces.Count, items.Count);
+        Assert.Contains("Renamed", items.Select(i => (string)i.Header));
+        Assert.Equal(1, items.Count(i => i.IsChecked));
+    });
+
+    [Fact]
+    public void TheSubmenuTemplate_CanShowAChildPopup_ACheckAndAnArrow() => Ui.Run(() =>
+    {
+        var parent = new MenuItem { Header = "Parent", IsChecked = true };
+        parent.Items.Add(new MenuItem { Header = "Child" });
+        var host = new StackPanel();
+        host.Children.Add(parent);
+        using var window = new Holder(Ui.Show(host, 300, 120));
+
+        parent.ApplyTemplate();
+
+        Assert.NotNull(parent.Template.FindName("PART_Popup", parent));
+        Assert.Equal(Visibility.Visible, ((UIElement)parent.Template.FindName("Arrow", parent)).Visibility);
+        Assert.Equal(Visibility.Visible, ((UIElement)parent.Template.FindName("Check", parent)).Visibility);
+
+        var plain = new MenuItem { Header = "Plain" };
+        host.Children.Add(plain);
+        Ui.Settle();
+        plain.ApplyTemplate();
+        Assert.Equal(Visibility.Collapsed, ((UIElement)plain.Template.FindName("Arrow", plain)).Visibility);
+        Assert.Equal(Visibility.Collapsed, ((UIElement)plain.Template.FindName("Check", plain)).Visibility);
+    });
+
+    private sealed class Holder(Window window) : IDisposable
+    {
+        public void Dispose() => window.Close();
+    }
 
     [Fact]
     public void Open_DoesNothing_EvenIfClicked() => Ui.Run(() =>

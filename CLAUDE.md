@@ -90,9 +90,11 @@ clamped to 0.15-1.0). Presets (1/3, 1/2, 2/3, full) are only labels/cycle stops
 column's right edge (`NoteColumnView.ResizeHandle`) sets the fraction live via
 `RowLayout.FractionForWidth`; `NoteRowPanel.IsResizing` makes the panel follow the pointer
 instead of animating. `layout.json` stores `widthFraction` (older files' `"width": "half"` still
-load) and an optional `customTitle`. Workspaces: `WorkspaceTabs` chips (click = switch,
-double-click or Shift+F2 = rename in place); the first and last chip are unnamed empty "+" edge
-workspaces. Named workspaces are never pruned; unnamed empty ones between the edges are.
+load) and an optional `customTitle`. Workspaces have no chips any more: the title bar reads
+"Ream - <workspace>" (`AppViewModel.WindowTitle`; unnamed = "Workspace N", the empty edges = just "Ream"),
+double-click it or press Shift+F2 to rename in place, and File > Workspaces lists them for the mouse
+(`MainWindow.RebuildWorkspaceMenu`, rebuilt each time the menu opens). The first and last workspace are
+unnamed empty edges. Named workspaces are never pruned; unnamed empty ones between the edges are.
 Switching workspace (keys, Alt+wheel, menu) lands on the first note when `layout.focusFirstNoteOnSwitch`
 (default true); moving a note keeps it focused. `NoteRowPanel.IsCurrentWorkspace` makes a row snap rather
 than scroll while its workspace is off-screen. Note width is not shown on the note: `NoteViewModel.ShowSizeToast`

@@ -265,6 +265,7 @@
         <Setter Property="Foreground" Value="{DynamicResource ControlTextBrush}"/>
         <Setter Property="Template">
             <Setter.Value>
+                <!-- One template for plain items, checked items and items with a submenu (a popup to the right). -->
                 <ControlTemplate TargetType="MenuItem">
                     <Border x:Name="Root" CornerRadius="4" Padding="8,6" Background="Transparent" SnapsToDevicePixels="True">
                         <Grid>
@@ -272,16 +273,40 @@
                                 <ColumnDefinition Width="Auto" MinWidth="22"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <ContentPresenter ContentSource="Icon" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock x:Name="Check" Text="&#xE73E;" Visibility="Collapsed" VerticalAlignment="Center"
+                                       FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Margin="0,0,8,0"
+                                       Foreground="{DynamicResource AccentBrush}"/>
                             <ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center"/>
                             <TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}" Margin="24,0,0,0"
                                        Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="Arrow" Grid.Column="3" Text="&#xE76C;" Visibility="Collapsed" Margin="16,0,0,0"
+                                       FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource MutedTextBrush}"/>
+                            <Popup x:Name="PART_Popup" Placement="Right" HorizontalOffset="-2" AllowsTransparency="True"
+                                   Focusable="False" PopupAnimation="Fade"
+                                   IsOpen="{Binding Path=IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}">
+                                <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource ControlBorderBrush}"
+                                        BorderThickness="1" CornerRadius="6" Padding="4" MinWidth="170" Margin="0,0,8,8">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.35" Color="Black"/>
+                                    </Border.Effect>
+                                    <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                                </Border>
+                            </Popup>
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsHighlighted" Value="True">
                             <Setter TargetName="Root" Property="Background" Value="{DynamicResource ControlHoverBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Check" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="HasItems" Value="True">
+                            <Setter TargetName="Arrow" Property="Visibility" Value="Visible"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.45"/>
@@ -291,7 +316,6 @@
             </Setter.Value>
         </Setter>
     </Style>
-
     <Style x:Key="{x:Static MenuItem.SeparatorStyleKey}" TargetType="Separator">
         <Setter Property="Template">
             <Setter.Value>

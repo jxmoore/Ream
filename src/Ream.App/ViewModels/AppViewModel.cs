@@ -32,7 +32,15 @@ public sealed partial class AppViewModel : ObservableObject
         _visited = Workspaces[_currentIndex];
         _noteCounter = Workspaces.Sum(w => w.Notes.Count);
         RefreshWorkspaceState();
-        Workspaces.CollectionChanged += (_, _) => RefreshWorkspaceState();
+        foreach (var workspace in Workspaces) workspace.PropertyChanged += OnWorkspaceChanged;
+        Workspaces.CollectionChanged += (_, e) =>
+        {
+            if (e.OldItems is not null)
+                foreach (WorkspaceViewModel old in e.OldItems) old.PropertyChanged -= OnWorkspaceChanged;
+            if (e.NewItems is not null)
+                foreach (WorkspaceViewModel added in e.NewItems) added.PropertyChanged += OnWorkspaceChanged;
+            RefreshWorkspaceState();
+        };
 
         Actions = new Dictionary<string, ICommand>
         {
@@ -82,6 +90,14 @@ public sealed partial class AppViewModel : ObservableObject
 
     public WorkspaceViewModel CurrentWorkspace => Workspaces[CurrentIndex];
 
+    public const string AppName = "Ream";
+
+    /// <summary>"Ream - Work" for the current workspace, or just "Ream" where it has no name to show.</summary>
+    public string WindowTitle =>
+        CurrentIndex >= 0 && CurrentIndex < Workspaces.Count && Workspaces[CurrentIndex].DisplayName is { } name
+            ? $"{AppName} - {name}"
+            : AppName;
+
     // The workspace that was current last time we looked. Compared by identity, so the index shifting
     // under a list edit isn't mistaken for leaving a workspace.
     private WorkspaceViewModel _visited;
@@ -111,6 +127,15 @@ public sealed partial class AppViewModel : ObservableObject
             Workspaces[i].Number = i;
             Workspaces[i].IsCurrent = i == CurrentIndex;
         }
+
+        OnPropertyChanged(nameof(WindowTitle));
+    }
+
+    // A rename or renumbering of the current workspace changes the title too.
+    private void OnWorkspaceChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (ReferenceEquals(sender, _visited) && e.PropertyName is nameof(WorkspaceViewModel.DisplayName))
+            OnPropertyChanged(nameof(WindowTitle));
     }
 
     /// <summary>Raised when the focused note's editor should take keyboard focus (after focus or workspace moves).</summary>

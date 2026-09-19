@@ -39,6 +39,8 @@ public partial class MainWindow : Window
         _viewModel = viewModel;
         DataContext = viewModel;
 
+        RebuildWorkspaceMenu();
+
         Settings = settings ?? new SettingsViewModel(viewModel, new ThemeService(Application.Current));
         SettingsPanel.DataContext = Settings;
 
@@ -86,9 +88,71 @@ public partial class MainWindow : Window
         WindowBorder.Margin = maximized ? SystemParameters.WindowResizeBorderThickness : new Thickness(0);
     }
 
-    /// <summary>In app fullscreen the title bar goes away too (the rest of the top bar stays).</summary>
+    /// <summary>In app fullscreen the title bar goes away too (the rest of the top bar stays). A rename brings it back.</summary>
     internal void ApplyFullscreenChrome(bool fullscreen) =>
-        TitleBar.Visibility = fullscreen ? Visibility.Collapsed : Visibility.Visible;
+        TitleBar.Tag = fullscreen ? "fullscreen" : null;
+
+    // ----- Renaming the workspace from the title bar -----
+
+    private void OnTitleMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount < 2) return;
+
+        _viewModel.BeginRenameCommand.Execute(null);
+        e.Handled = true;
+    }
+
+    private void OnTitleKeyDown(object sender, KeyEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case Key.Enter:
+                _viewModel.CommitRenameCommand.Execute(_viewModel.CurrentWorkspace);
+                e.Handled = true;
+                break;
+            case Key.Escape:
+                _viewModel.CancelRenameCommand.Execute(_viewModel.CurrentWorkspace);
+                e.Handled = true;
+                break;
+        }
+    }
+
+    // Clicking away keeps what was typed. Escape has already ended the rename, so this then does nothing.
+    private void OnTitleLostFocus(object sender, KeyboardFocusChangedEventArgs e) =>
+        _viewModel.CurrentWorkspace.CommitRename();
+
+    private void OnTitleBoxVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is not true || sender is not System.Windows.Controls.TextBox box) return;
+
+        box.Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
+        {
+            box.Focus();
+            box.SelectAll();
+        });
+    }
+
+    // ----- File > Workspaces -----
+
+    private void OnFileMenuOpened(object sender, RoutedEventArgs e) => RebuildWorkspaceMenu();
+
+    /// <summary>Lists the workspaces as they are now (there is no live list: the menu is rebuilt each time it opens).</summary>
+    internal void RebuildWorkspaceMenu()
+    {
+        WorkspacesMenuItem.Items.Clear();
+
+        foreach (var workspace in _viewModel.Workspaces)
+        {
+            var item = new System.Windows.Controls.MenuItem
+            {
+                Header = workspace.MenuLabel,
+                IsChecked = workspace.IsCurrent,
+            };
+            var target = workspace;
+            item.Click += (_, _) => _viewModel.SelectWorkspaceCommand.Execute(target);
+            WorkspacesMenuItem.Items.Add(item);
+        }
+    }
     /// <summary>What the About window shows; the app fills in the real folders once it knows them.</summary>
     internal AboutInfo About { get; set; } = AboutInfo.Create();
 

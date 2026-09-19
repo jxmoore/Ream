@@ -336,7 +336,7 @@ public class WelcomeNoteTests
     {
         var app = SeedData.CreateWelcome(new AppConfig(), null!);
 
-        Assert.Equal(["+", "Welcome", "+"], app.Workspaces.Select(w => w.DisplayLabel));
+        Assert.Equal(["New workspace above", "Welcome", "New workspace below"], app.Workspaces.Select(w => w.MenuLabel));
         Assert.Equal("Welcome", app.CurrentWorkspace.Name);
     }
 }

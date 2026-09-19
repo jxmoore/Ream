@@ -154,7 +154,8 @@ public class TestHostTests
         Ui.Settle();
 
         // The real OnStartup would show a MainWindow bound to the user's own documents.
-        Assert.Empty(Application.Current.Windows.OfType<Ream.App.MainWindow>());
+        var leaked = Application.Current.Windows.OfType<Ream.App.MainWindow>().Select(w => $"[{w.Title}] shown={w.IsVisible}").ToList();
+        Assert.True(leaked.Count == 0, "A MainWindow is open: " + string.Join(", ", leaked));
         Assert.Equal("Dark.xaml", System.IO.Path.GetFileName(Application.Current.Resources.MergedDictionaries[0].Source.ToString()));
     });
 }

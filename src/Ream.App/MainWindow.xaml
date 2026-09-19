@@ -4,7 +4,7 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:controls="clr-namespace:Ream.App.Controls"
         xmlns:views="clr-namespace:Ream.App.Views"
-        Title="Ream" Height="720" Width="1200" MinWidth="480" MinHeight="320"
+        Title="{Binding WindowTitle}" Height="720" Width="1200" MinWidth="480" MinHeight="320"
         WindowStyle="None" AllowsTransparency="True" ResizeMode="CanResize"
         Background="Transparent" Foreground="{DynamicResource TextBrush}">
     <!--
@@ -87,12 +87,66 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- Title bar: the window's title at the left, minimize / maximize / close at the right. -->
+            <!--
+                Title bar: "Ream - Workspace" at the left (double-click it to rename the workspace), minimize / maximize /
+                close at the right. In app fullscreen it is hidden, except while a rename is in progress.
+            -->
             <Grid x:Name="TitleBar" Grid.Row="0" Height="32" Background="{DynamicResource CanvasBrush}">
-                <TextBlock x:Name="TitleText" Margin="12,0,150,0" VerticalAlignment="Center" FontSize="12"
-                           TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextBrush}"
-                           Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"/>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Style.Triggers>
+                            <Trigger Property="Tag" Value="fullscreen">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                            <DataTrigger Binding="{Binding CurrentWorkspace.IsRenaming}" Value="True">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Grid Grid.Column="0" Margin="12,0,8,0" HorizontalAlignment="Left">
+                    <TextBlock x:Name="TitleText" VerticalAlignment="Center" FontSize="12"
+                               TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextBrush}"
+                               Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
+                               ToolTip="Double-click to rename this workspace"
+                               shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                               MouseLeftButtonDown="OnTitleMouseDown">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentWorkspace.IsRenaming}" Value="True">
+                                        <Setter Property="Visibility" Value="Hidden"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <StackPanel x:Name="TitleEdit" Orientation="Horizontal" VerticalAlignment="Center"
+                                shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentWorkspace.IsRenaming}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="Ream - " VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextBrush}"/>
+                        <TextBox x:Name="TitleBox" MinWidth="200" MaxLength="40" FontSize="12" Padding="4,2"
+                                 Text="{Binding CurrentWorkspace.EditName, UpdateSourceTrigger=PropertyChanged}"
+                                 PreviewKeyDown="OnTitleKeyDown" LostKeyboardFocus="OnTitleLostFocus"
+                                 IsVisibleChanged="OnTitleBoxVisibleChanged"/>
+                    </StackPanel>
+                </Grid>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button x:Name="MinimizeButton" Style="{StaticResource CaptionButtonStyle}" Content="&#xE921;"
                             ToolTip="Minimize" Click="OnMinimize"/>
                     <Button x:Name="MaximizeButton" Style="{StaticResource CaptionButtonStyle}" Content="&#xE922;"
@@ -102,7 +156,7 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Tab row: File, Home, and (at the right) the settings and workspace chips. -->
+            <!-- Tab row: File, Home, and (at the right) the settings. -->
             <DockPanel x:Name="TabRow" Grid.Row="1" Background="{DynamicResource CanvasBrush}" Height="36" LastChildFill="False">
                 <TextBlock x:Name="ConfigProblem" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,12,0"
                            FontSize="12" Text="Config problem (hover)" ToolTip="{Binding ConfigError}"
@@ -126,14 +180,14 @@
                        Closed="OnSettingsClosed">
                     <views:SettingsFlyout x:Name="SettingsPanel" Margin="0,4,12,12"/>
                 </Popup>
-                <views:WorkspaceTabs DockPanel.Dock="Right" Margin="12,0,10,0"/>
 
                 <Button x:Name="FileButton" DockPanel.Dock="Left" Margin="8,0,6,0" Height="24" Content="File"
                         Style="{StaticResource FileButtonStyle}" Click="OnFileClick" ToolTip="File">
                     <Button.ContextMenu>
-                        <ContextMenu x:Name="FileMenu" Closed="OnFileMenuClosed">
+                        <ContextMenu x:Name="FileMenu" Closed="OnFileMenuClosed" Opened="OnFileMenuOpened">
                             <MenuItem x:Name="OpenMenuItem" Header="Open Ream…" IsEnabled="False"
                                       ToolTipService.ShowOnDisabled="True" ToolTip="Coming soon"/>
+                            <MenuItem x:Name="WorkspacesMenuItem" Header="Workspaces"/>
                             <Separator/>
                             <MenuItem x:Name="HelpMenuItem" Header="Help" Click="OnHelpClick"/>
                             <MenuItem x:Name="AboutMenuItem" Header="About" Click="OnAboutClick"/>

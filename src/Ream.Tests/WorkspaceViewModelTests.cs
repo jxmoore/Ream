@@ -23,7 +23,7 @@ public class WorkspaceViewModelTests
     {
         var app = App(Workspace("Work", 1), Workspace(null, 1));
 
-        Assert.Equal(["+", "Work", "2", "+"], app.Workspaces.Select(w => w.DisplayLabel));
+        Assert.Equal(["New workspace above", "Work", "Workspace 2", "New workspace below"], app.Workspaces.Select(w => w.MenuLabel));
         Assert.Equal([false, true, false, false], app.Workspaces.Select(w => w.IsCurrent));
     }
 
@@ -63,15 +63,15 @@ public class WorkspaceViewModelTests
     public void NumbersFollowTheList_WhenWorkspacesAreAddedOrRemoved()
     {
         var app = App(Workspace(null, 1), Workspace(null, 1));
-        Assert.Equal(["+", "1", "2", "+"], app.Workspaces.Select(w => w.DisplayLabel));
+        Assert.Equal(["New workspace above", "Workspace 1", "Workspace 2", "New workspace below"], app.Workspaces.Select(w => w.MenuLabel));
 
         // A note in the trailing workspace makes a new trailing one appear.
         app.CurrentIndex = 3;
         app.NewNoteCommand.Execute(null);
-        Assert.Equal(["+", "1", "2", "3", "+"], app.Workspaces.Select(w => w.DisplayLabel));
+        Assert.Equal(["New workspace above", "Workspace 1", "Workspace 2", "Workspace 3", "New workspace below"], app.Workspaces.Select(w => w.MenuLabel));
 
         app.Workspaces.RemoveAt(1);
-        Assert.Equal(["+", "1", "2", "+"], app.Workspaces.Select(w => w.DisplayLabel));
+        Assert.Equal(["New workspace above", "Workspace 1", "Workspace 2", "New workspace below"], app.Workspaces.Select(w => w.MenuLabel));
     }
 
     // ----- Renaming -----
@@ -111,7 +111,7 @@ public class WorkspaceViewModelTests
         workspace.CommitRename();
 
         Assert.Null(workspace.Name);
-        Assert.Equal("1", workspace.DisplayLabel);
+        Assert.Equal("Workspace 1", workspace.DisplayName);
     }
 
     [Fact]
@@ -218,7 +218,7 @@ public class WorkspaceViewModelTests
 
         app.PruneEmptyWorkspacesCommand.Execute(null);
 
-        Assert.Equal(["+", "1", "2", "+"], app.Workspaces.Select(w => w.DisplayLabel));
+        Assert.Equal(["New workspace above", "Workspace 1", "Workspace 2", "New workspace below"], app.Workspaces.Select(w => w.MenuLabel));
         Assert.Equal(2, app.CurrentIndex);
         Assert.Equal([false, false, true, false], app.Workspaces.Select(w => w.IsCurrent));
     }

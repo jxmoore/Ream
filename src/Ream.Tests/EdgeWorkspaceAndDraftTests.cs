@@ -59,7 +59,7 @@ public class EdgeWorkspaceTests
     {
         var app = App(Workspace(null, 1), Workspace("Named", 1), Workspace(null, 1));
 
-        Assert.Equal(["+", "1", "Named", "3", "+"], app.Workspaces.Select(w => w.DisplayLabel));
+        Assert.Equal(["New workspace above", "Workspace 1", "Named", "Workspace 3", "New workspace below"], app.Workspaces.Select(w => w.MenuLabel));
     }
 
     [Fact]
@@ -118,7 +118,7 @@ public class EdgeWorkspaceTests
         Assert.Equal(4, app.Workspaces.Count);
         Assert.True(app.Workspaces[0].IsEmpty);
         Assert.Equal([note], app.CurrentWorkspace.Notes);
-        Assert.Equal("+", app.Workspaces[0].DisplayLabel);
+        Assert.Equal("New workspace above", app.Workspaces[0].MenuLabel);
         Assert.Equal(1, app.CurrentIndex);
     }
 
@@ -157,7 +157,7 @@ public class EdgeWorkspaceTests
         app.SwitchWorkspace(1);
         app.PruneEmptyWorkspacesCommand.Execute(null);
 
-        Assert.Equal(["+", "B", "+"], app.Workspaces.Select(w => w.DisplayLabel));
+        Assert.Equal(["New workspace above", "B", "New workspace below"], app.Workspaces.Select(w => w.MenuLabel));
         Assert.Equal("B", app.CurrentWorkspace.Name);
     }
 

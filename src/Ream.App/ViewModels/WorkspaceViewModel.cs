@@ -33,17 +33,20 @@ public sealed partial class WorkspaceViewModel : ObservableObject
 
     /// <summary>The user's name for this workspace; null means unnamed (shown by its number).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DisplayLabel))]
+    [NotifyPropertyChangedFor(nameof(DisplayName))]
+    [NotifyPropertyChangedFor(nameof(MenuLabel))]
     private string? _name;
 
     /// <summary>1-based position in the workspace list, kept current by the app.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DisplayLabel))]
+    [NotifyPropertyChangedFor(nameof(DisplayName))]
+    [NotifyPropertyChangedFor(nameof(MenuLabel))]
     private int _number;
 
-    /// <summary>True for the first and last workspace, which are never numbered (an unnamed one shows "+").</summary>
+    /// <summary>True for the first and last workspace: the always-empty ones, which are never numbered.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DisplayLabel))]
+    [NotifyPropertyChangedFor(nameof(DisplayName))]
+    [NotifyPropertyChangedFor(nameof(MenuLabel))]
     private bool _isEdge;
 
     [ObservableProperty]
@@ -58,7 +61,11 @@ public sealed partial class WorkspaceViewModel : ObservableObject
     [ObservableProperty]
     private int _focusedIndex;
 
-    public string DisplayLabel => Name ?? (IsEdge ? "+" : Number.ToString());
+    /// <summary>What the window title shows: the name, else "Workspace N"; null for an unnamed edge, which has nothing to show.</summary>
+    public string? DisplayName => Name ?? (IsEdge ? null : $"Workspace {Number}");
+
+    /// <summary>How the workspace reads in the File menu. An unnamed edge is the way to make a new workspace.</summary>
+    public string MenuLabel => DisplayName ?? (Number == 0 ? "New workspace above" : "New workspace below");
 
     public void BeginRename()
     {

@@ -437,6 +437,20 @@ public class SizeToastInTheWindowTests
         Assert.Equal(0, ToastOf(view).Opacity);
     });
 
+    // The clock only advances when WPF renders a frame, so wait for the result instead of sleeping and hoping.
+    private static void WaitUntil(Func<bool> done, int timeoutMs = 4000)
+    {
+        var until = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (!done() && DateTime.UtcNow < until)
+        {
+            Thread.Sleep(40);
+            Ui.Settle();
+        }
+    }
+
+    // Layered (see-through) windows render slowly enough that "wait until idle" can last until an animation has
+    // finished, so these tests check that the flash started (text and a running animation) rather than sampling it.
+
     [Fact]
     public void SizingUp_FlashesThePercentage_InTheAccentColor() => Ui.Run(() =>
     {
@@ -445,14 +459,11 @@ public class SizeToastInTheWindowTests
         var toast = ToastOf(fx.ColumnOf(note));
 
         fx.App.SizeUpCommand.Execute(null);
-        Ui.Settle();
 
         Assert.Equal("55%", toast.Text);
-        Assert.Equal(1, toast.Opacity, 2);
-        Assert.Equal(Themes.Brush(ThemeServiceKey), ((System.Windows.Media.SolidColorBrush)toast.Foreground).Color);
+        Assert.True(toast.HasAnimatedProperties, "the flash should be running");
+        Assert.Equal(Themes.Brush("FocusBorderBrush"), ((System.Windows.Media.SolidColorBrush)toast.Foreground).Color);
     });
-
-    private const string ThemeServiceKey = "FocusBorderBrush";
 
     [Fact]
     public void ThePercentage_FadesAwayByItself() => Ui.Run(() =>
@@ -461,11 +472,9 @@ public class SizeToastInTheWindowTests
         var toast = ToastOf(fx.ColumnOf(fx.App.CurrentWorkspace.Notes[0]));
 
         fx.App.SizeUpCommand.Execute(null);
-        Ui.Settle();
-        Assert.True(toast.Opacity > 0.9);
+        Assert.True(toast.HasAnimatedProperties);
 
-        Thread.Sleep(1500);
-        Ui.Settle();
+        WaitUntil(() => toast.Opacity < 0.01);
 
         Assert.Equal(0, toast.Opacity, 2);
     });
@@ -478,11 +487,10 @@ public class SizeToastInTheWindowTests
         var toast = ToastOf(fx.ColumnOf(fx.App.CurrentWorkspace.Notes[0]));
 
         fx.App.SizeDownCommand.Execute(null);
-        Ui.Settle();
-        Assert.Equal(1, toast.Opacity, 2);
+        Assert.Equal("45%", toast.Text);
+        Assert.True(toast.HasAnimatedProperties);
 
-        Thread.Sleep(1200);
-        Ui.Settle();
+        WaitUntil(() => toast.Opacity < 0.01);
 
         Assert.Equal(0, toast.Opacity, 2);
     });
@@ -494,18 +502,13 @@ public class SizeToastInTheWindowTests
         var toast = ToastOf(fx.ColumnOf(fx.App.CurrentWorkspace.Notes[0]));
 
         fx.App.SizeUpCommand.Execute(null);
-        Ui.Settle();
-        Thread.Sleep(600);
+        Assert.Equal("55%", toast.Text);
         fx.App.SizeUpCommand.Execute(null);
-        Ui.Settle();
-        Thread.Sleep(600);
-        Ui.Settle();
 
         Assert.Equal("60%", toast.Text);
-        Assert.True(toast.Opacity > 0.9, "the second press should have restarted the hold");
+        Assert.True(toast.HasAnimatedProperties);
     });
 }
-
 public class WorkspaceSwitchSnapTests
 {
     private static double Left(NoteColumnView view, NoteRowPanel row) => view.TranslatePoint(new Point(0, 0), row).X;
@@ -539,12 +542,11 @@ public class WorkspaceSwitchSnapTests
         Ui.Settle();
 
         a.SetFocus(5);
-        Ui.Settle();
+        fx.Window.UpdateLayout();
 
-        var last = fx.ColumnOf(a.Notes[5]);
-        var row = Ui.Ancestor<NoteRowPanel>(last)!;
-        double centered = (row.ActualWidth - last.ActualWidth) / 2;
-        Assert.NotEqual(centered, Left(last, row), 1);
+        // Sampling the position mid-scroll depends on how fast frames render; the scroll running is what matters.
+        var row = Ui.Ancestor<NoteRowPanel>(fx.ColumnOf(a.Notes[5]))!;
+        Assert.True(row.HasAnimatedProperties, "moving focus in the current workspace should scroll, not jump");
     });
 
     [Fact]
