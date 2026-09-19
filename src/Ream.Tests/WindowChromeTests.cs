@@ -326,16 +326,16 @@ public class ChromeLooksTests
     [Fact]
     public void TheRibbonPanel_FollowsTheCanvasAllTheWayDown() => Ui.Run(() =>
     {
-        using var fx = new WindowFixture(("W", 2));
+        using var fx = new WindowFixture(new AppConfig { Ribbon = new RibbonConfig { AutoHide = false } }, ("W", 2));
         Apply("dark", 0, out var restore);
         try
         {
             Ui.Settle();
             var shot = Ui.Render(fx.Window);
 
-            // Far right of the panel, past the last group of buttons.
+            // The empty margin at the panel's top left, before the first group of buttons.
             var panel = (FrameworkElement)fx.Window.FindName("RibbonPanel");
-            var p = panel.TranslatePoint(new Point(panel.ActualWidth - 20, panel.ActualHeight / 2), fx.Window);
+            var p = panel.TranslatePoint(new Point(4, 3), fx.Window);
             var pixel = Ui.PixelAt(shot, (int)p.X, (int)p.Y);
 
             Assert.InRange((int)pixel.A, 1, 2);

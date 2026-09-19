@@ -130,7 +130,8 @@
             </Grid>
 
             <!-- Tab row: File | Home | View. Each tab swaps the ribbon panel below it. -->
-            <DockPanel x:Name="TabRow" Grid.Row="1" Background="{DynamicResource CanvasBrush}" Height="36" LastChildFill="False">
+            <DockPanel x:Name="TabRow" Grid.Row="1" Background="{DynamicResource CanvasBrush}" Height="36" LastChildFill="False"
+                       MouseEnter="OnRibbonAreaMouse" MouseLeave="OnRibbonAreaMouse">
                 <TextBlock x:Name="ConfigProblem" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="8,0,12,0"
                            FontSize="12" Text="Config problem (hover)" ToolTip="{Binding ConfigError}"
                            Foreground="{DynamicResource ErrorBrush}">
@@ -156,9 +157,17 @@
                 </StackPanel>
             </DockPanel>
 
-            <!-- The ribbon panel under the tabs: whichever tab is selected. It scrolls sideways when the window is narrow. -->
-            <Border x:Name="RibbonPanel" Grid.Row="2" Height="96" Background="{DynamicResource RibbonBrush}"
-                    BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="0,0,0,1">
+            <!--
+                The ribbon panel under the tabs: whichever tab is selected. It scrolls sideways when the window is narrow.
+                With ribbon.autoHide (the default) it is moved over the notes (row 3) and slides in and out, so showing it
+                never re-lays-out the notes; with autoHide off it stays in its own row above them.
+            -->
+            <Border x:Name="RibbonPanel" Grid.Row="2" Height="100" Background="{DynamicResource RibbonBrush}"
+                    BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="0,0,0,1"
+                    MouseEnter="OnRibbonAreaMouse" MouseLeave="OnRibbonAreaMouse">
+                <Border.RenderTransform>
+                    <TranslateTransform x:Name="RibbonSlide"/>
+                </Border.RenderTransform>
                 <ScrollViewer x:Name="RibbonScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
                               PreviewMouseWheel="OnRibbonWheel" Focusable="False">
                     <Grid>

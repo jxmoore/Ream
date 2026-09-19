@@ -20,6 +20,7 @@ public sealed class AppConfig
     public bool CanvasBlur { get; init; } = true;
 
     public LayoutConfig Layout { get; init; } = new();
+    public RibbonConfig Ribbon { get; init; } = new();
     public AnimationConfig Animations { get; init; } = new();
     public Dictionary<string, string> Keybindings { get; init; } = DefaultKeybindings();
 
@@ -33,6 +34,7 @@ public sealed class AppConfig
         NoteOpacity = noteOpacity ?? NoteOpacity,
         CanvasBlur = CanvasBlur,
         Layout = Layout,
+        Ribbon = Ribbon,
         Animations = Animations,
         Keybindings = Keybindings,
     };
@@ -73,6 +75,15 @@ public sealed class LayoutConfig
     public bool FocusFirstNoteOnSwitch { get; init; } = true;
     /// <summary>Color of the border around the focused note, "#RRGGBB" or "#AARRGGBB". Null means the theme's accent.</summary>
     public string? FocusBorderColor { get; init; }
+}
+
+public sealed class RibbonConfig
+{
+    /// <summary>
+    /// The tab row is always there; the panel under it tucks away until the pointer visits the tabs or a tab is
+    /// clicked (which pins it open). Off keeps the panel docked above the notes.
+    /// </summary>
+    public bool AutoHide { get; init; } = true;
 }
 
 public sealed class AnimationConfig

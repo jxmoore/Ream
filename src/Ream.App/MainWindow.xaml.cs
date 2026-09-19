@@ -1,11 +1,16 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using Ream.App.Animation;
 using Ream.App.Input;
 using Ream.App.Services;
 using Ream.App.Views;
+using Ream.Core.Layout;
 using Ream.Core.Models;
 using Ream.App.ViewModels;
 using Ream.Core.Utilities;
@@ -25,6 +30,11 @@ public partial class MainWindow : Window
     private readonly FullscreenController _fullscreen;
     private readonly IWindowBackdrop _backdrop;
     private WindowAppearance? _appearance;
+    private readonly RibbonVisibility _ribbonState = new();
+    private readonly DispatcherTimer _ribbonHideTimer = new() { Interval = RibbonHideDelay };
+    private bool _overTabRow;
+    private bool _overRibbonPanel;
+    private bool _ribbonShown = true;
 
     /// <param name="settings">What the View tab edits; when omitted the panel works on this run only (tests).</param>
     internal MainWindow(AppViewModel viewModel, SettingsViewModel? settings, IWindowBackdrop? backdrop)
@@ -45,6 +55,14 @@ public partial class MainWindow : Window
         FileRibbon.HelpRequested += OpenHelp;
         FileRibbon.AboutRequested += OpenAbout;
         SelectTab(RibbonTab.Home);
+
+        _ribbonHideTimer.Tick += (_, _) => CompleteRibbonHide();
+        Ribbon.MenuOpenChanged += () =>
+        {
+            _ribbonState.MenuOpen = Ribbon.IsMenuOpen;
+            UpdateRibbon();
+        };
+        ApplyRibbonMode(viewModel.Config.Ribbon.AutoHide);
 
         _fullscreen = new FullscreenController(new WindowFrame(this));
         viewModel.AppFullscreenToggleRequested += () =>
@@ -139,8 +157,105 @@ public partial class MainWindow : Window
     /// <summary>Which tab's ribbon is showing.</summary>
     internal RibbonTab SelectedTab { get; private set; }
 
-    private void OnTabClick(object sender, RoutedEventArgs e) =>
-        SelectTab(Enum.Parse<RibbonTab>((string)((FrameworkElement)sender).Tag));
+    private void OnTabClick(object sender, RoutedEventArgs e)
+    {
+        var tab = Enum.Parse<RibbonTab>((string)((FrameworkElement)sender).Tag);
+        bool wasSelected = tab == SelectedTab;
+
+        SelectTab(tab);
+        _ribbonState.TabClicked(wasSelected);
+        UpdateRibbon();
+    }
+
+    // ----- Auto-hide -----
+
+    /// <summary>How long the panel waits after the pointer leaves before tucking away.</summary>
+    internal static readonly TimeSpan RibbonHideDelay = TimeSpan.FromMilliseconds(400);
+
+    private const int RibbonSlideMs = 140;
+
+    /// <summary>What decides whether the panel is up (tests read it; the window feeds it).</summary>
+    internal RibbonVisibility RibbonState => _ribbonState;
+
+    /// <summary>The panel is up (or sliding up); false once it is tucked away.</summary>
+    internal bool IsRibbonOpen => _ribbonShown;
+
+    /// <summary>The pointer left and the panel is about to tuck away.</summary>
+    internal bool RibbonHidePending => _ribbonHideTimer.IsEnabled;
+
+    private void OnRibbonAreaMouse(object sender, MouseEventArgs e)
+    {
+        bool inside = e.RoutedEvent == Mouse.MouseEnterEvent;
+        if (ReferenceEquals(sender, TabRow)) _overTabRow = inside;
+        else _overRibbonPanel = inside;
+
+        _ribbonState.PointerInside = _overTabRow || _overRibbonPanel;
+        UpdateRibbon();
+    }
+
+    /// <summary>Docks the panel above the notes, or floats it over them and tucks it away until wanted.</summary>
+    internal void ApplyRibbonMode(bool autoHide)
+    {
+        _ribbonState.AutoHide = autoHide;
+
+        Grid.SetRow(RibbonPanel, autoHide ? 3 : 2);
+        RibbonPanel.VerticalAlignment = autoHide ? VerticalAlignment.Top : VerticalAlignment.Stretch;
+        Panel.SetZIndex(RibbonPanel, autoHide ? 10 : 0);
+
+        _ribbonHideTimer.Stop();
+        ShowRibbon(_ribbonState.WantsOpen, animate: false);
+    }
+
+    /// <summary>Brings the panel up at once if it should be, or starts the countdown to tucking it away.</summary>
+    internal void UpdateRibbon()
+    {
+        if (_ribbonState.WantsOpen)
+        {
+            _ribbonHideTimer.Stop();
+            if (!_ribbonShown) ShowRibbon(true, animate: true);
+        }
+        else if (_ribbonShown && !_ribbonHideTimer.IsEnabled)
+        {
+            _ribbonHideTimer.Start();
+        }
+    }
+
+    /// <summary>The delay is over: tuck the panel away unless something wants it again.</summary>
+    internal void CompleteRibbonHide()
+    {
+        _ribbonHideTimer.Stop();
+        if (!_ribbonState.WantsOpen && _ribbonShown) ShowRibbon(false, animate: true);
+    }
+
+    private void ShowRibbon(bool open, bool animate)
+    {
+        _ribbonShown = open;
+        double to = open ? 0 : -RibbonPanel.Height;
+
+        if (open) RibbonPanel.Visibility = Visibility.Visible;
+
+        var animations = _viewModel.Config.Animations;
+        if (!animate || !animations.Enabled)
+        {
+            RibbonSlide.BeginAnimation(TranslateTransform.YProperty, null);
+            RibbonSlide.Y = to;
+            RibbonPanel.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+            return;
+        }
+
+        var slide = new DoubleAnimation(to, TimeSpan.FromMilliseconds(RibbonSlideMs))
+        {
+            EasingFunction = Motion.CreateEasing(animations),
+        };
+        if (!open)
+        {
+            slide.Completed += (_, _) =>
+            {
+                if (!_ribbonShown) RibbonPanel.Visibility = Visibility.Collapsed;
+            };
+        }
+        RibbonSlide.BeginAnimation(TranslateTransform.YProperty, slide);
+    }
 
     internal void SelectTab(RibbonTab tab)
     {
@@ -215,7 +330,10 @@ public partial class MainWindow : Window
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(AppViewModel.Config)) ApplyKeyBindings();
+        if (e.PropertyName != nameof(AppViewModel.Config)) return;
+
+        ApplyKeyBindings();
+        if (_viewModel.Config.Ribbon.AutoHide != _ribbonState.AutoHide) ApplyRibbonMode(_viewModel.Config.Ribbon.AutoHide);
     }
 
     protected override void OnSourceInitialized(EventArgs e)

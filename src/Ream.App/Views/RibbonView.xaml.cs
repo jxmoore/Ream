@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -36,6 +37,7 @@ public partial class RibbonView : UserControl
 
     private RichTextBox? _editor;
     private bool _refreshing;
+    private bool _colorMenuOpen;
 
     public RibbonView()
     {
@@ -45,6 +47,12 @@ public partial class RibbonView : UserControl
         FontBox.ItemsSource = PreferredFonts.Where(installed.Contains).ToList();
         SizeBox.ItemsSource = Sizes;
 
+        // Watch the property itself: it is what says whether the list is showing, and the opened/closed events
+        // do not reliably arrive after it has changed.
+        var dropDown = DependencyPropertyDescriptor.FromProperty(ComboBox.IsDropDownOpenProperty, typeof(ComboBox));
+        dropDown.AddValueChanged(FontBox, (_, _) => MenuOpenChanged?.Invoke());
+        dropDown.AddValueChanged(SizeBox, (_, _) => MenuOpenChanged?.Invoke());
+
         Loaded += (_, _) =>
         {
             var window = Window.GetWindow(this);
@@ -53,6 +61,12 @@ public partial class RibbonView : UserControl
             window.AddHandler(TextBoxBase.SelectionChangedEvent, new RoutedEventHandler(OnSelectionChanged), true);
         };
     }
+
+    /// <summary>Raised when a drop-down or color menu of this ribbon opens or closes.</summary>
+    public event Action? MenuOpenChanged;
+
+    /// <summary>A font/size drop-down or a color menu is open. The window keeps an auto-hidden ribbon up meanwhile.</summary>
+    internal bool IsMenuOpen => FontBox.IsDropDownOpen || SizeBox.IsDropDownOpen || _colorMenuOpen;
 
     // ----- Tracking the active editor -----
 
@@ -291,9 +305,11 @@ public partial class RibbonView : UserControl
         Refresh();
     }
 
-    private static void ShowColorMenu(Button anchor, (string Name, string Hex)[] colors, string resetLabel, Action<Color?> apply)
+    private void ShowColorMenu(Button anchor, (string Name, string Hex)[] colors, string resetLabel, Action<Color?> apply)
     {
         var menu = new ContextMenu { PlacementTarget = anchor, Placement = PlacementMode.Bottom };
+        menu.Opened += (_, _) => SetColorMenuOpen(true);
+        menu.Closed += (_, _) => SetColorMenuOpen(false);
 
         var reset = new MenuItem { Header = resetLabel };
         reset.Click += (_, _) => apply(null);
@@ -321,5 +337,11 @@ public partial class RibbonView : UserControl
         }
 
         menu.IsOpen = true;
+    }
+
+    private void SetColorMenuOpen(bool open)
+    {
+        _colorMenuOpen = open;
+        MenuOpenChanged?.Invoke();
     }
 }

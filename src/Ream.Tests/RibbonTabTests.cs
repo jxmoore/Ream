@@ -13,6 +13,10 @@ namespace Ream.Tests;
 /// <summary>File | Home | View: three tabs, each swapping the ribbon panel under them.</summary>
 public class RibbonTabTests
 {
+    /// <summary>These tests look at the panels themselves, so the ribbon is docked (auto-hide would keep it tucked away).</summary>
+    private static WindowFixture Docked(params (string? Name, int Notes)[] workspaces) =>
+        new(new AppConfig { Ribbon = new RibbonConfig { AutoHide = false } }, workspaces);
+
     private static RadioButton Tab(WindowFixture fx, string name) => (RadioButton)fx.Window.FindName(name);
 
     private static void Click(ButtonBase button) => button.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
@@ -27,7 +31,7 @@ public class RibbonTabTests
     [Fact]
     public void TheTopBar_HasFileHomeAndViewTabs_WithHomeSelected() => Ui.Run(() =>
     {
-        using var fx = new WindowFixture(("W", 1));
+        using var fx = Docked(("W", 1));
 
         Assert.Equal(["File", "Home", "View"], new[] { "FileTab", "HomeTab", "ViewTab" }.Select(n => (string)Tab(fx, n).Content));
         Assert.Equal([false, true, false], new[] { "FileTab", "HomeTab", "ViewTab" }.Select(n => Tab(fx, n).IsChecked == true));
@@ -38,7 +42,7 @@ public class RibbonTabTests
     [Fact]
     public void ClickingATab_ShowsItsRibbon_AndOnlyThat() => Ui.Run(() =>
     {
-        using var fx = new WindowFixture(("W", 1));
+        using var fx = Docked(("W", 1));
 
         Click(Tab(fx, "FileTab"));
         Assert.Equal(RibbonTab.File, fx.Window.SelectedTab);
@@ -56,7 +60,7 @@ public class RibbonTabTests
     [Fact]
     public void TheOldFileMenuAndSettingsCog_AreGone() => Ui.Run(() =>
     {
-        using var fx = new WindowFixture(("W", 1));
+        using var fx = Docked(("W", 1));
 
         foreach (var name in new[] { "FileButton", "FileMenu", "SettingsButton", "SettingsPopup", "SettingsPanel", "WorkspacesMenuItem" })
             Assert.Null(fx.Window.FindName(name));
@@ -65,7 +69,7 @@ public class RibbonTabTests
     [Fact]
     public void TheViewRibbon_IsBoundToTheSettings() => Ui.Run(() =>
     {
-        using var fx = new WindowFixture(("W", 1));
+        using var fx = Docked(("W", 1));
 
         Assert.Same(fx.Window.Settings, ((FrameworkElement)fx.Window.FindName("ViewRibbon")).DataContext);
     });
@@ -73,7 +77,7 @@ public class RibbonTabTests
     [Fact]
     public void ThePanelKeepsItsHeight_WhicheverTabIsShowing() => Ui.Run(() =>
     {
-        using var fx = new WindowFixture(("W", 1));
+        using var fx = Docked(("W", 1));
         var panel = (FrameworkElement)fx.Window.FindName("RibbonPanel");
         var heights = new List<double> { panel.ActualHeight };
 
@@ -107,7 +111,7 @@ public class RibbonTabTests
     [Fact]
     public void TheFileRibbon_HasOpenDisabled_TheWorkspaces_AndHelpAndAbout() => Ui.Run(() =>
     {
-        using var fx = new WindowFixture(("W", 1));
+        using var fx = Docked(("W", 1));
         var view = FileRibbon(fx);
 
         var open = ButtonNamed(view, "OpenButton");
@@ -120,7 +124,7 @@ public class RibbonTabTests
     [Fact]
     public void TheWorkspaceButtons_ListEveryWorkspace_WithTheCurrentOneMarked() => Ui.Run(() =>
     {
-        using var fx = new WindowFixture(("Work", 1), (null, 1));
+        using var fx = Docked(("Work", 1), (null, 1));
         var view = FileRibbon(fx);
 
         var buttons = WorkspaceButtons(view);
@@ -134,7 +138,7 @@ public class RibbonTabTests
     [Fact]
     public void PickingAWorkspace_SwitchesToIt_AndTheLabelFollows() => Ui.Run(() =>
     {
-        using var fx = new WindowFixture(("Work", 1), ("Ideas", 1));
+        using var fx = Docked(("Work", 1), ("Ideas", 1));
         var view = FileRibbon(fx);
 
         Invoke(WorkspaceButtons(view)[2]);
@@ -147,7 +151,7 @@ public class RibbonTabTests
     [Fact]
     public void PickingOne_LandsOnItsFirstNote() => Ui.Run(() =>
     {
-        using var fx = new WindowFixture(("Work", 1), ("Ideas", 4));
+        using var fx = Docked(("Work", 1), ("Ideas", 4));
         fx.App.Workspaces[2].SetFocus(3);
         var view = FileRibbon(fx);
         Assert.Equal(1, fx.App.CurrentIndex);
@@ -163,7 +167,7 @@ public class RibbonTabTests
     [Fact]
     public void TheWorkspaceList_KeepsUpWithRenamesAndNewWorkspaces() => Ui.Run(() =>
     {
-        using var fx = new WindowFixture(("Work", 1));
+        using var fx = Docked(("Work", 1));
         var view = FileRibbon(fx);
         Assert.Equal(["New workspace above", "Work", "New workspace below"], WorkspaceButtons(view).Select(b => ((TextBlock)b.Content).Text));
 
@@ -180,7 +184,7 @@ public class RibbonTabTests
     [Fact]
     public void Open_DoesNothing_EvenIfClicked() => Ui.Run(() =>
     {
-        using var fx = new WindowFixture(("W", 1));
+        using var fx = Docked(("W", 1));
         var view = FileRibbon(fx);
         var shown = new List<Window>();
         fx.Window.ShowModal = shown.Add;
@@ -193,7 +197,7 @@ public class RibbonTabTests
     [Fact]
     public void Help_OpensAWindowListingTheShortcuts() => Ui.Run(() =>
     {
-        using var fx = new WindowFixture(("W", 1));
+        using var fx = Docked(("W", 1));
         var view = FileRibbon(fx);
         var shown = new List<Window>();
         fx.Window.ShowModal = shown.Add;
@@ -211,7 +215,7 @@ public class RibbonTabTests
     [Fact]
     public void Help_ShowsWhateverTheConfigCurrentlySays() => Ui.Run(() =>
     {
-        using var fx = new WindowFixture(("W", 1));
+        using var fx = Docked(("W", 1));
         var config = new AppConfig();
         config.Keybindings["newNote"] = "Ctrl+T";
         fx.App.Config = config;
@@ -228,7 +232,7 @@ public class RibbonTabTests
     [Fact]
     public void About_OpensAWindowWithTheVersionAndTheFolders() => Ui.Run(() =>
     {
-        using var fx = new WindowFixture(("W", 1));
+        using var fx = Docked(("W", 1));
         var view = FileRibbon(fx);
         fx.Window.About = AboutInfo.Create("D:/notes", "C:/cfg/config.json");
         var shown = new List<Window>();
@@ -255,7 +259,7 @@ public class RibbonTabTests
     [Fact]
     public void ClosingAWindow_ReturnsTheKeyboardToTheEditor() => Ui.Run(() =>
     {
-        using var fx = new WindowFixture(("W", 1));
+        using var fx = Docked(("W", 1));
         int requests = 0;
         fx.App.FocusEditorRequested += () => requests++;
         fx.Window.ShowModal = _ => { };
@@ -270,7 +274,7 @@ public class RibbonTabTests
     [Fact]
     public void ANarrowWindow_ScrollsTheRibbonSideways_AWideOneDoesNot() => Ui.Run(() =>
     {
-        using var fx = new WindowFixture(("W", 1));
+        using var fx = Docked(("W", 1));
         var scroll = (ScrollViewer)fx.Window.FindName("RibbonScroll");
 
         fx.Window.Width = 1600;
