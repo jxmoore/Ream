@@ -7,12 +7,31 @@ public sealed class AppConfig
     /// <summary>Folder holding all workspaces. Null/empty means the default location.</summary>
     public string? DocumentsRoot { get; init; }
 
-    /// <summary>"system" (follow Windows), "light", or "dark".</summary>
-    public string Theme { get; init; } = "system";
+    /// <summary>A theme id from <see cref="ThemeCatalog"/>; anything else is the dark default.</summary>
+    public string Theme { get; init; } = ThemeCatalog.DefaultId;
+
+    /// <summary>How opaque the canvas behind the notes is, as a percentage (100 = solid). Needs <see cref="CanvasBlur"/>.</summary>
+    public int CanvasOpacity { get; init; } = 100;
+
+    /// <summary>Lets the canvas be see-through by blurring what is behind the window. Turn off if it misbehaves on your GPU.</summary>
+    public bool CanvasBlur { get; init; } = true;
 
     public LayoutConfig Layout { get; init; } = new();
     public AnimationConfig Animations { get; init; } = new();
     public Dictionary<string, string> Keybindings { get; init; } = DefaultKeybindings();
+
+    /// <summary>A copy with the settings the Settings panel edits changed; everything else is carried over.</summary>
+    public AppConfig With(string? theme = null, int? canvasOpacity = null) => new()
+    {
+        SchemaVersion = SchemaVersion,
+        DocumentsRoot = DocumentsRoot,
+        Theme = theme ?? Theme,
+        CanvasOpacity = canvasOpacity ?? CanvasOpacity,
+        CanvasBlur = CanvasBlur,
+        Layout = Layout,
+        Animations = Animations,
+        Keybindings = Keybindings,
+    };
 
     public static Dictionary<string, string> DefaultKeybindings() => new()
     {
@@ -40,6 +59,9 @@ public sealed class LayoutConfig
 {
     public double GapPx { get; init; } = 16;
     public bool CenterFocusedColumn { get; init; } = true;
+
+    /// <summary>Color of the border around the focused note, "#RRGGBB" or "#AARRGGBB". Null means the theme's accent.</summary>
+    public string? FocusBorderColor { get; init; }
 }
 
 public sealed class AnimationConfig

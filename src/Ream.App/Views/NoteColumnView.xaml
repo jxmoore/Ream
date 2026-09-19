@@ -8,7 +8,7 @@
                 <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
                 <Style.Triggers>
                     <DataTrigger Binding="{Binding IsFocused}" Value="True">
-                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource FocusBorderBrush}"/>
                     </DataTrigger>
                 </Style.Triggers>
             </Style>

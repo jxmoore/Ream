@@ -1,85 +1,111 @@
-using System.Security;
 using System.Windows;
-using System.Windows.Threading;
-using Microsoft.Win32;
+using System.Windows.Media;
 using Ream.Core.Models;
 
 namespace Ream.App.Services;
 
-/// <summary>Swaps the app's color palette at runtime, following the Windows setting when the theme is "system".</summary>
-internal sealed class ThemeService : IDisposable
+/// <summary>
+/// Puts the chosen color theme into the app's resources: swaps the palette, and publishes the two brushes that
+/// depend on settings as well as the palette - the canvas behind the notes (its see-through amount) and the
+/// border around the focused note.
+/// </summary>
+internal sealed class ThemeService
 {
-    private static readonly Uri LightPalette = new("/Ream.App;component/Themes/Light.xaml", UriKind.Relative);
-    private static readonly Uri DarkPalette = new("/Ream.App;component/Themes/Dark.xaml", UriKind.Relative);
+    public const string CanvasBrushKey = "CanvasBrush";
+    public const string FocusBorderBrushKey = "FocusBorderBrush";
 
     private readonly Application _application;
-    private readonly Func<bool> _systemIsLight;
-    private Dispatcher? _watchDispatcher;
-    private string? _setting;
-    private bool? _isLight;
+    private readonly Func<bool> _backdropSupported;
 
-    /// <param name="systemIsLight">Reads the Windows app-theme setting; injectable so tests need no registry.</param>
-    public ThemeService(Application application, Func<bool>? systemIsLight = null)
+    private string? _paletteId;
+    private Color _canvas;
+    private Color _focusBorder;
+    private WindowAppearance _appearance;
+
+    /// <param name="backdropSupported">
+    /// Whether Windows can blur behind the window (Windows 11). Without it the canvas stays solid; injectable so
+    /// tests don't depend on the machine they run on.
+    /// </param>
+    public ThemeService(Application application, Func<bool>? backdropSupported = null)
     {
         _application = application;
-        _systemIsLight = systemIsLight ?? ReadSystemIsLight;
+        _backdropSupported = backdropSupported ?? (() => SystemBackdropSupport.IsAvailable);
     }
 
-    /// <summary>Raised (with the new value of <see cref="IsLight"/>) whenever the palette actually changes.</summary>
-    public event Action<bool>? Changed;
+    /// <summary>Raised whenever the palette, the canvas or the focus border color actually changes.</summary>
+    public event Action? Changed;
 
-    public bool IsLight => _isLight ?? false;
+    public bool IsLight => _appearance.IsLight;
 
-    public void Apply(string? setting)
+    public string ThemeId => _paletteId ?? ThemeCatalog.DefaultId;
+
+    /// <summary>What the window's own chrome (title bar, blur) should look like to match.</summary>
+    public WindowAppearance Appearance => _appearance;
+
+    public void Apply(AppConfig config) =>
+        Apply(config.Theme, config.CanvasOpacity, config.CanvasBlur, config.Layout.FocusBorderColor);
+
+    public void Apply(string? themeId, int canvasOpacity = 100, bool canvasBlur = true, string? focusBorderColor = null)
     {
-        _setting = setting;
-        bool light = ThemeChoice.IsLight(setting, _systemIsLight());
-        if (light == _isLight) return;
+        var theme = ThemeCatalog.Resolve(themeId);
+        bool changed = false;
 
-        var palette = new ResourceDictionary { Source = light ? LightPalette : DarkPalette };
-        var merged = _application.Resources.MergedDictionaries;
-        if (merged.Count > 0) merged[0] = palette;
-        else merged.Insert(0, palette);
-
-        _isLight = light;
-        Changed?.Invoke(light);
-    }
-
-    /// <summary>Re-resolves the current setting, e.g. after Windows switches between light and dark.</summary>
-    public void Refresh() => Apply(_setting);
-
-    /// <summary>Starts following Windows theme changes (only matters while the setting is "system").</summary>
-    public void WatchSystemChanges(Dispatcher dispatcher)
-    {
-        _watchDispatcher = dispatcher;
-        SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
-    }
-
-    private void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
-    {
-        if (e.Category != UserPreferenceCategory.General) return;
-        _watchDispatcher?.BeginInvoke(Refresh);
-    }
-
-    private static bool ReadSystemIsLight()
-    {
-        try
+        if (theme.Id != _paletteId)
         {
-            object? value = Registry.GetValue(
-                @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
-                "AppsUseLightTheme",
-                1);
-            return value is not int flag || flag != 0;
+            var palette = new ResourceDictionary
+            {
+                Source = new Uri($"/Ream.App;component/Themes/{theme.FileName}", UriKind.Relative),
+            };
+            var merged = _application.Resources.MergedDictionaries;
+            if (merged.Count > 0) merged[0] = palette;
+            else merged.Insert(0, palette);
+
+            _paletteId = theme.Id;
+            changed = true;
         }
-        catch (Exception ex) when (ex is SecurityException or IOException or UnauthorizedAccessException)
-        {
-            return true;
-        }
+
+        bool supported = _backdropSupported();
+        var solidCanvas = ((SolidColorBrush)_application.Resources["WindowBackgroundBrush"]).Color;
+        var canvas = Color.FromArgb(CanvasStyle.Alpha(canvasOpacity, canvasBlur, supported), solidCanvas.R, solidCanvas.G, solidCanvas.B);
+
+        var accent = ((SolidColorBrush)_application.Resources["AccentBrush"]).Color;
+        var focusBorder = Rgba.TryParse(focusBorderColor, out var custom)
+            ? Color.FromArgb(custom.A, custom.R, custom.G, custom.B)
+            : accent;
+
+        if (canvas != _canvas || changed) { Publish(CanvasBrushKey, canvas); changed = true; }
+        if (focusBorder != _focusBorder || changed) { Publish(FocusBorderBrushKey, focusBorder); changed = true; }
+
+        _canvas = canvas;
+        _focusBorder = focusBorder;
+
+        var appearance = new WindowAppearance(
+            solidCanvas,
+            ((SolidColorBrush)_application.Resources["TextBrush"]).Color,
+            theme.IsLight,
+            CanvasStyle.IsSeeThrough(canvasOpacity, canvasBlur, supported));
+
+        changed |= appearance != _appearance;
+        _appearance = appearance;
+
+        if (changed) Changed?.Invoke();
     }
 
-    public void Dispose()
+    private void Publish(string key, Color color)
     {
-        if (_watchDispatcher is not null)
-            SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
+        var brush = new SolidColorBrush(color);
+        brush.Freeze();
+        _application.Resources[key] = brush;
     }
+}
+
+/// <summary>What the window's chrome needs to know to match the theme.</summary>
+internal readonly record struct WindowAppearance(Color Canvas, Color Text, bool IsLight, bool SeeThrough);
+
+/// <summary>The system backdrop (blur behind the window) arrived in Windows 11 22H2, build 22621.</summary>
+internal static class SystemBackdropSupport
+{
+    public const int MinimumBuild = 22621;
+
+    public static bool IsAvailable => OperatingSystem.IsWindowsVersionAtLeast(10, 0, MinimumBuild);
 }

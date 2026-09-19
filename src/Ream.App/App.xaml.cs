@@ -33,8 +33,7 @@ public partial class App : Application
 
             // Before any window exists, so nothing is ever drawn in the wrong palette.
             _theme = new ThemeService(this);
-            _theme.Apply(config.Theme);
-            _theme.WatchSystemChanges(Dispatcher);
+            _theme.Apply(config);
 
             string documentsRoot = string.IsNullOrWhiteSpace(config.DocumentsRoot)
                 ? paths.DefaultDocumentsRoot
@@ -62,7 +61,7 @@ public partial class App : Application
             var window = _host.Services.GetRequiredService<MainWindow>();
             _persistence = _host.Services.GetRequiredService<PersistenceCoordinator>();
 
-            _theme.Changed += window.ApplyTitleBarTheme;
+            _theme.Changed += () => window.ApplyTitleBarTheme(_theme.IsLight);
             window.ApplyTitleBarTheme(_theme.IsLight);
             _reloader = new ConfigReloader(store, _host.Services.GetRequiredService<AppViewModel>(), _theme, Dispatcher);
 
@@ -82,7 +81,6 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _reloader?.Dispose();
-        _theme?.Dispose();
         _persistence?.Flush();
 
         if (_host is not null)

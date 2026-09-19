@@ -37,7 +37,7 @@ internal sealed class ConfigReloader : IDisposable
 
         _app.ConfigError = null;
         _app.Config = config;
-        _theme.Apply(config.Theme);
+        _theme.Apply(config);
     }
 
     public void Dispose() => _watcher?.Dispose();

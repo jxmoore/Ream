@@ -3,8 +3,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Application.Resources>
         <ResourceDictionary>
+            <!-- ThemeService replaces these two whenever the theme or the settings behind them change. -->
+            <SolidColorBrush x:Key="CanvasBrush" Color="#15151a"/>
+            <SolidColorBrush x:Key="FocusBorderBrush" Color="#7c9cff"/>
             <ResourceDictionary.MergedDictionaries>
-                <!-- Index 0 is the active palette; ThemeService swaps it for Light.xaml or Dark.xaml. -->
+                <!-- Index 0 is the active palette; ThemeService swaps it for the chosen theme's file. -->
                 <ResourceDictionary Source="Themes/Dark.xaml"/>
                 <ResourceDictionary Source="Themes/Controls.xaml"/>
             </ResourceDictionary.MergedDictionaries>

@@ -4,7 +4,7 @@
         xmlns:controls="clr-namespace:Ream.App.Controls"
         xmlns:views="clr-namespace:Ream.App.Views"
         Title="Ream" Height="720" Width="1200"
-        Background="{DynamicResource WindowBackgroundBrush}">
+        Background="{DynamicResource CanvasBrush}">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

@@ -102,10 +102,10 @@ public class ConfigTryLoadTests
     }
 
     [Fact]
-    public void Theme_DefaultsToSystem_AndIsHonoredWhenSet()
+    public void Theme_DefaultsToDark_AndIsHonoredWhenSet()
     {
         using var dir = new TempDir();
-        Assert.Equal("system", new AppConfigStore(dir.Combine("fresh", "config.json")).Load("docs").Theme);
+        Assert.Equal("dark", new AppConfigStore(dir.Combine("fresh", "config.json")).Load("docs").Theme);
 
         string path = Write(dir, """{ "theme": "dark" }""");
         Assert.True(new AppConfigStore(path).TryLoad(out var config, out _));
@@ -407,25 +407,5 @@ public class ConfigWatcherTests
 
         Assert.True(Wait(signal));
         Assert.True(marshalled);
-    }
-}
-
-public class ThemeChoiceTests
-{
-    [Theory]
-    [InlineData("light", false, true)]
-    [InlineData("light", true, true)]
-    [InlineData("dark", true, false)]
-    [InlineData("dark", false, false)]
-    [InlineData("system", true, true)]
-    [InlineData("system", false, false)]
-    [InlineData(null, false, false)]
-    [InlineData("", true, true)]
-    [InlineData("nonsense", false, false)]
-    [InlineData("  DARK ", true, false)]
-    [InlineData("Light", false, true)]
-    public void ResolvesTheSetting_AndFollowsTheSystemOtherwise(string? setting, bool systemIsLight, bool expected)
-    {
-        Assert.Equal(expected, ThemeChoice.IsLight(setting, systemIsLight));
     }
 }
