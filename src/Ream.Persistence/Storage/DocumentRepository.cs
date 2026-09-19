@@ -40,6 +40,7 @@ public sealed class DocumentRepository : IDocumentRepository, IAssetStore
         {
             bool rootExisted = Directory.Exists(_root);
             Directory.CreateDirectory(_root);
+            RecoverInterruptedWrites();
 
             var metadata = ReadJson<MetadataFile>(Path.Combine(_root, MetadataFileName));
             var entries = (metadata?.Workspaces ?? [])
@@ -108,6 +109,71 @@ public sealed class DocumentRepository : IDocumentRepository, IAssetStore
                 _layoutJson.Remove(folder);
             }
             _knownFolders = current;
+        }
+    }
+
+    /// <summary>
+    /// A crash between writing "x.tmp" and replacing "x" leaves the temp file behind. If the real file is
+    /// missing and the temp file is complete it is promoted; anything else is set aside in .recovered,
+    /// never deleted, since it may hold the user's last edit.
+    /// </summary>
+    private void RecoverInterruptedWrites()
+    {
+        string stamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+
+        foreach (var temp in Directory.EnumerateFiles(_root, "*.tmp", SearchOption.AllDirectories).ToList())
+        {
+            string relative = Path.GetRelativePath(_root, temp);
+            if (relative.StartsWith(TrashFolderName, StringComparison.OrdinalIgnoreCase)
+                || relative.StartsWith(RecoveredFolderName, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            try
+            {
+                string target = temp[..^".tmp".Length];
+                if (!File.Exists(target) && LooksComplete(temp))
+                {
+                    File.Move(temp, target);
+                    Debug.WriteLine($"Recovered interrupted write: {relative}");
+                    continue;
+                }
+
+                string aside = Path.Combine(_root, RecoveredFolderName, stamp, relative);
+                Directory.CreateDirectory(Path.GetDirectoryName(aside)!);
+                File.Move(temp, aside);
+                Debug.WriteLine($"Set aside interrupted write: {relative}");
+            }
+            catch (IOException ex)
+            {
+                Debug.WriteLine($"Couldn't recover '{relative}': {ex.Message}");
+            }
+        }
+    }
+
+    /// <summary>Whether a temp file holds a whole file of its kind, judged by what the real file would be.</summary>
+    private static bool LooksComplete(string temp)
+    {
+        string kind = Path.GetExtension(temp[..^".tmp".Length]).ToLowerInvariant();
+
+        try
+        {
+            switch (kind)
+            {
+                case ".json":
+                    using (JsonDocument.Parse(File.ReadAllText(temp))) return true;
+                case NoteExtension:
+                    string text = File.ReadAllText(temp);
+                    return !NoteContent.IsReamNote(text) || NoteContent.TryParse(text, out _);
+                case ".png":
+                    var bytes = File.ReadAllBytes(temp);
+                    return bytes.Length > 12 && bytes.AsSpan(bytes.Length - 8, 4).SequenceEqual("IEND"u8);
+                default:
+                    return false;
+            }
+        }
+        catch (Exception ex) when (ex is JsonException or IOException)
+        {
+            return false;
         }
     }
 

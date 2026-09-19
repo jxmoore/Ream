@@ -20,6 +20,18 @@ public sealed class WorkspaceStripPanel : Panel
         nameof(ScrollOffset), typeof(double), typeof(WorkspaceStripPanel),
         new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.AffectsArrange));
 
+    // Whether a workspace is within about a screen of the viewport. Inherited by the row inside it, which
+    // re-arranges when it flips so its columns can start (or stop) counting as near.
+    public static readonly DependencyProperty IsNearWorkspaceProperty = DependencyProperty.RegisterAttached(
+        "IsNearWorkspace", typeof(bool), typeof(WorkspaceStripPanel),
+        new FrameworkPropertyMetadata(
+            true,
+            FrameworkPropertyMetadataOptions.Inherits | FrameworkPropertyMetadataOptions.AffectsArrange));
+
+    public static bool GetIsNearWorkspace(DependencyObject d) => (bool)d.GetValue(IsNearWorkspaceProperty);
+
+    public static void SetIsNearWorkspace(DependencyObject d, bool value) => d.SetValue(IsNearWorkspaceProperty, value);
+
     public static readonly DependencyProperty SuppressAnimationProperty = DependencyProperty.Register(
         nameof(SuppressAnimation), typeof(bool), typeof(WorkspaceStripPanel), new PropertyMetadata(false));
 
@@ -100,7 +112,11 @@ public sealed class WorkspaceStripPanel : Panel
     {
         double offset = ScrollOffset;
         for (int i = 0; i < InternalChildren.Count; i++)
-            InternalChildren[i].Arrange(new Rect(0, (i - offset) * finalSize.Height, finalSize.Width, finalSize.Height));
+        {
+            var child = InternalChildren[i];
+            SetIsNearWorkspace(child, Math.Abs(i - offset) < 1.5);
+            child.Arrange(new Rect(0, (i - offset) * finalSize.Height, finalSize.Width, finalSize.Height));
+        }
         return finalSize;
     }
 

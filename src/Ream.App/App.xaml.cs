@@ -14,6 +14,8 @@ public partial class App : Application
 {
     private IHost? _host;
     private PersistenceCoordinator? _persistence;
+    private ThemeService? _theme;
+    private ConfigReloader? _reloader;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -22,7 +24,14 @@ public partial class App : Application
         try
         {
             var paths = AppPaths.Resolve(ParseHome(e.Args));
-            var config = new AppConfigStore(paths.ConfigFile).Load(paths.DefaultDocumentsRoot);
+            var store = new AppConfigStore(paths.ConfigFile);
+            var config = store.Load(paths.DefaultDocumentsRoot);
+
+            // Before any window exists, so nothing is ever drawn in the wrong palette.
+            _theme = new ThemeService(this);
+            _theme.Apply(config.Theme);
+            _theme.WatchSystemChanges(Dispatcher);
+
             string documentsRoot = string.IsNullOrWhiteSpace(config.DocumentsRoot)
                 ? paths.DefaultDocumentsRoot
                 : config.DocumentsRoot;
@@ -48,6 +57,11 @@ public partial class App : Application
 
             var window = _host.Services.GetRequiredService<MainWindow>();
             _persistence = _host.Services.GetRequiredService<PersistenceCoordinator>();
+
+            _theme.Changed += window.ApplyTitleBarTheme;
+            window.ApplyTitleBarTheme(_theme.IsLight);
+            _reloader = new ConfigReloader(store, _host.Services.GetRequiredService<AppViewModel>(), _theme, Dispatcher);
+
             window.Show();
         }
         catch (Exception ex)
@@ -63,6 +77,8 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _reloader?.Dispose();
+        _theme?.Dispose();
         _persistence?.Flush();
 
         if (_host is not null)

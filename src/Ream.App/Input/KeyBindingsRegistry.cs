@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Windows;
 using System.Windows.Input;
 using Ream.Core.Models;
 
@@ -8,18 +7,18 @@ namespace Ream.App.Input;
 internal static class KeyBindingsRegistry
 {
     /// <summary>
-    /// Binds each action's gesture string (e.g. "Alt+Shift+Left") to its command. Config is hand-edited,
+    /// Builds a binding for each action's gesture string (e.g. "Alt+Shift+Left"). Config is hand-edited,
     /// so a gesture that is invalid or already taken by another action falls back to that action's
     /// default; if the default is unusable too the action is left unbound. Never throws.
     /// </summary>
-    public static void Apply(
-        Window window,
+    public static IReadOnlyList<KeyBinding> Build(
         IReadOnlyDictionary<string, string> gestures,
         IReadOnlyDictionary<string, ICommand> commands)
     {
         var defaults = AppConfig.DefaultKeybindings();
         var converter = new KeyGestureConverter();
         var taken = new HashSet<(Key, ModifierKeys)>();
+        var bindings = new List<KeyBinding>();
 
         foreach (var (action, text) in gestures)
         {
@@ -38,8 +37,10 @@ internal static class KeyBindingsRegistry
                 continue;
             }
 
-            window.InputBindings.Add(new KeyBinding(command, gesture));
+            bindings.Add(new KeyBinding(command, gesture));
         }
+
+        return bindings;
     }
 
     private static KeyGesture? TryClaim(KeyGestureConverter converter, string text, HashSet<(Key, ModifierKeys)> taken)

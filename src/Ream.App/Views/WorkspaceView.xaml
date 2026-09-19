@@ -28,7 +28,7 @@
 
         <TextBlock Text="Empty workspace - Alt+N creates a note"
                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                   Foreground="{StaticResource MutedTextBrush}" FontSize="16" IsHitTestVisible="False">
+                   Foreground="{DynamicResource MutedTextBrush}" FontSize="16" IsHitTestVisible="False">
             <TextBlock.Style>
                 <Style TargetType="TextBlock">
                     <Setter Property="Visibility" Value="Collapsed"/>

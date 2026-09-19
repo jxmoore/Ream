@@ -18,6 +18,11 @@ namespace Ream.Tests;
 internal sealed class WindowFixture : IDisposable
 {
     public WindowFixture(params (string? Name, int Notes)[] workspaces)
+        : this(new AppConfig(), workspaces)
+    {
+    }
+
+    public WindowFixture(AppConfig config, params (string? Name, int Notes)[] workspaces)
     {
         Dir = new TempDir();
         Repo = new DocumentRepository(Dir.Combine("Docs"));
@@ -29,7 +34,7 @@ internal sealed class WindowFixture : IDisposable
             return workspace;
         }).ToList();
 
-        App = new AppViewModel(new AppConfig(), built, 0, Repo);
+        App = new AppViewModel(config, built, 0, Repo);
         Window = new Ream.App.MainWindow(App)
         {
             WindowStartupLocation = WindowStartupLocation.Manual,

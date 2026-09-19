@@ -54,4 +54,5 @@ internal static class StorageConstants
     public const string NoteExtension = ".reamnote";
     public const string WorkspaceFolderPrefix = "ws-";
     public const string TrashFolderName = ".trash";
+    public const string RecoveredFolderName = ".recovered";
 }

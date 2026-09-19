@@ -40,9 +40,33 @@ Empty workspaces are pruned only after a switch animation settles
 (`AppViewModel.PruneEmptyWorkspacesCommand`), using `SuppressAnimation` so the strip
 snaps rather than animates when the list shifts under it.
 
-Status: M0-M4 done (layout engine, on-disk persistence, config.json, rich-text editor
-with inline images, freeform column resize, workspace strip + rename, tilt-wheel). Next is
-M5: polish (config live-reload, virtualization, theming, first-run polish, packaging).
+Status: the M0-M5 plan is complete (layout engine, on-disk persistence, config.json, rich-text
+editor with inline images, freeform column resize, workspace strip + rename, tilt-wheel,
+config live-reload, light/dark theme, lazy note loading, crash recovery, portable packaging).
+Anything further is new work; ask what the user wants next.
+
+Theme: `Themes/Dark.xaml` and `Light.xaml` define the same brush keys (a test enforces it);
+`Themes/Controls.xaml` holds the themed Button/ToggleButton/ComboBox/TextBox/ScrollBar styles.
+Always reference brushes with `{DynamicResource ...}`, never StaticResource, or a theme switch
+won't reach them. `ThemeService` swaps `Application.Resources.MergedDictionaries[0]`; config
+`theme` is "system" (follow Windows), "light" or "dark".
+
+Live reload: `ConfigReloader` re-reads config.json (via `ConfigWatcher`, debounced) and replaces
+`AppViewModel.Config`; panels/bindings and the window's key bindings follow. It uses the
+non-destructive `AppConfigStore.TryLoad`: an unusable file is reported in the toolbar
+(`ConfigError`) and the running settings stay - never move or rewrite a file the user is
+mid-edit. Only `documentsRoot` still needs a restart.
+
+Lazy loading: `NoteRowPanel` marks each column `IsNear` (within a viewport of the screen, in a
+workspace within ~1.5 screens); `NoteColumnView` (an `INearAware`) only parses its note in
+`EnsureLoaded()` once near, focused, or pasted into, and never unloads. A view that is
+constructed but never shown must be loaded explicitly (`EnsureLoaded()`) in tests.
+
+Crash recovery: on load, leftover `*.tmp` files are promoted if complete and their real file is
+missing, otherwise moved to `ReemDocuments/.recovered/<stamp>/` (never deleted).
+
+Packaging: `build/publish.ps1` makes a portable single-file build + zip under `artifacts/`
+(gitignored); `-FrameworkDependent` for the small one. It is not an installer.
 
 Widths: a column's width is a plain fraction of the row (`NoteViewModel.WidthFraction`,
 clamped to 0.15-1.0). Presets (1/3, 1/2, 2/3, full) are only labels/cycle stops
@@ -111,6 +135,15 @@ The always-empty trailing workspace is never stored. `Flush()` runs on app exit.
   the editor's defaults onto the document. `TextRange.ApplyPropertyValue` rejects
   `DependencyProperty.UnsetValue` (throws) - apply explicit defaults or null instead.
 - A `TextPointer` scan reports an `InlineUIContainer` at both its start and end; dedupe.
+- `TextRange` can't clear a property (`UnsetValue` throws). To return text to "automatic" color,
+  apply a marker brush (which splits runs at the selection edge) then `ClearValue` on the
+  elements holding the marker (`EditorToolbar.ClearAutomaticColor`). Never copy today's theme
+  brush into the document as a local value.
+- Don't name a field `_contentLoaded` in a XAML code-behind: the XAML compiler generates one.
+- A UserControl's own implicit `Button`/`ComboBox` style replaces the app-wide themed one unless it
+  has `BasedOn="{StaticResource {x:Type Button}}"` (see `EditorToolbar.xaml`).
+- Tests that change the theme must restore dark (`Themes.Use` in the tests does), since the
+  `Application` is shared by every UI test.
 - `Ui.Run` serializes UI tests with a lock: `Settle()` pumps the shared UI thread, so without
   it another test's queued work runs nested inside the current one and steals process-wide
   keyboard focus (this caused a real flaky failure). Keep every test that touches WPF views

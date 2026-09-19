@@ -6,6 +6,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Ream.App.Controls;
 using Ream.App.ViewModels;
 using Ream.Core.Layout;
@@ -14,18 +15,20 @@ using Ream.Persistence.NoteFormat;
 
 namespace Ream.App.Views;
 
-public partial class NoteColumnView : UserControl
+public partial class NoteColumnView : UserControl, INearAware
 {
     private NoteViewModel? _note;
     private bool _subscribed;
     private bool _loadingDocument;
+    private bool _hasContent;
+    private bool _loadQueued;
 
     public NoteColumnView()
     {
         InitializeComponent();
 
         DataContextChanged += OnDataContextChanged;
-        Loaded += (_, _) => Subscribe();
+        Loaded += (_, _) => OnLoaded();
         Unloaded += (_, _) => OnUnloaded();
 
         Editor.TextChanged += OnTextChanged;
@@ -34,11 +37,51 @@ public partial class NoteColumnView : UserControl
         DataObject.AddPastingHandler(Editor, OnPaste);
     }
 
+    /// <summary>True once this view has parsed its note into the editor (deferred until the note is near the viewport).</summary>
+    internal bool IsContentLoaded => _hasContent;
+
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         Unsubscribe();
         _note = e.NewValue as NoteViewModel;
+        _hasContent = false;
         if (_note is null) return;
+
+        // Shows nothing until the note is loaded; also drops any previous note's text.
+        _loadingDocument = true;
+        try { Editor.Document = new FlowDocument(); }
+        finally { _loadingDocument = false; }
+
+        if (!IsLoaded) return;
+        Subscribe();
+        if (NoteRowPanel.GetIsNear(this)) EnsureLoaded();
+    }
+
+    private void OnLoaded()
+    {
+        Subscribe();
+        if (NoteRowPanel.GetIsNear(this)) EnsureLoaded();
+    }
+
+    // Called by the row as this column moves in or out of the zone worth loading. Loading waits for a
+    // background-priority turn so it never happens in the middle of a layout pass.
+    void INearAware.OnNearChanged(bool isNear)
+    {
+        if (!isNear || _hasContent || _loadQueued) return;
+
+        _loadQueued = true;
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
+        {
+            _loadQueued = false;
+            EnsureLoaded();
+        });
+    }
+
+    /// <summary>Parses the note into the editor. Does nothing if that has already happened.</summary>
+    internal void EnsureLoaded()
+    {
+        if (_hasContent || _note is null) return;
+        _hasContent = true;
 
         _loadingDocument = true;
         try
@@ -48,7 +91,8 @@ public partial class NoteColumnView : UserControl
             var document = _note.OpenDocument();
             document.FontFamily = Editor.FontFamily;
             document.FontSize = Editor.FontSize;
-            document.Foreground = Editor.Foreground;
+            // A resource reference, not a copy, so the default text color follows theme changes.
+            document.SetResourceReference(FlowDocument.ForegroundProperty, "TextBrush");
             Editor.Document = document;
         }
         finally
@@ -57,7 +101,6 @@ public partial class NoteColumnView : UserControl
         }
 
         FitImages();
-        if (IsLoaded) Subscribe();
     }
 
     private void Subscribe()
@@ -82,6 +125,8 @@ public partial class NoteColumnView : UserControl
 
     private void OnEditorFocusRequested()
     {
+        EnsureLoaded();
+
         if (Editor.IsLoaded)
         {
             Editor.Focus();
@@ -159,6 +204,7 @@ public partial class NoteColumnView : UserControl
     internal void InsertImage(byte[] png)
     {
         if (_note is null || NoteImage.FromPng(png) is not { } source) return;
+        EnsureLoaded();
 
         string name;
         try

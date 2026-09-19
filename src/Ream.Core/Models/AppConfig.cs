@@ -7,6 +7,9 @@ public sealed class AppConfig
     /// <summary>Folder holding all workspaces. Null/empty means the default location.</summary>
     public string? DocumentsRoot { get; init; }
 
+    /// <summary>"system" (follow Windows), "light", or "dark".</summary>
+    public string Theme { get; init; } = "system";
+
     public LayoutConfig Layout { get; init; } = new();
     public AnimationConfig Animations { get; init; } = new();
     public Dictionary<string, string> Keybindings { get; init; } = DefaultKeybindings();

@@ -154,6 +154,7 @@ public class EditorIntegrationTests
         fx.Editor.AppendText(" more");
 
         var replacement = new NoteColumnView { DataContext = fx.Note };
+        replacement.EnsureLoaded();
 
         Assert.Contains("more", TextOf(replacement.Editor.Document));
     });
@@ -369,6 +370,7 @@ public class EditorIntegrationTests
         fx.Note.FlushDocument();
 
         var reopened = new NoteColumnView { DataContext = fx.Note };
+        reopened.EnsureLoaded();
 
         var image = Assert.Single(ImagesOf(reopened.Editor.Document));
         Assert.NotNull(image.Source);
@@ -432,6 +434,7 @@ public class EditorIntegrationTests
         var reloaded = SnapshotMapper.ToViewModel(reloadedRepo.Load(), new AppConfig(), reloadedRepo);
         var note = reloaded.Workspaces[0].Notes[0];
         var view = new NoteColumnView { DataContext = note };
+        view.EnsureLoaded();
 
         var document = view.Editor.Document;
         Assert.Contains("and more", TextOf(document));
