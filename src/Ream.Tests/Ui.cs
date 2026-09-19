@@ -36,14 +36,21 @@ internal static class Ui
         return dispatcher!;
     }
 
+    // Settle() pumps the UI thread, which would run another test's queued work nested inside this one.
+    // Keyboard focus is process-wide, so overlapping tests interfere; run them strictly one at a time.
+    private static readonly object OneTestAtATime = new();
+
     public static void Run(Action action)
     {
         Exception? error = null;
-        Host.Value.Invoke(() =>
+        lock (OneTestAtATime)
         {
-            try { action(); }
-            catch (Exception ex) { error = ex; }
-        });
+            Host.Value.Invoke(() =>
+            {
+                try { action(); }
+                catch (Exception ex) { error = ex; }
+            });
+        }
         if (error is not null) ExceptionDispatchInfo.Capture(error).Throw();
     }
 
@@ -70,6 +77,24 @@ internal static class Ui
         window.Show();
         Settle();
         return window;
+    }
+
+    public static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        int count = VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match) yield return match;
+            foreach (var nested in Descendants<T>(child)) yield return nested;
+        }
+    }
+
+    public static T? Ancestor<T>(DependencyObject start) where T : DependencyObject
+    {
+        for (var d = VisualTreeHelper.GetParent(start); d is not null; d = VisualTreeHelper.GetParent(d))
+            if (d is T match) return match;
+        return null;
     }
 
     public static void RenderToPng(FrameworkElement element, string path)

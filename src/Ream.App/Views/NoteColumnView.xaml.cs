@@ -2,9 +2,14 @@ using System.Diagnostics;
 using System.Media;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Media;
+using Ream.App.Controls;
 using Ream.App.ViewModels;
+using Ream.Core.Layout;
+using Ream.Core.Models;
 using Ream.Persistence.NoteFormat;
 
 namespace Ream.App.Views;
@@ -99,6 +104,45 @@ public partial class NoteColumnView : UserControl
 
     private void OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e) =>
         _note?.FocusCommand.Execute(null);
+
+    // ----- Resizing -----
+
+    // The width being dragged to, tracked here (not read back from layout) so several drag events
+    // arriving before a layout pass can't lose any movement.
+    private double _dragWidth;
+
+    private NoteRowPanel? FindRow()
+    {
+        for (DependencyObject? d = this; d is not null; d = VisualTreeHelper.GetParent(d))
+            if (d is NoteRowPanel row) return row;
+        return null;
+    }
+
+    private void OnResizeStarted(object sender, DragStartedEventArgs e)
+    {
+        if (_note is null) return;
+        _dragWidth = ActualWidth;
+        _note.IsResizing = true;
+    }
+
+    private void OnResizeDelta(object sender, DragDeltaEventArgs e)
+    {
+        if (_note is null || _note.IsFullscreen || FindRow() is not { } row) return;
+
+        double viewport = row.ActualWidth;
+        double gap = row.Config.Layout.GapPx;
+
+        double min = RowLayout.ColumnWidth(WidthPresets.Min, viewport, gap);
+        double max = RowLayout.ColumnWidth(WidthPresets.Max, viewport, gap);
+        _dragWidth = Math.Clamp(_dragWidth + e.HorizontalChange, min, max);
+
+        _note.WidthFraction = RowLayout.FractionForWidth(_dragWidth, viewport, gap);
+    }
+
+    private void OnResizeCompleted(object sender, DragCompletedEventArgs e)
+    {
+        if (_note is not null) _note.IsResizing = false;
+    }
 
     // ----- Images -----
 

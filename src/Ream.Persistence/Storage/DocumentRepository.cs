@@ -130,7 +130,8 @@ public sealed class DocumentRepository : IDocumentRepository, IAssetStore
             if (!File.Exists(path) || !seen.Add(item.NoteId)) continue;
 
             string body = File.ReadAllText(path);
-            notes.Add(new NoteSnapshot(item.NoteId, item.Title ?? TitleOf(body), body, item.Width, item.IsFullscreen));
+            double width = WidthPresets.Clamp(item.WidthFraction ?? item.Width?.Fraction() ?? WidthPresets.Default);
+            notes.Add(new NoteSnapshot(item.NoteId, item.Title ?? TitleOf(body), body, width, item.IsFullscreen));
             Remember(item.NoteId, folder, body);
         }
 
@@ -146,7 +147,7 @@ public sealed class DocumentRepository : IDocumentRepository, IAssetStore
             if (!seen.Add(id)) continue;
 
             string body = File.ReadAllText(path);
-            notes.Add(new NoteSnapshot(id, TitleOf(body), body, WidthPreset.Half, false));
+            notes.Add(new NoteSnapshot(id, TitleOf(body), body, WidthPresets.Default, false));
             Remember(id, folder, body);
         }
 
@@ -303,7 +304,7 @@ public sealed class DocumentRepository : IDocumentRepository, IAssetStore
                     NoteId = n.Id,
                     FileName = NoteFileName(n.Id),
                     Title = n.Title,
-                    Width = n.Width,
+                    WidthFraction = Math.Round(WidthPresets.Clamp(n.WidthFraction), 4),
                     IsFullscreen = n.IsFullscreen,
                 })
                 .ToList(),

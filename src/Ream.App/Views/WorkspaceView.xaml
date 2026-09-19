@@ -16,6 +16,7 @@
                 <Style TargetType="ContentPresenter">
                     <Setter Property="controls:NoteRowPanel.WidthFraction" Value="{Binding WidthFraction}"/>
                     <Setter Property="controls:NoteRowPanel.IsFullscreen" Value="{Binding IsFullscreen}"/>
+                    <Setter Property="controls:NoteRowPanel.IsResizing" Value="{Binding IsResizing}"/>
                 </Style>
             </ItemsControl.ItemContainerStyle>
             <ItemsControl.ItemTemplate>

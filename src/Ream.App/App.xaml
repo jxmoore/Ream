@@ -10,5 +10,6 @@
         <SolidColorBrush x:Key="MutedTextBrush" Color="#8a8a99"/>
         <SolidColorBrush x:Key="ToolbarBrush" Color="#ececf1"/>
         <SolidColorBrush x:Key="ToolbarMutedBrush" Color="#6b6b78"/>
+        <SolidColorBrush x:Key="ChipCurrentBrush" Color="#3e63dd"/>
     </Application.Resources>
 </Application>

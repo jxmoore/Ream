@@ -28,9 +28,10 @@ public sealed partial class NoteViewModel : ObservableObject
     [ObservableProperty]
     private string _accentColor = "#7c9cff";
 
+    /// <summary>Share of the row's width this column takes (a preset like 1/2, or any dragged-to value).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(WidthFraction), nameof(WidthLabel))]
-    private WidthPreset _widthPreset = WidthPreset.Half;
+    [NotifyPropertyChangedFor(nameof(WidthLabel))]
+    private double _widthFraction = WidthPresets.Default;
 
     [ObservableProperty]
     private bool _isFullscreen;
@@ -38,9 +39,11 @@ public sealed partial class NoteViewModel : ObservableObject
     [ObservableProperty]
     private bool _isFocused;
 
-    public double WidthFraction => WidthPreset.Fraction();
+    /// <summary>True while the column's edge is being dragged, so width changes follow the pointer instead of animating.</summary>
+    [ObservableProperty]
+    private bool _isResizing;
 
-    public string WidthLabel => WidthPreset.Label();
+    public string WidthLabel => WidthPresets.Label(WidthFraction);
 
     internal WorkspaceViewModel? Owner { get; set; }
 

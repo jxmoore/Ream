@@ -12,8 +12,7 @@
         </Grid.RowDefinitions>
 
         <DockPanel Grid.Row="0" Background="{StaticResource ToolbarBrush}">
-            <TextBlock DockPanel.Dock="Right" Text="{Binding IndicatorText}" VerticalAlignment="Center"
-                       Margin="12,0,16,0" FontSize="12" Foreground="{StaticResource ToolbarMutedBrush}"/>
+            <views:WorkspaceTabs DockPanel.Dock="Right" Margin="12,0,10,0"/>
             <views:EditorToolbar/>
         </DockPanel>
 

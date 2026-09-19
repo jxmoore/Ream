@@ -37,30 +37,3 @@ public class WheelAccumulatorTests
     }
 }
 
-public class WidthPresetTests
-{
-    [Fact]
-    public void Next_CyclesThroughAllPresets()
-    {
-        var p = WidthPreset.OneThird;
-        var seen = new List<WidthPreset>();
-        for (int i = 0; i < 5; i++)
-        {
-            seen.Add(p);
-            p = p.Next();
-        }
-        Assert.Equal(
-            [WidthPreset.OneThird, WidthPreset.Half, WidthPreset.TwoThirds, WidthPreset.Full, WidthPreset.OneThird],
-            seen);
-    }
-
-    [Theory]
-    [InlineData(WidthPreset.OneThird, 1d / 3d)]
-    [InlineData(WidthPreset.Half, 0.5)]
-    [InlineData(WidthPreset.TwoThirds, 2d / 3d)]
-    [InlineData(WidthPreset.Full, 1d)]
-    public void Fraction_MatchesPreset(WidthPreset preset, double expected)
-    {
-        Assert.Equal(expected, preset.Fraction(), 9);
-    }
-}

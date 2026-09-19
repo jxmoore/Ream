@@ -45,6 +45,10 @@ public sealed class NoteRowPanel : Panel
         "IsFullscreen", typeof(bool), typeof(NoteRowPanel),
         new PropertyMetadata(false, OnIsFullscreenChanged));
 
+    // While a column's edge is being dragged, width changes follow the pointer instead of animating.
+    public static readonly DependencyProperty IsResizingProperty = DependencyProperty.RegisterAttached(
+        "IsResizing", typeof(bool), typeof(NoteRowPanel), new PropertyMetadata(false));
+
     // 0 = normal column, 1 = covering the whole row viewport.
     public static readonly DependencyProperty FullscreenProgressProperty = DependencyProperty.RegisterAttached(
         "FullscreenProgress", typeof(double), typeof(NoteRowPanel),
@@ -85,13 +89,16 @@ public sealed class NoteRowPanel : Panel
     public static bool GetIsFullscreen(DependencyObject d) => (bool)d.GetValue(IsFullscreenProperty);
     public static void SetIsFullscreen(DependencyObject d, bool value) => d.SetValue(IsFullscreenProperty, value);
     public static double GetFullscreenProgress(DependencyObject d) => (double)d.GetValue(FullscreenProgressProperty);
+    public static bool GetIsResizing(DependencyObject d) => (bool)d.GetValue(IsResizingProperty);
+    public static void SetIsResizing(DependencyObject d, bool value) => d.SetValue(IsResizingProperty, value);
 
     private static void OnWidthFractionChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is not UIElement element) return;
         double to = (double)e.NewValue;
 
-        if (element is FrameworkElement { IsLoaded: true } && VisualTreeHelper.GetParent(element) is NoteRowPanel row)
+        bool follow = GetIsResizing(element);
+        if (!follow && element is FrameworkElement { IsLoaded: true } && VisualTreeHelper.GetParent(element) is NoteRowPanel row)
             Motion.Animate(element, ActualFractionProperty, to, row.Config.Animations.ResizeMs, row.Config);
         else
             Motion.Snap(element, ActualFractionProperty, to);
@@ -148,7 +155,7 @@ public sealed class NoteRowPanel : Panel
         {
             double actual = GetActualFraction(children[i]);
             widths[i] = RowLayout.ColumnWidth(actual, w, gap);
-            if (Math.Abs(actual - GetWidthFraction(children[i])) > 1e-4) resizing = true;
+            if (Math.Abs(actual - GetWidthFraction(children[i])) > 1e-4 || GetIsResizing(children[i])) resizing = true;
         }
 
         var lefts = RowLayout.Lefts(widths, gap);

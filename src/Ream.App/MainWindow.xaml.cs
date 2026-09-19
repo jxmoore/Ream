@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Threading;
 using Ream.App.Input;
 using Ream.App.ViewModels;
@@ -12,6 +13,7 @@ public partial class MainWindow : Window
     private readonly AppViewModel _viewModel;
     private readonly WheelAccumulator _workspaceWheel = new();
     private readonly WheelAccumulator _rowWheel = new();
+    private readonly WheelAccumulator _tiltWheel = new();
 
     public MainWindow(AppViewModel viewModel)
     {
@@ -27,6 +29,23 @@ public partial class MainWindow : Window
         Loaded += (_, _) => viewModel.RequestEditorFocus();
     }
 
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(OnWindowMessage);
+    }
+
+    // WPF has no event for a horizontal (tilt) wheel, so read the raw message.
+    private IntPtr OnWindowMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (MouseTilt.TryGetDelta(message, wParam.ToInt64(), out int delta))
+        {
+            _viewModel.FocusNoteBy(_tiltWheel.Add(delta));
+            handled = true;
+        }
+        return IntPtr.Zero;
+    }
+
     // Plain wheel is deliberately left alone so it scrolls the note under the cursor.
     protected override void OnPreviewMouseWheel(MouseWheelEventArgs e)
     {
@@ -39,7 +58,7 @@ public partial class MainWindow : Window
         }
         else if (modifiers.HasFlag(ModifierKeys.Shift))
         {
-            _viewModel.CurrentWorkspace.FocusBy(-_rowWheel.Add(e.Delta));
+            _viewModel.FocusNoteBy(-_rowWheel.Add(e.Delta));
             e.Handled = true;
         }
 

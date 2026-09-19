@@ -17,7 +17,7 @@ internal static class SeedData
                 Id = id,
                 Title = "Welcome to Ream",
                 AccentColor = SnapshotMapper.AccentFor(id),
-                WidthPreset = WidthPreset.Half,
+                WidthFraction = 0.5,
                 Body = WelcomeNote(id),
             },
         ], id);

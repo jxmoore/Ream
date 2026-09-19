@@ -21,7 +21,8 @@ public sealed partial class AppViewModel : ObservableObject
         EnsureTrailingEmpty();
         _currentIndex = Math.Clamp(currentIndex, 0, Workspaces.Count - 1);
         _noteCounter = Workspaces.Sum(w => w.Notes.Count);
-        Workspaces.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IndicatorText));
+        RefreshWorkspaceState();
+        Workspaces.CollectionChanged += (_, _) => RefreshWorkspaceState();
 
         Actions = new Dictionary<string, ICommand>
         {
@@ -37,6 +38,7 @@ public sealed partial class AppViewModel : ObservableObject
             ["toggleFullscreen"] = ToggleFullscreenCommand,
             ["newNote"] = NewNoteCommand,
             ["closeNote"] = CloseNoteCommand,
+            ["renameWorkspace"] = BeginRenameCommand,
         };
     }
 
@@ -48,7 +50,7 @@ public sealed partial class AppViewModel : ObservableObject
     public IReadOnlyDictionary<string, ICommand> Actions { get; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CurrentWorkspace), nameof(IndicatorText))]
+    [NotifyPropertyChangedFor(nameof(CurrentWorkspace))]
     private int _currentIndex;
 
     /// <summary>True while the workspace list shifts under the view, so the strip snaps instead of animating.</summary>
@@ -57,8 +59,17 @@ public sealed partial class AppViewModel : ObservableObject
 
     public WorkspaceViewModel CurrentWorkspace => Workspaces[CurrentIndex];
 
-    public string IndicatorText =>
-        $"{CurrentWorkspace.Name ?? $"Workspace {CurrentIndex + 1}"}   {CurrentIndex + 1}/{Workspaces.Count}";
+    partial void OnCurrentIndexChanged(int value) => RefreshWorkspaceState();
+
+    /// <summary>Keeps each workspace's number and current flag in step with the list and the selection.</summary>
+    private void RefreshWorkspaceState()
+    {
+        for (int i = 0; i < Workspaces.Count; i++)
+        {
+            Workspaces[i].Number = i + 1;
+            Workspaces[i].IsCurrent = i == CurrentIndex;
+        }
+    }
 
     /// <summary>Raised when the focused note's editor should take keyboard focus (after focus or workspace moves).</summary>
     public event Action? FocusEditorRequested;
@@ -90,8 +101,9 @@ public sealed partial class AppViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Removes empty workspaces other than the current one and the trailing one. Called once a
-    /// switch has come to rest, so nothing visible disappears mid-animation.
+    /// Removes empty, unnamed workspaces other than the current one and the trailing one (named
+    /// workspaces stay, as in niri). Called once a switch has come to rest, so nothing visible
+    /// disappears mid-animation.
     /// </summary>
     [RelayCommand]
     private void PruneEmptyWorkspaces()
@@ -101,7 +113,7 @@ public sealed partial class AppViewModel : ObservableObject
         {
             for (int i = Workspaces.Count - 2; i >= 0; i--)
             {
-                if (!Workspaces[i].IsEmpty || i == CurrentIndex) continue;
+                if (!Workspaces[i].IsEmpty || i == CurrentIndex || Workspaces[i].Name is not null) continue;
                 Workspaces.RemoveAt(i);
                 if (i < CurrentIndex) CurrentIndex--;
             }
@@ -112,17 +124,40 @@ public sealed partial class AppViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
-    private void FocusPrevNote()
+    /// <summary>Moves note focus along the current row and puts the keyboard cursor in that note.</summary>
+    public void FocusNoteBy(int delta)
     {
-        CurrentWorkspace.FocusBy(-1);
+        if (delta == 0) return;
+
+        CurrentWorkspace.FocusBy(delta);
+        RequestEditorFocus();
+    }
+
+    [RelayCommand] private void FocusPrevNote() => FocusNoteBy(-1);
+    [RelayCommand] private void FocusNextNote() => FocusNoteBy(1);
+
+    [RelayCommand]
+    private void SelectWorkspace(WorkspaceViewModel? workspace)
+    {
+        int index = workspace is null ? -1 : Workspaces.IndexOf(workspace);
+        if (index >= 0) SwitchWorkspace(index - CurrentIndex);
+    }
+
+    /// <summary>Starts renaming the given workspace (the current one when none is given).</summary>
+    [RelayCommand]
+    private void BeginRename(WorkspaceViewModel? workspace) => (workspace ?? CurrentWorkspace).BeginRename();
+
+    [RelayCommand]
+    private void CommitRename(WorkspaceViewModel? workspace)
+    {
+        workspace?.CommitRename();
         RequestEditorFocus();
     }
 
     [RelayCommand]
-    private void FocusNextNote()
+    private void CancelRename(WorkspaceViewModel? workspace)
     {
-        CurrentWorkspace.FocusBy(1);
+        workspace?.CancelRename();
         RequestEditorFocus();
     }
 
@@ -150,7 +185,7 @@ public sealed partial class AppViewModel : ObservableObject
     private void CycleWidthPreset()
     {
         if (CurrentWorkspace.FocusedNote is { } note)
-            note.WidthPreset = note.WidthPreset.Next();
+            note.WidthFraction = WidthPresets.Next(note.WidthFraction);
     }
 
     [RelayCommand]

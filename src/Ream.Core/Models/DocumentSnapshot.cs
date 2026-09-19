@@ -17,5 +17,5 @@ public sealed record NoteSnapshot(
     Guid Id,
     string Title,
     string Body,
-    WidthPreset Width,
+    double WidthFraction,
     bool IsFullscreen);

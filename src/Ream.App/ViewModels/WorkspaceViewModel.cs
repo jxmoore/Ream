@@ -29,11 +29,49 @@ public sealed partial class WorkspaceViewModel : ObservableObject
 
     public ObservableCollection<NoteViewModel> Notes { get; } = [];
 
+    private const int MaxNameLength = 40;
+
+    /// <summary>The user's name for this workspace; null means unnamed (shown by its number).</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayLabel))]
     private string? _name;
+
+    /// <summary>1-based position in the workspace list, kept current by the app.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayLabel))]
+    private int _number;
+
+    [ObservableProperty]
+    private bool _isCurrent;
+
+    [ObservableProperty]
+    private bool _isRenaming;
+
+    [ObservableProperty]
+    private string _editName = "";
 
     [ObservableProperty]
     private int _focusedIndex;
+
+    public string DisplayLabel => Name ?? Number.ToString();
+
+    public void BeginRename()
+    {
+        EditName = Name ?? "";
+        IsRenaming = true;
+    }
+
+    /// <summary>Applies the typed name; blank clears it. Does nothing unless a rename is in progress.</summary>
+    public void CommitRename()
+    {
+        if (!IsRenaming) return;
+
+        string trimmed = EditName.Trim();
+        Name = trimmed.Length == 0 ? null : trimmed[..Math.Min(trimmed.Length, MaxNameLength)];
+        IsRenaming = false;
+    }
+
+    public void CancelRename() => IsRenaming = false;
 
     public bool IsEmpty => Notes.Count == 0;
 

@@ -18,9 +18,10 @@ internal static class SnapshotMapper
         // Edits live in the editors' documents until now; bring the saved form up to date first.
         app.FlushPendingContent();
 
-        // The trailing empty workspace is always recreated on load, so it is never stored.
+        // The trailing empty workspace is always recreated on load, so it is not stored - unless the
+        // user has named it, in which case the name is theirs to keep.
         var persisted = app.Workspaces.ToList();
-        if (persisted.Count > 0 && persisted[^1].IsEmpty)
+        if (persisted.Count > 0 && persisted[^1].IsEmpty && persisted[^1].Name is null)
             persisted.RemoveAt(persisted.Count - 1);
 
         var current = app.CurrentWorkspace;
@@ -33,7 +34,7 @@ internal static class SnapshotMapper
         workspace.Id,
         workspace.Name,
         workspace.FolderName,
-        workspace.Notes.Select(n => new NoteSnapshot(n.Id, n.Title, n.Body, n.WidthPreset, n.IsFullscreen)).ToList(),
+        workspace.Notes.Select(n => new NoteSnapshot(n.Id, n.Title, n.Body, n.WidthFraction, n.IsFullscreen)).ToList(),
         workspace.FocusedNote?.Id);
 
     private static WorkspaceViewModel ToWorkspace(WorkspaceSnapshot snapshot, IAssetStore assets)
@@ -45,7 +46,7 @@ internal static class SnapshotMapper
                 Id = n.Id,
                 Title = n.Title,
                 Body = n.Body,
-                WidthPreset = n.Width,
+                WidthFraction = n.WidthFraction,
                 IsFullscreen = n.IsFullscreen,
                 AccentColor = AccentFor(n.Id),
             }),

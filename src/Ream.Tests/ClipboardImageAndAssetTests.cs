@@ -75,7 +75,7 @@ public class AssetStoreTests
     private static WorkspaceSnapshot Workspace(string folder, params NoteSnapshot[] notes) =>
         new(Guid.NewGuid(), folder, folder, notes, null);
 
-    private static NoteSnapshot Note() => new(Guid.NewGuid(), "n", "body", WidthPreset.Half, false);
+    private static NoteSnapshot Note() => new(Guid.NewGuid(), "n", "body", 0.5, false);
 
     [Fact]
     public void SavedAsset_CanBeFoundAgain()

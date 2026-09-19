@@ -5,7 +5,7 @@ namespace Ream.Tests;
 
 public class DocumentRepositoryTests
 {
-    private static NoteSnapshot Note(string title, string body = "", WidthPreset width = WidthPreset.Half, bool fullscreen = false) =>
+    private static NoteSnapshot Note(string title, string body = "", double width = 0.5, bool fullscreen = false) =>
         new(Guid.NewGuid(), title, body, width, fullscreen);
 
     private static WorkspaceSnapshot Workspace(string? name, string folder, params NoteSnapshot[] notes) =>
@@ -29,8 +29,8 @@ public class DocumentRepositoryTests
         using var dir = new TempDir();
         string root = dir.Combine("ReemDocuments");
 
-        var a = Note("Groceries", "milk\neggs", WidthPreset.OneThird);
-        var b = Note("Ideas", "big ideas", WidthPreset.Full, fullscreen: true);
+        var a = Note("Groceries", "milk\neggs", 1d / 3d);
+        var b = Note("Ideas", "big ideas", 1.0, fullscreen: true);
         var personal = Workspace("Personal", "ws-aaaaaaaa", a, b) with { FocusedNoteId = a.Id };
         var unnamed = Workspace(null, "ws-bbbbbbbb", Note("Loose"));
 
@@ -47,8 +47,8 @@ public class DocumentRepositoryTests
         Assert.Equal(a.Id, loadedPersonal.FocusedNoteId);
         Assert.Equal([a.Id, b.Id], loadedPersonal.Notes.Select(n => n.Id));
         Assert.Equal("milk\neggs", loadedPersonal.Notes[0].Body);
-        Assert.Equal(WidthPreset.OneThird, loadedPersonal.Notes[0].Width);
-        Assert.Equal(WidthPreset.Full, loadedPersonal.Notes[1].Width);
+        Assert.Equal(1d / 3d, loadedPersonal.Notes[0].WidthFraction, 3);
+        Assert.Equal(1.0, loadedPersonal.Notes[1].WidthFraction, 3);
         Assert.True(loadedPersonal.Notes[1].IsFullscreen);
         Assert.Equal("Ideas", loadedPersonal.Notes[1].Title);
     }
@@ -74,10 +74,48 @@ public class DocumentRepositoryTests
         using var dir = new TempDir();
         string root = dir.Combine("ReemDocuments");
 
-        new DocumentRepository(root).Save(Doc(null, Workspace("W", "ws-11111111", Note("N", width: WidthPreset.TwoThirds))));
+        new DocumentRepository(root).Save(Doc(null, Workspace("W", "ws-11111111", Note("N", width: 2d / 3d))));
 
         string json = File.ReadAllText(Path.Combine(root, "ws-11111111", "layout.json"));
-        Assert.Contains("\"width\": \"twoThirds\"", json);
+        Assert.Contains("\"widthFraction\": 0.6667", json);
+        Assert.DoesNotContain("\"width\":", json);
+    }
+
+    [Theory]
+    [InlineData("\"width\": \"twoThirds\"", 2d / 3d)]
+    [InlineData("\"width\": \"oneThird\"", 1d / 3d)]
+    [InlineData("\"width\": \"full\"", 1.0)]
+    [InlineData("\"width\": \"half\"", 0.5)]
+    [InlineData("\"widthFraction\": 0.4", 0.4)]
+    [InlineData("\"widthFraction\": 0.4, \"width\": \"full\"", 0.4)]
+    [InlineData("\"widthFraction\": 7", 1.0)]
+    [InlineData("\"widthFraction\": 0.01", 0.15)]
+    [InlineData("\"other\": 1", 0.5)]
+    public void StoredWidth_LoadsFromEitherFormat_AndStaysInRange(string widthJson, double expected)
+    {
+        using var dir = new TempDir();
+        string root = dir.Combine("ReemDocuments");
+        var note = Note("N", "body");
+        new DocumentRepository(root).Save(Doc(null, Workspace("W", "ws-11111111", note)));
+        File.WriteAllText(
+            Path.Combine(root, "ws-11111111", "layout.json"),
+            $$"""{ "schemaVersion": 1, "notes": [ { "noteId": "{{note.Id}}", "fileName": "{{note.Id:N}}.reamnote", "title": "N", {{widthJson}} } ] }""");
+
+        var loaded = new DocumentRepository(root).Load().Workspaces[0].Notes[0];
+
+        Assert.Equal(expected, loaded.WidthFraction, 4);
+    }
+
+    [Fact]
+    public void FreeformWidth_RoundTrips()
+    {
+        using var dir = new TempDir();
+        string root = dir.Combine("ReemDocuments");
+        new DocumentRepository(root).Save(Doc(null, Workspace("W", "ws-11111111", Note("N", width: 0.37256))));
+
+        var loaded = new DocumentRepository(root).Load().Workspaces[0].Notes[0];
+
+        Assert.Equal(0.3726, loaded.WidthFraction, 4);
     }
 
     [Fact]

@@ -1,3 +1,5 @@
+using Ream.Core.Models;
+
 namespace Ream.Core.Layout;
 
 /// <summary>Pure geometry for a horizontal row of note columns (niri-style).</summary>
@@ -7,6 +9,13 @@ public static class RowLayout
     // 1/2 + 1/2 (or 1/3 x 3) exactly fill the viewport including the outer gaps.
     public static double ColumnWidth(double fraction, double viewportWidth, double gap) =>
         Math.Max(0, fraction * (viewportWidth - gap) - gap);
+
+    /// <summary>The inverse of <see cref="ColumnWidth"/>: the fraction that yields a wanted pixel width, kept in range.</summary>
+    public static double FractionForWidth(double width, double viewportWidth, double gap)
+    {
+        double available = viewportWidth - gap;
+        return available <= 0 ? WidthPresets.Default : WidthPresets.Clamp((width + gap) / available);
+    }
 
     public static double[] Lefts(IReadOnlyList<double> widths, double gap)
     {

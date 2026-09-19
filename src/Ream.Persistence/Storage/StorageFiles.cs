@@ -36,7 +36,13 @@ internal sealed class NoteEntryFile
     public Guid NoteId { get; set; }
     public string? FileName { get; set; }
     public string? Title { get; set; }
-    public WidthPreset Width { get; set; } = WidthPreset.Half;
+
+    /// <summary>Fraction of the row's width. Files written before freeform resizing have <see cref="Width"/> instead.</summary>
+    public double? WidthFraction { get; set; }
+
+    /// <summary>Legacy named width; read for older files, never written.</summary>
+    public WidthPreset? Width { get; set; }
+
     public bool IsFullscreen { get; set; }
 }
 

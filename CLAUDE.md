@@ -40,9 +40,18 @@ Empty workspaces are pruned only after a switch animation settles
 (`AppViewModel.PruneEmptyWorkspacesCommand`), using `SuppressAnimation` so the strip
 snaps rather than animates when the list shifts under it.
 
-Status: M0-M3 done (layout engine, on-disk persistence, config.json, rich-text editor
-with inline images). Next is M4 (freeform resize, workspace rename UI, indicator strip,
-horizontal-tilt wheel); M5 is polish (config live-reload, virtualization, theming, packaging).
+Status: M0-M4 done (layout engine, on-disk persistence, config.json, rich-text editor
+with inline images, freeform column resize, workspace strip + rename, tilt-wheel). Next is
+M5: polish (config live-reload, virtualization, theming, first-run polish, packaging).
+
+Widths: a column's width is a plain fraction of the row (`NoteViewModel.WidthFraction`,
+clamped to 0.15-1.0). Presets (1/3, 1/2, 2/3, full) are only labels/cycle stops
+(`WidthPresets`); Alt+R goes to the next preset wider than the current width. Dragging a
+column's right edge (`NoteColumnView.ResizeHandle`) sets the fraction live via
+`RowLayout.FractionForWidth`; `NoteRowPanel.IsResizing` makes the panel follow the pointer
+instead of animating. `layout.json` stores `widthFraction`; older files' `"width": "half"`
+still load. Workspaces: `WorkspaceTabs` chips (click = switch, double-click or Alt+Shift+R =
+rename in place). Named workspaces are never pruned or dropped when empty; unnamed empty ones are.
 
 Editor: each `NoteColumnView` hosts a `RichTextBox`; `NoteViewModel` owns the note's live
 `FlowDocument` and only writes it into `Body` (the saved XML) in `FlushDocument()`, which
@@ -102,6 +111,11 @@ The always-empty trailing workspace is never stored. `Flush()` runs on app exit.
   the editor's defaults onto the document. `TextRange.ApplyPropertyValue` rejects
   `DependencyProperty.UnsetValue` (throws) - apply explicit defaults or null instead.
 - A `TextPointer` scan reports an `InlineUIContainer` at both its start and end; dedupe.
+- `Ui.Run` serializes UI tests with a lock: `Settle()` pumps the shared UI thread, so without
+  it another test's queued work runs nested inside the current one and steals process-wide
+  keyboard focus (this caused a real flaky failure). Keep every test that touches WPF views
+  behind `Ui.Run`. Horizontal-wheel is tested by sending `WM_MOUSEHWHEEL` to the test's own
+  off-screen window, never to the real desktop.
 - Test editor behaviour in-process (`Ream.Tests/Ui.cs` hosts real views on a UI thread,
   off-screen, with the app's resources; raise `Click` on toolbar buttons, use
   `Editor.AppendText`, `RenderToPng` to look at output). Do NOT drive the user's live
