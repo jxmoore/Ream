@@ -52,7 +52,10 @@ public static class ReamPaths
         if (name != name.Trim() || name.Length > MaxNameLength) return false;
         if (name.EndsWith('.')) return false;
         if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return false;
-        return !ReservedNames.Contains(name);
+
+        // Windows reserves a device name with any extension too ("nul.txt", and so "nul.x.ream").
+        string stem = name.Split('.')[0].TrimEnd(' ');
+        return !ReservedNames.Contains(stem);
     }
 
     /// <summary>
