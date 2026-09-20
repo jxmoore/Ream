@@ -68,6 +68,7 @@ public partial class App : Application
             var window = _host.Services.GetRequiredService<MainWindow>();
             _manager = _host.Services.GetRequiredService<ReamManager>();
             _manager.RecordLastReam(launch.Repository.ReamPath);
+            viewModel.Files = _manager;
             viewModel.PropertyChanged += (_, args) =>
             {
                 // Turning auto-save on or off in config.json takes effect at once.

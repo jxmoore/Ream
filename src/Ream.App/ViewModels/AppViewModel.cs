@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Ream.App.Services;
 using Ream.Core.Abstractions;
 using Ream.Core.Models;
 
@@ -64,6 +65,11 @@ public sealed partial class AppViewModel : ObservableObject
             ["closeNote"] = CloseNoteCommand,
             ["renameNote"] = RenameNoteCommand,
             ["renameWorkspace"] = BeginRenameCommand,
+            ["newReam"] = NewReamCommand,
+            ["openReam"] = OpenReamCommand,
+            ["save"] = SaveReamCommand,
+            ["saveAs"] = SaveReamAsCommand,
+            ["clearReam"] = ClearReamCommand,
         };
     }
 
@@ -347,6 +353,28 @@ public sealed partial class AppViewModel : ObservableObject
         int index = workspace is null ? -1 : Workspaces.IndexOf(workspace);
         if (index >= 0) SwitchWorkspace(index - CurrentIndex);
     }
+
+    /// <summary>Creates, opens, saves and clears reams (set by the app; without it those commands do nothing).</summary>
+    internal IReamFiles? Files { get; set; }
+
+    [RelayCommand]
+    private void NewReam() => Files?.NewReam();
+
+    [RelayCommand]
+    private void OpenReam() => Files?.OpenReam();
+
+    [RelayCommand]
+    private void SaveReam() => Files?.Save();
+
+    [RelayCommand]
+    private void SaveReamAs() => Files?.SaveAs();
+
+    [RelayCommand]
+    private void ClearReam() => Files?.ClearReam();
+
+    /// <summary>The File ribbon's Auto-save switch.</summary>
+    [RelayCommand]
+    private void ToggleAutoSave() => Files?.SetAutoSave(!AutoSave);
 
     /// <summary>Starts renaming the focused note in its header (the F2 shortcut).</summary>
     [RelayCommand]

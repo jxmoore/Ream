@@ -10,7 +10,7 @@ namespace Ream.App.Services;
 /// what is *in* them is swapped in place, one <see cref="ReamSession"/> at a time. Every question (which file? save first?)
 /// goes through <see cref="IFileDialogs"/> and <see cref="IUserPrompts"/> so it can be tested without any UI.
 /// </summary>
-internal sealed partial class ReamManager
+internal sealed partial class ReamManager : IReamFiles
 {
     private readonly AppViewModel _app;
     private readonly AppConfigStore? _store;
@@ -108,6 +108,19 @@ internal sealed partial class ReamManager
         RecordLastReam(repository.ReamPath);
         _app.RequestEditorFocus();
         return true;
+    }
+
+    /// <summary>Auto-save on or off: takes effect now (title, session) and is written to config.json so it sticks.</summary>
+    public void SetAutoSave(bool on)
+    {
+        if (_app.Config.AutoSave == on && Current.AutoSave == on) return;
+
+        _app.Config = _app.Config.With(autoSave: on);
+        Current.AutoSave = on;
+        if (_store is null) return;
+
+        if (!_store.Update(root => root["autoSave"] = on, out string? error))
+            _app.ConfigError = $"Couldn't save the auto-save setting: {error}";
     }
 
     /// <summary>Remembers this ream in config.json so the next launch reopens it.</summary>

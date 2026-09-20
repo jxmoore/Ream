@@ -36,7 +36,7 @@
                 <TextBlock Grid.Row="0" Grid.Column="1" x:Name="RuntimeText" Text="{Binding Runtime}"/>
                 <TextBlock Grid.Row="1" Text="System" Foreground="{DynamicResource MutedTextBrush}" Margin="0,4,18,4"/>
                 <TextBlock Grid.Row="1" Grid.Column="1" x:Name="SystemText" Text="{Binding System}"/>
-                <TextBlock Grid.Row="2" Text="Notes folder" Foreground="{DynamicResource MutedTextBrush}" Margin="0,4,18,4"/>
+                <TextBlock Grid.Row="2" Text="Ream file" Foreground="{DynamicResource MutedTextBrush}" Margin="0,4,18,4"/>
                 <TextBlock Grid.Row="2" Grid.Column="1" x:Name="FolderText" Text="{Binding DocumentsFolder}"/>
                 <TextBlock Grid.Row="3" Text="Config file" Foreground="{DynamicResource MutedTextBrush}" Margin="0,4,18,4"/>
                 <TextBlock Grid.Row="3" Grid.Column="1" x:Name="ConfigText" Text="{Binding ConfigFile}"/>
