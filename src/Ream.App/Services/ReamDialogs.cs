@@ -1,5 +1,6 @@
 using System.Windows;
 using Microsoft.Win32;
+using Ream.App.Views;
 using Ream.Persistence.Storage;
 
 namespace Ream.App.Services;
@@ -79,29 +80,41 @@ internal sealed class Win32FileDialogs : IFileDialogs
 
 internal sealed class WpfUserPrompts : IUserPrompts
 {
+    private readonly Func<string, string, PromptIcon, IReadOnlyList<PromptButton>, object?> _show;
+
+    public WpfUserPrompts()
+        : this((title, message, icon, buttons) => PromptWindow.Ask(Application.Current?.MainWindow, title, message, icon, buttons))
+    {
+    }
+
+    /// <param name="show">How a prompt is put in front of the user and answered; tests pick a button instead of showing a window.</param>
+    internal WpfUserPrompts(Func<string, string, PromptIcon, IReadOnlyList<PromptButton>, object?> show) => _show = show;
+
     public SaveChoice AskSaveChanges(string reamName)
     {
-        var answer = MessageBox.Show(
-            Owner,
-            $"Save changes to \"{reamName}\"?",
+        var answer = _show(
             "Ream",
-            MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Question,
-            MessageBoxResult.Yes);
+            $"Save changes to \"{reamName}\"?\nYour changes will be lost if you don't save.",
+            PromptIcon.Question,
+            [
+                new PromptButton("_Save", SaveChoice.Save, IsDefault: true),
+                new PromptButton("Do_n't save", SaveChoice.DontSave),
+                new PromptButton("Cancel", SaveChoice.Cancel, IsCancel: true),
+            ]);
 
-        return answer switch
-        {
-            MessageBoxResult.Yes => SaveChoice.Save,
-            MessageBoxResult.No => SaveChoice.DontSave,
-            _ => SaveChoice.Cancel,
-        };
+        return answer is SaveChoice choice ? choice : SaveChoice.Cancel;
     }
 
     public bool Confirm(string title, string message, string confirmText) =>
-        MessageBox.Show(Owner, message, title, MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes;
+        _show(
+            title,
+            message,
+            PromptIcon.Warning,
+            [
+                new PromptButton(confirmText, true),
+                new PromptButton("Cancel", false, IsDefault: true, IsCancel: true),
+            ]) is true;
 
     public void ShowError(string title, string message) =>
-        MessageBox.Show(Owner, message, title, MessageBoxButton.OK, MessageBoxImage.Error);
-
-    private static Window? Owner => Application.Current?.MainWindow;
+        _show(title, message, PromptIcon.Error, [new PromptButton("OK", true, IsDefault: true, IsCancel: true)]);
 }
