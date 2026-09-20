@@ -1,5 +1,7 @@
 # Ream
 
+[![Tests](https://github.com/jxmoore/Ream/actions/workflows/tests.yml/badge.svg?branch=develop)](https://github.com/jxmoore/Ream/actions/workflows/tests.yml?query=branch%3Adevelop)
+
 A Windows desktop note-taking app built around an infinitely scrollable,
 [niri](https://github.com/niri-wm/niri)-style layout.
 
