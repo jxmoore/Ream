@@ -349,7 +349,7 @@ public partial class MainWindow : Window
     /// <summary>How Help and About are shown (modally, over this window). Tests replace it so nothing really opens.</summary>
     internal Action<Window> ShowModal { get; set; } = window => window.ShowDialog();
 
-    internal void OpenHelp() => Present(new HelpWindow(HelpContent.Build(_viewModel.Config.Keybindings)));
+    internal void OpenHelp() => Present(new HelpWindow(HelpContent.Build(_viewModel.Config.Keybindings), _viewModel.Config.Keybindings));
 
     internal void OpenAbout() => Present(new AboutWindow(About with { DocumentsFolder = _viewModel.ReamPath ?? About.DocumentsFolder }));
 
