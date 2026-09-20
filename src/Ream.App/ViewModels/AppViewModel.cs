@@ -11,7 +11,7 @@ public sealed partial class AppViewModel : ObservableObject
 {
     private int _noteCounter;
 
-    private readonly IAssetStore? _assets;
+    private IAssetStore? _assets;
 
     public AppViewModel(AppConfig config, IEnumerable<WorkspaceViewModel> workspaces, int currentIndex = 0, IAssetStore? assets = null)
     {
@@ -75,6 +75,25 @@ public sealed partial class AppViewModel : ObservableObject
     [ObservableProperty]
     private string? _configError;
 
+    /// <summary>The open ream's name (its file name without ".ream"); null while none is open (tests).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WindowTitle))]
+    private string? _reamName;
+
+    /// <summary>The open ream's file.</summary>
+    [ObservableProperty]
+    private string? _reamPath;
+
+    /// <summary>The ream's content differs from what was last saved (set by the session).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WindowTitle))]
+    private bool _hasUnsavedChanges;
+
+    /// <summary>Whether changes are saved as they happen (set by the session, from config.json).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WindowTitle))]
+    private bool _autoSave = true;
+
     public ObservableCollection<WorkspaceViewModel> Workspaces { get; }
 
     /// <summary>Keybinding action name (as used in config) to command.</summary>
@@ -91,6 +110,11 @@ public sealed partial class AppViewModel : ObservableObject
     public WorkspaceViewModel CurrentWorkspace => Workspaces[CurrentIndex];
 
     public const string AppName = "Ream";
+
+    /// <summary>"Ream - Foo", with " *" after it while there are unsaved changes and auto-save is off (with it on they are on their way to disk).</summary>
+    public string WindowTitle => ReamName is null
+        ? AppName
+        : $"{AppName} - {ReamName}{(HasUnsavedChanges && !AutoSave ? " *" : "")}";
 
     /// <summary>The corner label: the workspace's name, "Workspace 2" if it has none, or "New workspace" on an empty edge.</summary>
     public string WorkspaceLabel =>
@@ -158,6 +182,51 @@ public sealed partial class AppViewModel : ObservableObject
         else RequestEditorFocus();
     }
 
+    /// <summary>
+    /// Replaces what is open with another ream's workspaces, in place: the window, the settings and the key bindings stay.
+    /// The strip snaps rather than animates. An empty ream lands on one empty workspace with a draft ready to type in.
+    /// </summary>
+    /// <param name="currentIndex">Which of <paramref name="workspaces"/> to show (before the empty edge workspaces are added).</param>
+    public void LoadReam(IEnumerable<WorkspaceViewModel> workspaces, int currentIndex, IAssetStore? assets)
+    {
+        SuppressAnimation = true;
+        try
+        {
+            _assets = assets;
+            Workspaces.Clear();
+            foreach (var workspace in workspaces) Workspaces.Add(workspace);
+
+            int shift = 0;
+            if (NeedsLeadingEmpty)
+            {
+                Workspaces.Insert(0, new WorkspaceViewModel(null, _assets));
+                shift = 1;
+            }
+            if (NeedsTrailingEmpty) Workspaces.Add(new WorkspaceViewModel(null, _assets));
+
+            _noteCounter = Workspaces.Sum(w => w.Notes.Count);
+
+            int target = Math.Clamp(currentIndex + shift, 0, Workspaces.Count - 1);
+            _visited = Workspaces[target];
+            if (CurrentIndex == target)
+            {
+                // The index did not change but what it points at did.
+                OnPropertyChanged(nameof(CurrentWorkspace));
+                RefreshWorkspaceState();
+            }
+            else
+            {
+                CurrentIndex = target;
+            }
+
+            if (CurrentWorkspace.IsEmpty) OpenDraft();
+        }
+        finally
+        {
+            SuppressAnimation = false;
+        }
+    }
+
     /// <summary>Writes every note's pending edits into its saved form. Call before taking a snapshot.</summary>
     public void FlushPendingContent()
     {
@@ -179,6 +248,7 @@ public sealed partial class AppViewModel : ObservableObject
     {
         if (NeedsLeadingEmpty)
         {
+            bool suppressed = SuppressAnimation;
             SuppressAnimation = true;
             try
             {
@@ -187,7 +257,7 @@ public sealed partial class AppViewModel : ObservableObject
             }
             finally
             {
-                SuppressAnimation = false;
+                SuppressAnimation = suppressed;
             }
         }
 
@@ -203,6 +273,7 @@ public sealed partial class AppViewModel : ObservableObject
     [RelayCommand]
     private void PruneEmptyWorkspaces()
     {
+        bool suppressed = SuppressAnimation;
         SuppressAnimation = true;
         try
         {
@@ -215,7 +286,7 @@ public sealed partial class AppViewModel : ObservableObject
         }
         finally
         {
-            SuppressAnimation = false;
+            SuppressAnimation = suppressed;
         }
     }
 

@@ -4,7 +4,7 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:controls="clr-namespace:Ream.App.Controls"
         xmlns:views="clr-namespace:Ream.App.Views"
-        Title="Ream" Height="720" Width="1200" MinWidth="480" MinHeight="320"
+        Title="{Binding WindowTitle}" Height="720" Width="1200" MinWidth="480" MinHeight="320"
         WindowStyle="None" AllowsTransparency="True" ResizeMode="CanResize"
         Background="Transparent" Foreground="{DynamicResource TextBrush}">
     <!--

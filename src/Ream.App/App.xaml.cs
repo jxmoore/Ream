@@ -13,7 +13,7 @@ namespace Ream.App;
 public partial class App : Application
 {
     private IHost? _host;
-    private PersistenceCoordinator? _persistence;
+    private ReamSession? _session;
     private ThemeService? _theme;
     private SettingsViewModel? _settings;
     private ConfigReloader? _reloader;
@@ -49,10 +49,11 @@ public partial class App : Application
                     services.AddSingleton<IAssetStore>(sp => sp.GetRequiredService<DocumentRepository>());
                     services.AddSingleton(sp => LoadOrSeed(
                         sp.GetRequiredService<IDocumentRepository>(), config, sp.GetRequiredService<IAssetStore>()));
-                    services.AddSingleton(sp => new PersistenceCoordinator(
-                        sp.GetRequiredService<IDocumentRepository>(),
+                    services.AddSingleton(sp => new ReamSession(
+                        sp.GetRequiredService<DocumentRepository>(),
                         sp.GetRequiredService<AppViewModel>(),
-                        Dispatcher));
+                        Dispatcher,
+                        config.AutoSave));
                     services.AddSingleton(sp => new SettingsViewModel(
                         sp.GetRequiredService<AppViewModel>(), _theme, store, Dispatcher));
                     services.AddSingleton<MainWindow>();
@@ -62,7 +63,13 @@ public partial class App : Application
             _host.StartAsync().GetAwaiter().GetResult();
 
             var window = _host.Services.GetRequiredService<MainWindow>();
-            _persistence = _host.Services.GetRequiredService<PersistenceCoordinator>();
+            _session = _host.Services.GetRequiredService<ReamSession>();
+            var app = _host.Services.GetRequiredService<AppViewModel>();
+            app.PropertyChanged += (_, args) =>
+            {
+                // Turning auto-save on or off in config.json takes effect at once.
+                if (args.PropertyName == nameof(AppViewModel.Config)) _session.AutoSave = app.Config.AutoSave;
+            };
             _settings = _host.Services.GetRequiredService<SettingsViewModel>();
 
             window.FollowTheme(_theme);
@@ -87,7 +94,7 @@ public partial class App : Application
         _reloader?.Dispose();
         _settings?.Flush();
         _settings?.Dispose();
-        _persistence?.Flush();
+        _session?.Coordinator.Flush();
 
         if (_host is not null)
         {
