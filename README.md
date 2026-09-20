@@ -50,6 +50,9 @@ To make a portable copy you can hand to someone (no installer, no .NET needed):
 .\build\publish.ps1 -FrameworkDependent  # ~2 MB, needs the .NET 8 Desktop Runtime
 ```
 
+Every push to `main` also publishes a GitHub release: the framework-dependent zip, versioned `major.minor.patch`
+by GitVersion (see `GitVersion.yml`; a `+semver: minor` or `+semver: major` in a commit message bumps more than the patch).
+
 ## Layout
 
 - `src/Ream.Core` — domain models and abstractions (no WPF dependency)

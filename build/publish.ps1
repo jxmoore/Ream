@@ -12,10 +12,15 @@
 .EXAMPLE
     .\build\publish.ps1
     .\build\publish.ps1 -FrameworkDependent
+    .\build\publish.ps1 -FrameworkDependent -Version 1.2.3
+
+    -Version stamps that version (major.minor.patch) into the exe and the zip's name instead of the one in
+    Ream.App.csproj. The release workflow uses it to pass the version GitVersion worked out.
 #>
 param(
     [switch]$FrameworkDependent,
-    [string]$Configuration = "Release"
+    [string]$Configuration = "Release",
+    [string]$Version
 )
 
 $ErrorActionPreference = "Stop"
@@ -25,8 +30,9 @@ $project = Join-Path $root "src\Ream.App\Ream.App.csproj"
 $artifacts = [System.IO.Path]::GetFullPath((Join-Path $root "artifacts"))
 
 [xml]$xml = Get-Content -LiteralPath $project
-$version = ($xml.Project.PropertyGroup | Where-Object { $_.Version } | Select-Object -First 1).Version
+$version = if ($Version) { $Version } else { ($xml.Project.PropertyGroup | Where-Object { $_.Version } | Select-Object -First 1).Version }
 if (-not $version) { throw "Couldn't read <Version> from $project" }
+if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Version must be major.minor.patch (for example 1.2.3), not '$version'" }
 
 $flavor = if ($FrameworkDependent) { "framework-dependent" } else { "self-contained" }
 $suffix = if ($FrameworkDependent) { "win-x64-framework-dependent" } else { "win-x64" }
@@ -52,6 +58,8 @@ dotnet publish $project `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
     -p:DebugType=none `
+    -p:Version=$version `
+    -p:IncludeSourceRevisionInInformationalVersion=false `
     --output $out
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed with exit code $LASTEXITCODE" }
 

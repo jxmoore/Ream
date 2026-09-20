@@ -79,7 +79,11 @@ Crash recovery: on load, leftover `*.tmp` files are promoted if complete and the
 missing, otherwise moved to `ReemDocuments/.recovered/<stamp>/` (never deleted).
 
 Packaging: `build/publish.ps1` makes a portable single-file build + zip under `artifacts/`
-(gitignored); `-FrameworkDependent` for the small one. It is not an installer.
+(gitignored); `-FrameworkDependent` for the small one; `-Version x.y.z` stamps a version. It is not an installer.
+Releases: a push to `main` runs the `release` job in `.github/workflows/tests.yml` (after the tests pass): GitVersion (`GitVersion.yml`)
+works out a plain major.minor.patch (the `MajorMinorPatch` variable only - never `FullSemVer`, which grows a `-N` suffix), the
+framework-dependent zip is published with that version, and a GitHub release `v<version>` is created (which also tags it). Each merge to
+main is a patch bump; `+semver: minor` / `+semver: major` in a commit message bumps more. A commit that already has a release is skipped.
 
 Widths: a column's width is a plain fraction of the row (`NoteViewModel.WidthFraction`,
 clamped to 0.15-1.0). Presets (1/3, 1/2, 2/3, full) are only labels/cycle stops
