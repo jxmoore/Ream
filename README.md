@@ -1,5 +1,7 @@
 # Ream
 
+[![Tests](https://github.com/jxmoore/Ream/actions/workflows/tests.yml/badge.svg?branch=develop)](https://github.com/jxmoore/Ream/actions/workflows/tests.yml?query=branch%3Adevelop)
+
 A Windows desktop note-taking app built around an infinitely scrollable,
 [niri](https://github.com/niri-wm/niri)-style layout.
 
@@ -49,6 +51,9 @@ To make a portable copy you can hand to someone (no installer, no .NET needed):
 .\build\publish.ps1                      # self-contained single exe + zip in artifacts\
 .\build\publish.ps1 -FrameworkDependent  # ~2 MB, needs the .NET 8 Desktop Runtime
 ```
+
+Every push to `main` also publishes a GitHub release: the framework-dependent zip, versioned `major.minor.patch`
+by GitVersion (see `GitVersion.yml`; a `+semver: minor` or `+semver: major` in a commit message bumps more than the patch).
 
 ## Layout
 

@@ -18,7 +18,12 @@ public sealed class NoteRowPanel : Panel
 
     public static readonly DependencyProperty FocusedIndexProperty = DependencyProperty.Register(
         nameof(FocusedIndex), typeof(int), typeof(NoteRowPanel),
-        new FrameworkPropertyMetadata(0, FrameworkPropertyMetadataOptions.AffectsArrange));
+        new FrameworkPropertyMetadata(0, FrameworkPropertyMetadataOptions.AffectsArrange, OnFocusedIndexChanged));
+
+    // False while this row's workspace is off to the side. Focus changes made then jump instead of scrolling, so
+    // arriving in the workspace does not show the row sliding sideways.
+    public static readonly DependencyProperty IsCurrentWorkspaceProperty = DependencyProperty.Register(
+        nameof(IsCurrentWorkspace), typeof(bool), typeof(NoteRowPanel), new PropertyMetadata(true));
 
     public static readonly DependencyProperty ConfigProperty = DependencyProperty.Register(
         nameof(Config), typeof(AppConfig), typeof(NoteRowPanel),
@@ -66,6 +71,7 @@ public sealed class NoteRowPanel : Panel
     private double _targetOffset;
     private Size _lastSize;
     private bool _initialized;
+    private bool _snapNextArrange;
 
     public NoteRowPanel()
     {
@@ -76,6 +82,19 @@ public sealed class NoteRowPanel : Panel
     {
         get => (int)GetValue(FocusedIndexProperty);
         set => SetValue(FocusedIndexProperty, value);
+    }
+
+    public bool IsCurrentWorkspace
+    {
+        get => (bool)GetValue(IsCurrentWorkspaceProperty);
+        set => SetValue(IsCurrentWorkspaceProperty, value);
+    }
+
+    private static void OnFocusedIndexChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        // Decided now, while the workspace flag still describes where the row was when focus moved.
+        var panel = (NoteRowPanel)d;
+        if (!panel.IsCurrentWorkspace) panel._snapNextArrange = true;
     }
 
     public AppConfig Config
@@ -186,7 +205,8 @@ public sealed class NoteRowPanel : Panel
 
         // While widths are animating the target moves every frame, so follow it directly
         // instead of starting a competing offset animation.
-        bool snap = !_initialized || finalSize != _lastSize || resizing || !Config.Animations.Enabled;
+        bool snap = !_initialized || finalSize != _lastSize || resizing || !Config.Animations.Enabled || _snapNextArrange;
+        _snapNextArrange = false;
         double offset;
         if (snap)
         {

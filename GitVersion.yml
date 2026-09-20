@@ -1,0 +1,25 @@
+# Ream's release version, read by the release job in .github/workflows/tests.yml (only on pushes to main).
+#
+# The version is MajorMinorPatch and nothing else - no pre-release label, no build metadata. Every merge to main
+# is a patch release by default. To ask for more, put one of these in a commit message (a merge commit's message
+# counts, so a PR title or body works too):
+#
+#   +semver: minor      0.5.3 -> 0.6.0
+#   +semver: major      0.5.3 -> 1.0.0
+#
+# Releases are tagged v<version>; the tag is what the next version is counted from.
+
+mode: ContinuousDelivery
+tag-prefix: '[vV]?'
+
+# The first release. Once a v-tag exists this is ignored in favour of the tag (plus the bump).
+next-version: 0.5.0
+
+commit-message-incrementing: Enabled
+
+branches:
+  main:
+    regex: ^main$
+    label: ''
+    increment: Patch
+    is-main-branch: true

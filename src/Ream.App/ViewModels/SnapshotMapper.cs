@@ -10,7 +10,11 @@ internal static class SnapshotMapper
     {
         var workspaces = snapshot.Workspaces.Select(w => ToWorkspace(w, assets)).ToList();
         int current = workspaces.FindIndex(w => w.Id == snapshot.CurrentWorkspaceId);
-        return new AppViewModel(config, workspaces, Math.Max(0, current), assets);
+        var app = new AppViewModel(config, workspaces, Math.Max(0, current), assets);
+
+        // A launch starts at the beginning of the row, whichever note had focus when Ream was closed.
+        app.CurrentWorkspace.SetFocus(0);
+        return app;
     }
 
     public static DocumentSnapshot ToSnapshot(AppViewModel app)
@@ -18,11 +22,9 @@ internal static class SnapshotMapper
         // Edits live in the editors' documents until now; bring the saved form up to date first.
         app.FlushPendingContent();
 
-        // The trailing empty workspace is always recreated on load, so it is not stored - unless the
-        // user has named it, in which case the name is theirs to keep.
-        var persisted = app.Workspaces.ToList();
-        if (persisted.Count > 0 && persisted[^1].IsEmpty && persisted[^1].Name is null)
-            persisted.RemoveAt(persisted.Count - 1);
+        // The empty workspaces at either edge are recreated on load, so a workspace is stored only when
+        // the user named it or it holds something worth keeping (a blank draft isn't).
+        var persisted = app.Workspaces.Where(w => w.Name is not null || SavedNotes(w).Count > 0).ToList();
 
         var current = app.CurrentWorkspace;
         Guid? currentId = persisted.Contains(current) ? current.Id : null;
@@ -30,12 +32,20 @@ internal static class SnapshotMapper
         return new DocumentSnapshot(persisted.Select(ToSnapshot).ToList(), currentId);
     }
 
-    private static WorkspaceSnapshot ToSnapshot(WorkspaceViewModel workspace) => new(
-        workspace.Id,
-        workspace.Name,
-        workspace.FolderName,
-        workspace.Notes.Select(n => new NoteSnapshot(n.Id, n.Title, n.Body, n.WidthFraction, n.IsFullscreen)).ToList(),
-        workspace.FocusedNote?.Id);
+    private static List<NoteViewModel> SavedNotes(WorkspaceViewModel workspace) =>
+        workspace.Notes.Where(n => !n.IsBlankDraft()).ToList();
+
+    private static WorkspaceSnapshot ToSnapshot(WorkspaceViewModel workspace)
+    {
+        var notes = SavedNotes(workspace);
+        var focused = workspace.FocusedNote;
+        return new WorkspaceSnapshot(
+            workspace.Id,
+            workspace.Name,
+            workspace.FolderName,
+            notes.Select(n => new NoteSnapshot(n.Id, n.Title, n.Body, n.WidthFraction, n.IsFullscreen, n.CustomTitle)).ToList(),
+            focused is not null && notes.Contains(focused) ? focused.Id : null);
+    }
 
     private static WorkspaceViewModel ToWorkspace(WorkspaceSnapshot snapshot, IAssetStore assets)
     {
@@ -45,17 +55,12 @@ internal static class SnapshotMapper
             {
                 Id = n.Id,
                 Title = n.Title,
+                CustomTitle = n.CustomTitle,
                 Body = n.Body,
                 WidthFraction = n.WidthFraction,
                 IsFullscreen = n.IsFullscreen,
-                AccentColor = AccentFor(n.Id),
             }),
             snapshot.FocusedNoteId);
         return workspace;
     }
-
-    private static readonly string[] Accents = ["#f2a65a", "#7c9cff", "#8bd3a8", "#e57a9a", "#b48cf2"];
-
-    /// <summary>Accent colors aren't persisted; deriving one from the id keeps each note's color stable.</summary>
-    public static string AccentFor(Guid id) => Accents[id.ToByteArray()[0] % Accents.Length];
 }

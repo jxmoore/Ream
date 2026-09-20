@@ -6,6 +6,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Ream.App.Controls;
 using Ream.App.ViewModels;
@@ -107,6 +108,7 @@ public partial class NoteColumnView : UserControl, INearAware
     {
         if (_note is null || _subscribed) return;
         _note.EditorFocusRequested += OnEditorFocusRequested;
+        _note.SizeToastRequested += OnSizeToast;
         _subscribed = true;
     }
 
@@ -114,7 +116,28 @@ public partial class NoteColumnView : UserControl, INearAware
     {
         if (_note is null || !_subscribed) return;
         _note.EditorFocusRequested -= OnEditorFocusRequested;
+        _note.SizeToastRequested -= OnSizeToast;
         _subscribed = false;
+    }
+
+    private static readonly TimeSpan ToastHold = TimeSpan.FromMilliseconds(900);
+    private static readonly TimeSpan ToastFade = TimeSpan.FromMilliseconds(300);
+
+    /// <summary>Shows the width for a moment in the accent color, then fades it (or just hides it if animations are off).</summary>
+    private void OnSizeToast(string text)
+    {
+        SizeToast.Text = text;
+
+        bool animate = FindRow()?.Config.Animations.Enabled ?? true;
+        var frames = new DoubleAnimationUsingKeyFrames();
+        frames.KeyFrames.Add(new DiscreteDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.Zero)));
+        frames.KeyFrames.Add(new DiscreteDoubleKeyFrame(1, KeyTime.FromTimeSpan(ToastHold)));
+        if (animate) frames.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromTimeSpan(ToastHold + ToastFade)));
+        else frames.KeyFrames.Add(new DiscreteDoubleKeyFrame(0, KeyTime.FromTimeSpan(ToastHold + TimeSpan.FromMilliseconds(1))));
+        frames.FillBehavior = FillBehavior.Stop;
+
+        SizeToast.Opacity = 0;
+        SizeToast.BeginAnimation(OpacityProperty, frames);
     }
 
     private void OnUnloaded()
@@ -150,6 +173,47 @@ public partial class NoteColumnView : UserControl, INearAware
     private void OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e) =>
         _note?.FocusCommand.Execute(null);
 
+    // ----- Renaming -----
+
+    private void OnTitleMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _note?.BeginTitleEdit();
+        e.Handled = true;
+    }
+
+    private void OnTitleKeyDown(object sender, KeyEventArgs e)
+    {
+        if (_note is null) return;
+
+        switch (e.Key)
+        {
+            case Key.Enter:
+                _note.CommitTitleEdit();
+                _note.RequestEditorFocus();
+                e.Handled = true;
+                break;
+            case Key.Escape:
+                _note.CancelTitleEdit();
+                _note.RequestEditorFocus();
+                e.Handled = true;
+                break;
+        }
+    }
+
+    // Clicking away keeps what was typed (and leaves focus where the click put it). Escape has already ended the edit.
+    private void OnTitleLostFocus(object sender, KeyboardFocusChangedEventArgs e) => _note?.CommitTitleEdit();
+
+    private void OnTitleBoxVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is not true || sender is not TextBox box) return;
+
+        box.Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
+        {
+            box.Focus();
+            box.SelectAll();
+        });
+    }
+
     // ----- Resizing -----
 
     // The width being dragged to, tracked here (not read back from layout) so several drag events
@@ -182,6 +246,7 @@ public partial class NoteColumnView : UserControl, INearAware
         _dragWidth = Math.Clamp(_dragWidth + e.HorizontalChange, min, max);
 
         _note.WidthFraction = RowLayout.FractionForWidth(_dragWidth, viewport, gap);
+        _note.ShowSizeToast();
     }
 
     private void OnResizeCompleted(object sender, DragCompletedEventArgs e)

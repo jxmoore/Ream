@@ -18,11 +18,29 @@ public sealed partial class AppViewModel : ObservableObject
         _config = config;
         _assets = assets;
         Workspaces = new ObservableCollection<WorkspaceViewModel>(workspaces);
-        EnsureTrailingEmpty();
-        _currentIndex = Math.Clamp(currentIndex, 0, Workspaces.Count - 1);
+
+        // An empty workspace on each side; currentIndex counts within the list that was passed in.
+        int shift = 0;
+        if (NeedsLeadingEmpty)
+        {
+            Workspaces.Insert(0, new WorkspaceViewModel(null, _assets));
+            shift = 1;
+        }
+        if (NeedsTrailingEmpty) Workspaces.Add(new WorkspaceViewModel(null, _assets));
+
+        _currentIndex = Math.Clamp(currentIndex + shift, 0, Workspaces.Count - 1);
+        _visited = Workspaces[_currentIndex];
         _noteCounter = Workspaces.Sum(w => w.Notes.Count);
         RefreshWorkspaceState();
-        Workspaces.CollectionChanged += (_, _) => RefreshWorkspaceState();
+        foreach (var workspace in Workspaces) workspace.PropertyChanged += OnWorkspaceChanged;
+        Workspaces.CollectionChanged += (_, e) =>
+        {
+            if (e.OldItems is not null)
+                foreach (WorkspaceViewModel old in e.OldItems) old.PropertyChanged -= OnWorkspaceChanged;
+            if (e.NewItems is not null)
+                foreach (WorkspaceViewModel added in e.NewItems) added.PropertyChanged += OnWorkspaceChanged;
+            RefreshWorkspaceState();
+        };
 
         Actions = new Dictionary<string, ICommand>
         {
@@ -35,9 +53,16 @@ public sealed partial class AppViewModel : ObservableObject
             ["moveNoteToPrevWorkspace"] = MoveNoteToPrevWorkspaceCommand,
             ["moveNoteToNextWorkspace"] = MoveNoteToNextWorkspaceCommand,
             ["cycleWidthPreset"] = CycleWidthPresetCommand,
+            ["resetNoteSize"] = ResetNoteSizeCommand,
+            ["resetWorkspaceSizes"] = ResetWorkspaceSizesCommand,
+            ["resetAllSizes"] = ResetAllSizesCommand,
+            ["sizeUp"] = SizeUpCommand,
+            ["sizeDown"] = SizeDownCommand,
             ["toggleFullscreen"] = ToggleFullscreenCommand,
+            ["toggleAppFullscreen"] = ToggleAppFullscreenCommand,
             ["newNote"] = NewNoteCommand,
             ["closeNote"] = CloseNoteCommand,
+            ["renameNote"] = RenameNoteCommand,
             ["renameWorkspace"] = BeginRenameCommand,
         };
     }
@@ -65,16 +90,52 @@ public sealed partial class AppViewModel : ObservableObject
 
     public WorkspaceViewModel CurrentWorkspace => Workspaces[CurrentIndex];
 
-    partial void OnCurrentIndexChanged(int value) => RefreshWorkspaceState();
+    public const string AppName = "Ream";
 
-    /// <summary>Keeps each workspace's number and current flag in step with the list and the selection.</summary>
+    /// <summary>The corner label: the workspace's name, "Workspace 2" if it has none, or "New workspace" on an empty edge.</summary>
+    public string WorkspaceLabel =>
+        CurrentIndex >= 0 && CurrentIndex < Workspaces.Count && Workspaces[CurrentIndex].DisplayName is { } name
+            ? name
+            : "New workspace";
+
+    // The workspace that was current last time we looked. Compared by identity, so the index shifting
+    // under a list edit isn't mistaken for leaving a workspace.
+    private WorkspaceViewModel _visited;
+
+    partial void OnCurrentIndexChanged(int value)
+    {
+        var arrived = Workspaces[value];
+        var left = _visited;
+        _visited = arrived;
+
+        // A draft nobody typed into doesn't outlive the visit that made it.
+        if (!ReferenceEquals(left, arrived) && Workspaces.Contains(left))
+            left.DiscardBlankDrafts(keepFocused: false);
+
+        RefreshWorkspaceState();
+    }
+
+    /// <summary>
+    /// Keeps each workspace's number, edge and current flags in step with the list and the selection.
+    /// The first and last workspace are the always-empty edges; the ones between are numbered from 1.
+    /// </summary>
     private void RefreshWorkspaceState()
     {
         for (int i = 0; i < Workspaces.Count; i++)
         {
-            Workspaces[i].Number = i + 1;
+            Workspaces[i].IsEdge = i == 0 || i == Workspaces.Count - 1;
+            Workspaces[i].Number = i;
             Workspaces[i].IsCurrent = i == CurrentIndex;
         }
+
+        OnPropertyChanged(nameof(WorkspaceLabel));
+    }
+
+    // A rename or renumbering of the current workspace changes the label too.
+    private void OnWorkspaceChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (ReferenceEquals(sender, _visited) && e.PropertyName is nameof(WorkspaceViewModel.DisplayName))
+            OnPropertyChanged(nameof(WorkspaceLabel));
     }
 
     /// <summary>Raised when the focused note's editor should take keyboard focus (after focus or workspace moves).</summary>
@@ -87,8 +148,14 @@ public sealed partial class AppViewModel : ObservableObject
         int target = Math.Clamp(CurrentIndex + delta, 0, Workspaces.Count - 1);
         if (target == CurrentIndex) return;
 
+        // Set before the switch so the row behind the sliding workspace is already in place when it arrives.
+        if (Config.Layout.FocusFirstNoteOnSwitch) Workspaces[target].SetFocus(0);
+
         CurrentIndex = target;
-        RequestEditorFocus();
+
+        // An empty workspace you arrive in gets a draft to type into; it disappears again if you leave it blank.
+        if (CurrentWorkspace.IsEmpty) OpenDraft();
+        else RequestEditorFocus();
     }
 
     /// <summary>Writes every note's pending edits into its saved form. Call before taking a snapshot.</summary>
@@ -99,15 +166,37 @@ public sealed partial class AppViewModel : ObservableObject
                 note.FlushDocument();
     }
 
-    /// <summary>Like niri: there is always exactly one empty workspace at the end.</summary>
-    private void EnsureTrailingEmpty()
+    private bool NeedsLeadingEmpty => Workspaces.Count == 0 || !Workspaces[0].IsEmpty;
+
+    // With a single workspace that is the leading empty one, so a second is needed to be the trailing one.
+    private bool NeedsTrailingEmpty => Workspaces.Count < 2 || !Workspaces[^1].IsEmpty;
+
+    /// <summary>
+    /// Like niri, but on both sides: there is always an empty workspace above the first and below the last.
+    /// A new one at the top pushes everything down, so the strip snaps rather than sliding.
+    /// </summary>
+    private void EnsureEdgeWorkspaces()
     {
-        if (Workspaces.Count == 0 || !Workspaces[^1].IsEmpty)
+        if (NeedsLeadingEmpty)
+        {
+            SuppressAnimation = true;
+            try
+            {
+                Workspaces.Insert(0, new WorkspaceViewModel(null, _assets));
+                CurrentIndex++;
+            }
+            finally
+            {
+                SuppressAnimation = false;
+            }
+        }
+
+        if (NeedsTrailingEmpty)
             Workspaces.Add(new WorkspaceViewModel(null, _assets));
     }
 
     /// <summary>
-    /// Removes empty, unnamed workspaces other than the current one and the trailing one (named
+    /// Removes empty, unnamed workspaces between the two edges, other than the current one (named
     /// workspaces stay, as in niri). Called once a switch has come to rest, so nothing visible
     /// disappears mid-animation.
     /// </summary>
@@ -117,7 +206,7 @@ public sealed partial class AppViewModel : ObservableObject
         SuppressAnimation = true;
         try
         {
-            for (int i = Workspaces.Count - 2; i >= 0; i--)
+            for (int i = Workspaces.Count - 2; i >= 1; i--)
             {
                 if (!Workspaces[i].IsEmpty || i == CurrentIndex || Workspaces[i].Name is not null) continue;
                 Workspaces.RemoveAt(i);
@@ -139,8 +228,47 @@ public sealed partial class AppViewModel : ObservableObject
         RequestEditorFocus();
     }
 
-    [RelayCommand] private void FocusPrevNote() => FocusNoteBy(-1);
-    [RelayCommand] private void FocusNextNote() => FocusNoteBy(1);
+    [RelayCommand] private void FocusPrevNote() => StepNote(-1);
+    [RelayCommand] private void FocusNextNote() => StepNote(1);
+
+    /// <summary>
+    /// The Alt+Left / Alt+Right behavior: move to the neighbouring note. Past the END of the row a blank draft
+    /// opens (never stacked); past the start nothing happens - going left never makes a note. (Scroll wheels use
+    /// <see cref="FocusNoteBy"/>, which just stops at either end.)
+    /// </summary>
+    private void StepNote(int direction)
+    {
+        var workspace = CurrentWorkspace;
+        int next = workspace.FocusedIndex + direction;
+
+        if (workspace.Notes.Count > 0 && next >= 0 && next < workspace.Notes.Count)
+        {
+            FocusNoteBy(direction);
+            return;
+        }
+
+        if (direction < 0)
+        {
+            RequestEditorFocus();
+            return;
+        }
+
+        OpenDraft();
+    }
+
+    /// <summary>Adds a blank draft after the focused note - unless the focused note already is one.</summary>
+    private void OpenDraft()
+    {
+        var workspace = CurrentWorkspace;
+        if (workspace.FocusedNote?.IsBlankDraft() != true)
+        {
+            _noteCounter++;
+            workspace.InsertAfterFocus(new NoteViewModel { Title = $"Untitled {_noteCounter}", IsDraft = true });
+            EnsureEdgeWorkspaces();
+        }
+
+        RequestEditorFocus();
+    }
 
     [RelayCommand]
     private void SelectWorkspace(WorkspaceViewModel? workspace)
@@ -148,6 +276,10 @@ public sealed partial class AppViewModel : ObservableObject
         int index = workspace is null ? -1 : Workspaces.IndexOf(workspace);
         if (index >= 0) SwitchWorkspace(index - CurrentIndex);
     }
+
+    /// <summary>Starts renaming the focused note in its header (the F2 shortcut).</summary>
+    [RelayCommand]
+    private void RenameNote() => CurrentWorkspace.FocusedNote?.BeginTitleEdit();
 
     /// <summary>Starts renaming the given workspace (the current one when none is given).</summary>
     [RelayCommand]
@@ -190,9 +322,53 @@ public sealed partial class AppViewModel : ObservableObject
     [RelayCommand]
     private void CycleWidthPreset()
     {
-        if (CurrentWorkspace.FocusedNote is { } note)
-            note.WidthFraction = WidthPresets.Next(note.WidthFraction);
+        if (CurrentWorkspace.FocusedNote is not { } note) return;
+
+        note.WidthFraction = WidthPresets.Next(note.WidthFraction);
+        note.ShowSizeToast();
     }
+
+    [RelayCommand]
+    private void ResetNoteSize()
+    {
+        if (CurrentWorkspace.FocusedNote is not { } note) return;
+
+        note.WidthFraction = WidthPresets.Default;
+        note.ShowSizeToast();
+    }
+
+    [RelayCommand]
+    private void ResetWorkspaceSizes()
+    {
+        foreach (var note in CurrentWorkspace.Notes) note.WidthFraction = WidthPresets.Default;
+        CurrentWorkspace.FocusedNote?.ShowSizeToast();
+    }
+
+    [RelayCommand]
+    private void ResetAllSizes()
+    {
+        foreach (var workspace in Workspaces)
+            foreach (var note in workspace.Notes)
+                note.WidthFraction = WidthPresets.Default;
+        CurrentWorkspace.FocusedNote?.ShowSizeToast();
+    }
+
+    [RelayCommand] private void SizeUp() => Nudge(1);
+    [RelayCommand] private void SizeDown() => Nudge(-1);
+
+    private void Nudge(int direction)
+    {
+        if (CurrentWorkspace.FocusedNote is not { } note) return;
+
+        note.WidthFraction = WidthPresets.Nudge(note.WidthFraction, direction);
+        note.ShowSizeToast();
+    }
+
+    /// <summary>Raised when the whole window should go fullscreen or come back (the window owns that, not us).</summary>
+    public event Action? AppFullscreenToggleRequested;
+
+    [RelayCommand]
+    private void ToggleAppFullscreen() => AppFullscreenToggleRequested?.Invoke();
 
     [RelayCommand]
     private void ToggleFullscreen()
@@ -202,25 +378,13 @@ public sealed partial class AppViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void NewNote()
-    {
-        _noteCounter++;
-        var id = Guid.NewGuid();
-        CurrentWorkspace.InsertAfterFocus(new NoteViewModel
-        {
-            Id = id,
-            Title = $"Untitled {_noteCounter}",
-            AccentColor = SnapshotMapper.AccentFor(id),
-        });
-        EnsureTrailingEmpty();
-        RequestEditorFocus();
-    }
+    private void NewNote() => OpenDraft();
 
     [RelayCommand]
     private void CloseNote()
     {
         CurrentWorkspace.RemoveFocused();
-        EnsureTrailingEmpty();
+        EnsureEdgeWorkspaces();
         RequestEditorFocus();
     }
 
@@ -231,9 +395,12 @@ public sealed partial class AppViewModel : ObservableObject
 
         if (CurrentWorkspace.RemoveFocused() is not { } note) return;
 
-        Workspaces[target].InsertAfterFocus(note);
-        EnsureTrailingEmpty();
-        CurrentIndex = target;
+        var destination = Workspaces[target];
+        // Always the start of the row, whichever way it came, so arriving is predictable: it's the first note
+        // and can be moved right from there.
+        destination.InsertFirst(note);
+        EnsureEdgeWorkspaces();
+        CurrentIndex = Workspaces.IndexOf(destination);
         RequestEditorFocus();
     }
 }

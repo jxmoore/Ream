@@ -37,6 +37,9 @@ internal sealed class NoteEntryFile
     public string? FileName { get; set; }
     public string? Title { get; set; }
 
+    /// <summary>A title the user typed; when absent the note shows <see cref="Title"/>, taken from its first line.</summary>
+    public string? CustomTitle { get; set; }
+
     /// <summary>Fraction of the row's width. Files written before freeform resizing have <see cref="Width"/> instead.</summary>
     public double? WidthFraction { get; set; }
 

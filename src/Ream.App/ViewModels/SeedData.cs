@@ -16,7 +16,6 @@ internal static class SeedData
             {
                 Id = id,
                 Title = "Welcome to Ream",
-                AccentColor = SnapshotMapper.AccentFor(id),
                 WidthFraction = 0.5,
                 Body = WelcomeNote(id),
             },
@@ -32,13 +31,16 @@ internal static class SeedData
             <P><R>Workspaces stack vertically; notes sit side by side in a row within each workspace.</R></P>
             <P />
             <UL>
-              <LI><P><R b="1">Alt+N</R><R> new note, opens to the right of the focused one</R></P></LI>
+              <LI><P><R b="1">Alt+N</R><R> new note, opens to the right of the focused one (a note left blank isn't kept)</R></P></LI>
               <LI><P><R b="1">Alt+Q</R><R> close the focused note (moved to .trash, not deleted)</R></P></LI>
-              <LI><P><R b="1">Alt+Left / Alt+Right</R><R> move focus between notes</R></P></LI>
+              <LI><P><R b="1">Alt+Left / Alt+Right</R><R> move focus between notes; past the last one, a new note opens</R></P></LI>
               <LI><P><R b="1">Alt+Up / Alt+Down</R><R> switch workspace (or Alt+scroll)</R></P></LI>
               <LI><P><R b="1">Shift+scroll</R><R> move focus along the row</R></P></LI>
               <LI><P><R b="1">Alt+R</R><R> cycle the note's width: 1/3, 1/2, 2/3, full</R></P></LI>
-              <LI><P><R b="1">Alt+F</R><R> toggle fullscreen for the focused note</R></P></LI>
+              <LI><P><R b="1">Alt+=</R><R> / </R><R b="1">Alt+-</R><R> make the note wider / narrower</R></P></LI>
+              <LI><P><R b="1">Alt+F11</R><R> toggle fullscreen for the focused note</R></P></LI>
+              <LI><P><R b="1">F11</R><R> toggle fullscreen for the whole app</R></P></LI>
+              <LI><P><R b="1">F2</R><R> rename the note (or click its title); </R><R b="1">Shift+F2</R><R> renames the workspace</R></P></LI>
               <LI><P><R b="1">Alt+Shift+Left / Right</R><R> move the note within the row</R></P></LI>
               <LI><P><R b="1">Alt+Shift+Up / Down</R><R> move the note to the previous or next workspace</R></P></LI>
             </UL>

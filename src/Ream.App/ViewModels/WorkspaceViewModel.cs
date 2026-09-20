@@ -33,13 +33,21 @@ public sealed partial class WorkspaceViewModel : ObservableObject
 
     /// <summary>The user's name for this workspace; null means unnamed (shown by its number).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DisplayLabel))]
+    [NotifyPropertyChangedFor(nameof(DisplayName))]
+    [NotifyPropertyChangedFor(nameof(MenuLabel))]
     private string? _name;
 
     /// <summary>1-based position in the workspace list, kept current by the app.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DisplayLabel))]
+    [NotifyPropertyChangedFor(nameof(DisplayName))]
+    [NotifyPropertyChangedFor(nameof(MenuLabel))]
     private int _number;
+
+    /// <summary>True for the first and last workspace: the always-empty ones, which are never numbered.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayName))]
+    [NotifyPropertyChangedFor(nameof(MenuLabel))]
+    private bool _isEdge;
 
     [ObservableProperty]
     private bool _isCurrent;
@@ -53,7 +61,11 @@ public sealed partial class WorkspaceViewModel : ObservableObject
     [ObservableProperty]
     private int _focusedIndex;
 
-    public string DisplayLabel => Name ?? Number.ToString();
+    /// <summary>What the window title shows: the name, else "Workspace N"; null for an unnamed edge, which has nothing to show.</summary>
+    public string? DisplayName => Name ?? (IsEdge ? null : $"Workspace {Number}");
+
+    /// <summary>How the workspace reads in the File menu. An unnamed edge is the way to make a new workspace.</summary>
+    public string MenuLabel => DisplayName ?? (Number == 0 ? "New workspace above" : "New workspace below");
 
     public void BeginRename()
     {
@@ -88,9 +100,33 @@ public sealed partial class WorkspaceViewModel : ObservableObject
 
         FocusedIndex = index;
         UpdateFocusFlags();
+        DiscardBlankDrafts(keepFocused: true);
     }
 
     public void FocusBy(int delta) => SetFocus(FocusedIndex + delta);
+
+    /// <summary>
+    /// Removes drafts that are still blank - the ones left behind when focus moves on. The focused note is
+    /// spared unless <paramref name="keepFocused"/> is false (the workspace itself is being left).
+    /// </summary>
+    public void DiscardBlankDrafts(bool keepFocused)
+    {
+        var focused = FocusedNote;
+        var doomed = Notes.Where(n => n.IsDraft && !(keepFocused && n == focused) && n.IsBlankDraft()).ToList();
+        if (doomed.Count == 0) return;
+
+        foreach (var note in doomed)
+        {
+            Notes.Remove(note);
+            note.Owner = null;
+            note.IsFullscreen = false;
+            note.IsFocused = false;
+        }
+
+        int kept = focused is null ? -1 : Notes.IndexOf(focused);
+        FocusedIndex = kept >= 0 ? kept : Math.Clamp(FocusedIndex, 0, Math.Max(0, Notes.Count - 1));
+        UpdateFocusFlags();
+    }
 
     /// <summary>Populates an empty workspace from storage, preserving each note's saved state.</summary>
     public void LoadNotes(IEnumerable<NoteViewModel> notes, Guid? focusedNoteId)
@@ -115,6 +151,19 @@ public sealed partial class WorkspaceViewModel : ObservableObject
         note.Owner = this;
         Notes.Insert(at, note);
         FocusedIndex = at;
+        UpdateFocusFlags();
+    }
+
+
+    /// <summary>Puts the note first in the row and focuses it (how a note arrives from another workspace).</summary>
+    public void InsertFirst(NoteViewModel note)
+    {
+        if (FocusedNote is { IsFullscreen: true } current)
+            current.IsFullscreen = false;
+
+        note.Owner = this;
+        Notes.Insert(0, note);
+        FocusedIndex = 0;
         UpdateFocusFlags();
     }
 

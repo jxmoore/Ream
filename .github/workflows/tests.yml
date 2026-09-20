@@ -1,0 +1,116 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+# A newer push to the same branch or PR makes the older run pointless - except on main, where a run
+# may be publishing a release and must be left to finish.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  test:
+    # Ream is a WPF app and its tests host real WPF views, so this needs Windows.
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore Ream.sln
+
+      - name: Build
+        run: dotnet build Ream.sln --configuration Release --no-restore
+
+      - name: Test
+        run: >
+          dotnet test Ream.sln
+          --configuration Release
+          --no-build
+          --logger "trx;LogFileName=test-results.trx"
+          --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/*.trx
+          if-no-files-found: ignore
+
+  # Only a push to main makes a release; pull requests and develop just run the tests above.
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # creates the tag and the GitHub release
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # GitVersion counts commits and reads the release tags
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install GitVersion
+        run: dotnet tool install --global GitVersion.Tool --version "6.*"
+
+      # MajorMinorPatch only: no pre-release label, no build metadata. GitVersion.yml says how it is worked out.
+      - name: Work out the version
+        id: version
+        shell: pwsh
+        run: |
+          $version = (dotnet-gitversion /output json | ConvertFrom-Json).MajorMinorPatch
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Expected major.minor.patch, got '$version'" }
+          Write-Host "Version: $version"
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+          # A re-run of a commit that was already released finds its own tag: nothing more to do then.
+          gh release view "v$version" *> $null
+          "released=$($LASTEXITCODE -eq 0)".ToLower() >> $env:GITHUB_OUTPUT
+          $global:LASTEXITCODE = 0
+
+      # The .NET 8 framework-dependent build: small, and needs the .NET 8 Desktop Runtime on the target machine.
+      - name: Publish
+        if: steps.version.outputs.released != 'true'
+        shell: pwsh
+        run: ./build/publish.ps1 -FrameworkDependent -Version ${{ steps.version.outputs.version }}
+
+      - name: Create the release
+        if: steps.version.outputs.released != 'true'
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $notes = "Portable build for 64-bit Windows: unzip and run Ream.App.exe. It needs the .NET 8 Desktop Runtime (x64)."
+          gh release create "v$version" `
+            "artifacts/Ream-$version-win-x64-framework-dependent.zip" `
+            --target $env:GITHUB_SHA `
+            --title "Ream $version" `
+            --notes $notes `
+            --generate-notes `
+            --latest

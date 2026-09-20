@@ -15,11 +15,16 @@ public partial class App : Application
     private IHost? _host;
     private PersistenceCoordinator? _persistence;
     private ThemeService? _theme;
+    private SettingsViewModel? _settings;
     private ConfigReloader? _reloader;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // The test harness hosts this class only for its resources and must never run the real app
+        // (real config, real documents, a real window). See Ream.Tests/Ui.cs.
+        if (AppContext.TryGetSwitch("Ream.SkipStartup", out bool skip) && skip) return;
 
         try
         {
@@ -29,8 +34,7 @@ public partial class App : Application
 
             // Before any window exists, so nothing is ever drawn in the wrong palette.
             _theme = new ThemeService(this);
-            _theme.Apply(config.Theme);
-            _theme.WatchSystemChanges(Dispatcher);
+            _theme.Apply(config);
 
             string documentsRoot = string.IsNullOrWhiteSpace(config.DocumentsRoot)
                 ? paths.DefaultDocumentsRoot
@@ -49,6 +53,8 @@ public partial class App : Application
                         sp.GetRequiredService<IDocumentRepository>(),
                         sp.GetRequiredService<AppViewModel>(),
                         Dispatcher));
+                    services.AddSingleton(sp => new SettingsViewModel(
+                        sp.GetRequiredService<AppViewModel>(), _theme, store, Dispatcher));
                     services.AddSingleton<MainWindow>();
                 })
                 .Build();
@@ -57,9 +63,10 @@ public partial class App : Application
 
             var window = _host.Services.GetRequiredService<MainWindow>();
             _persistence = _host.Services.GetRequiredService<PersistenceCoordinator>();
+            _settings = _host.Services.GetRequiredService<SettingsViewModel>();
 
-            _theme.Changed += window.ApplyTitleBarTheme;
-            window.ApplyTitleBarTheme(_theme.IsLight);
+            window.FollowTheme(_theme);
+            window.About = AboutInfo.Create(documentsRoot, paths.ConfigFile);
             _reloader = new ConfigReloader(store, _host.Services.GetRequiredService<AppViewModel>(), _theme, Dispatcher);
 
             window.Show();
@@ -78,7 +85,8 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _reloader?.Dispose();
-        _theme?.Dispose();
+        _settings?.Flush();
+        _settings?.Dispose();
         _persistence?.Flush();
 
         if (_host is not null)

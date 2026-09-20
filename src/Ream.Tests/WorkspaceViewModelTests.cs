@@ -23,9 +23,8 @@ public class WorkspaceViewModelTests
     {
         var app = App(Workspace("Work", 1), Workspace(null, 1));
 
-        Assert.Equal([1, 2, 3], app.Workspaces.Select(w => w.Number));
-        Assert.Equal(["Work", "2", "3"], app.Workspaces.Select(w => w.DisplayLabel));
-        Assert.Equal([true, false, false], app.Workspaces.Select(w => w.IsCurrent));
+        Assert.Equal(["New workspace above", "Work", "Workspace 2", "New workspace below"], app.Workspaces.Select(w => w.MenuLabel));
+        Assert.Equal([false, true, false, false], app.Workspaces.Select(w => w.IsCurrent));
     }
 
     [Fact]
@@ -33,10 +32,10 @@ public class WorkspaceViewModelTests
     {
         var app = App(Workspace("A", 1), Workspace("B", 1));
 
-        app.SelectWorkspaceCommand.Execute(app.Workspaces[1]);
+        app.SelectWorkspaceCommand.Execute(app.Workspaces[2]);
 
-        Assert.Equal(1, app.CurrentIndex);
-        Assert.Equal([false, true, false], app.Workspaces.Select(w => w.IsCurrent));
+        Assert.Equal(2, app.CurrentIndex);
+        Assert.Equal([false, false, true, false], app.Workspaces.Select(w => w.IsCurrent));
     }
 
     [Fact]
@@ -44,9 +43,9 @@ public class WorkspaceViewModelTests
     {
         var app = App(Workspace("A", 1), Workspace("B", 1), Workspace("C", 1));
 
-        app.SelectWorkspaceCommand.Execute(app.Workspaces[2]);
+        app.SelectWorkspaceCommand.Execute(app.Workspaces[3]);
 
-        Assert.Equal(2, app.CurrentIndex);
+        Assert.Equal(3, app.CurrentIndex);
     }
 
     [Fact]
@@ -57,22 +56,22 @@ public class WorkspaceViewModelTests
         app.SelectWorkspaceCommand.Execute(null);
         app.SelectWorkspaceCommand.Execute(new WorkspaceViewModel("Stranger"));
 
-        Assert.Equal(0, app.CurrentIndex);
+        Assert.Equal(1, app.CurrentIndex);
     }
 
     [Fact]
     public void NumbersFollowTheList_WhenWorkspacesAreAddedOrRemoved()
     {
         var app = App(Workspace(null, 1), Workspace(null, 1));
-        Assert.Equal([1, 2, 3], app.Workspaces.Select(w => w.Number));
+        Assert.Equal(["New workspace above", "Workspace 1", "Workspace 2", "New workspace below"], app.Workspaces.Select(w => w.MenuLabel));
 
         // A note in the trailing workspace makes a new trailing one appear.
-        app.CurrentIndex = 2;
+        app.CurrentIndex = 3;
         app.NewNoteCommand.Execute(null);
-        Assert.Equal([1, 2, 3, 4], app.Workspaces.Select(w => w.Number));
+        Assert.Equal(["New workspace above", "Workspace 1", "Workspace 2", "Workspace 3", "New workspace below"], app.Workspaces.Select(w => w.MenuLabel));
 
-        app.Workspaces.RemoveAt(0);
-        Assert.Equal([1, 2, 3], app.Workspaces.Select(w => w.Number));
+        app.Workspaces.RemoveAt(1);
+        Assert.Equal(["New workspace above", "Workspace 1", "Workspace 2", "New workspace below"], app.Workspaces.Select(w => w.MenuLabel));
     }
 
     // ----- Renaming -----
@@ -106,13 +105,13 @@ public class WorkspaceViewModelTests
     {
         var app = App(Workspace("Named", 1));
 
-        var workspace = app.Workspaces[0];
+        var workspace = app.Workspaces[1];
         workspace.BeginRename();
         workspace.EditName = "   ";
         workspace.CommitRename();
 
         Assert.Null(workspace.Name);
-        Assert.Equal("1", workspace.DisplayLabel);
+        Assert.Equal("Workspace 1", workspace.DisplayName);
     }
 
     [Fact]
@@ -155,20 +154,20 @@ public class WorkspaceViewModelTests
     public void RenameCommands_AreHandledByTheApp()
     {
         var app = App(Workspace("A", 1), Workspace("B", 1));
-        app.CurrentIndex = 1;
+        app.CurrentIndex = 2;
 
         app.BeginRenameCommand.Execute(null);
 
-        Assert.True(app.Workspaces[1].IsRenaming);
-        Assert.False(app.Workspaces[0].IsRenaming);
+        Assert.True(app.Workspaces[2].IsRenaming);
+        Assert.False(app.Workspaces[1].IsRenaming);
 
-        app.Workspaces[1].EditName = "Renamed";
-        app.CommitRenameCommand.Execute(app.Workspaces[1]);
-        Assert.Equal("Renamed", app.Workspaces[1].Name);
+        app.Workspaces[2].EditName = "Renamed";
+        app.CommitRenameCommand.Execute(app.Workspaces[2]);
+        Assert.Equal("Renamed", app.Workspaces[2].Name);
 
-        app.BeginRenameCommand.Execute(app.Workspaces[0]);
-        app.CancelRenameCommand.Execute(app.Workspaces[0]);
-        Assert.False(app.Workspaces[0].IsRenaming);
+        app.BeginRenameCommand.Execute(app.Workspaces[1]);
+        app.CancelRenameCommand.Execute(app.Workspaces[1]);
+        Assert.False(app.Workspaces[1].IsRenaming);
     }
 
     [Fact]
@@ -177,7 +176,7 @@ public class WorkspaceViewModelTests
         var app = App(Workspace("A", 1));
 
         Assert.Same(app.BeginRenameCommand, app.Actions["renameWorkspace"]);
-        Assert.Equal("Alt+Shift+R", app.Config.Keybindings["renameWorkspace"]);
+        Assert.Equal("Shift+F2", app.Config.Keybindings["renameWorkspace"]);
     }
 
     [Fact]
@@ -214,14 +213,14 @@ public class WorkspaceViewModelTests
     [Fact]
     public void PruningKeepsNumbersAndTheCurrentFlagConsistent()
     {
-        var app = App(Workspace(null, 0), Workspace(null, 1));
-        app.CurrentIndex = 1;
+        var app = App(Workspace(null, 1), Workspace(null, 0), Workspace(null, 1));
+        app.CurrentIndex = 3;
 
         app.PruneEmptyWorkspacesCommand.Execute(null);
 
-        Assert.Equal([1, 2], app.Workspaces.Select(w => w.Number));
-        Assert.Equal(0, app.CurrentIndex);
-        Assert.True(app.Workspaces[0].IsCurrent);
+        Assert.Equal(["New workspace above", "Workspace 1", "Workspace 2", "New workspace below"], app.Workspaces.Select(w => w.MenuLabel));
+        Assert.Equal(2, app.CurrentIndex);
+        Assert.Equal([false, false, true, false], app.Workspaces.Select(w => w.IsCurrent));
     }
 
     // ----- What gets saved -----
@@ -242,7 +241,7 @@ public class WorkspaceViewModelTests
     public void WorkspaceNames_AreSaved()
     {
         var app = App(Workspace("Before", 1));
-        app.Workspaces[0].Name = "After";
+        app.Workspaces[1].Name = "After";
 
         Assert.Equal("After", SnapshotMapper.ToSnapshot(app).Workspaces.Single().Name);
     }
@@ -267,17 +266,6 @@ public class WorkspaceViewModelTests
         Assert.Equal(1d / 3d, note.WidthFraction, 9);
     }
 
-    [Fact]
-    public void NoteWidthLabel_FollowsTheWidth()
-    {
-        var note = Note();
-
-        note.WidthFraction = 0.5;
-        Assert.Equal("1/2", note.WidthLabel);
-
-        note.WidthFraction = 0.37;
-        Assert.Equal("37%", note.WidthLabel);
-    }
 
     [Fact]
     public void DraggedWidth_IsSavedInTheSnapshot()
