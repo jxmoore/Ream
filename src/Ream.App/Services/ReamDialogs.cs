@@ -1,11 +1,9 @@
 using System.Windows;
-using Microsoft.Win32;
 using Ream.App.Views;
-using Ream.Persistence.Storage;
 
 namespace Ream.App.Services;
 
-/// <summary>The file pickers. The real ones are the standard Windows dialogs; tests use fakes so nothing ever shows.</summary>
+/// <summary>The file pickers. The real ones are Ream's own browser window (ThemedFileDialogs); tests use fakes so nothing ever shows.</summary>
 internal interface IFileDialogs
 {
     /// <summary>For New: where to put the new ream and what to call it. Null if cancelled.</summary>
@@ -30,52 +28,6 @@ internal interface IUserPrompts
     bool Confirm(string title, string message, string confirmText);
 
     void ShowError(string title, string message);
-}
-
-internal sealed class Win32FileDialogs : IFileDialogs
-{
-    private const string Filter = "Ream files (*.ream)|*.ream|All files (*.*)|*.*";
-
-    public string? PickNewReam(string suggestedName, string initialDirectory) =>
-        PickSave("New ream", suggestedName, initialDirectory);
-
-    public string? PickSaveAs(string suggestedName, string initialDirectory) =>
-        PickSave("Save ream as", suggestedName, initialDirectory);
-
-    public string? PickOpenReam(string initialDirectory)
-    {
-        var dialog = new OpenFileDialog
-        {
-            Title = "Open ream",
-            Filter = Filter,
-            DefaultExt = ReamPaths.Extension,
-            CheckFileExists = true,
-            CheckPathExists = true,
-            InitialDirectory = ExistingDirectory(initialDirectory),
-        };
-        return dialog.ShowDialog(Application.Current?.MainWindow) == true ? dialog.FileName : null;
-    }
-
-    // Overwriting is off on purpose: replacing a whole ream is never what New or Save As means, so Ream itself
-    // refuses an existing name and says why, instead of the dialog's generic "replace it?".
-    private static string? PickSave(string title, string suggestedName, string initialDirectory)
-    {
-        var dialog = new SaveFileDialog
-        {
-            Title = title,
-            Filter = Filter,
-            DefaultExt = ReamPaths.Extension,
-            AddExtension = true,
-            OverwritePrompt = false,
-            CheckPathExists = true,
-            FileName = suggestedName,
-            InitialDirectory = ExistingDirectory(initialDirectory),
-        };
-        return dialog.ShowDialog(Application.Current?.MainWindow) == true ? dialog.FileName : null;
-    }
-
-    private static string ExistingDirectory(string directory) =>
-        Directory.Exists(directory) ? directory : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 }
 
 internal sealed class WpfUserPrompts : IUserPrompts

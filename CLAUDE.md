@@ -126,7 +126,7 @@ time, in one window; opening another swaps the content of the existing `AppViewM
   is written until `Save()`. `Flush()` (app exit) writes only when auto-save is on.
 - `ReamManager` is New / Open / Save / Save As / Clear / auto-save switch / "may I leave this ream?" (`ConfirmLeave`, used by New, Open
   and closing the window: with auto-save off and unsaved changes it asks Save / Don't save / Cancel). Every question goes through
-  `IFileDialogs` and `IUserPrompts` (real ones are the Windows dialogs / MessageBox; tests use `FakeDialogs` / `FakePrompts`), and
+  `IFileDialogs` and `IUserPrompts` (real ones are Ream's own themed windows; tests use `FakeDialogs` / `FakePrompts`), and
   `AppViewModel` reaches it through `IReamFiles` (commands `NewReam`, `OpenReam`, `SaveReam`, `SaveReamAs`, `ClearReam`,
   `ToggleAutoSave`; key ids `newReam`, `openReam`, `save`, `saveAs`, `clearReam`). New and Save As never overwrite (`ReamPaths.IsOccupied`);
   Save As (`ReamCopier`) copies the ream, brings the copy up to date with memory, and switches to it; Clear (Alt+Shift+Q) asks first and
@@ -135,7 +135,7 @@ time, in one window; opening another swaps the content of the existing `AppViewM
   sections, centered, and past the last one onto the Close button. Never `Keyboard.ClearFocus()` there: with nothing focused the
   navigation keys stop reaching the window (keyboard focus goes to the Close button or the content root). Dialogs (Help, About) use
   `Style="{StaticResource ModalWindowStyle}"` (Themes/Controls.xaml): the same drawn title bar as the main window
-  (`CaptionButtonStyle` is shared too) instead of a native caption; new dialogs should use it. MessageBox and the file dialogs stay native.
+  (`CaptionButtonStyle` is shared too) instead of a native caption; new dialogs should use it. Questions and errors are `PromptWindow` (behind `IUserPrompts`); Open / New / Save As are `FileBrowserWindow` (behind `IFileDialogs`, as `ThemedFileDialogs`), whose rules live in the UI-free `FileBrowserModel` over `IFileSystem` (in-memory `FakeFileSystem` in tests). Only the startup-failure MessageBox in `App.xaml.cs` stays native.
 - `TutorialReam` (Ream.Core) builds the tutorial (3 workspaces, 8 notes) from the live keybindings and settings, or an empty ream.
 The two always-empty edge workspaces (above the first, below the last) are never stored: a workspace is persisted only if it is
 named or has a saveable note (blank drafts are not); a ream with no workspaces is a valid, cleared ream (not a first run).
