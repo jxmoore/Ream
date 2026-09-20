@@ -178,6 +178,14 @@ public sealed partial class AppViewModel : ObservableObject
         int target = Math.Clamp(CurrentIndex + delta, 0, Workspaces.Count - 1);
         if (target == CurrentIndex) return;
 
+        // A workspace holding only a blank draft is not a real workspace yet, so - like a draft note - it does not breed another one:
+        // you cannot step on into the empty workspace beyond it until it has something in it (text, a picture, a note title or a name).
+        if (Workspaces[target].IsEmpty && IsOnlyABlankDraft(CurrentWorkspace))
+        {
+            RequestEditorFocus();
+            return;
+        }
+
         // Set before the switch so the row behind the sliding workspace is already in place when it arrives.
         if (Config.Layout.FocusFirstNoteOnSwitch) Workspaces[target].SetFocus(0);
 
@@ -187,6 +195,9 @@ public sealed partial class AppViewModel : ObservableObject
         if (CurrentWorkspace.IsEmpty) OpenDraft();
         else RequestEditorFocus();
     }
+
+    private static bool IsOnlyABlankDraft(WorkspaceViewModel workspace) =>
+        workspace.Name is null && workspace.Notes.Count > 0 && workspace.Notes.All(n => n.IsBlankDraft());
 
     /// <summary>
     /// Replaces what is open with another ream's workspaces, in place: the window, the settings and the key bindings stay.
