@@ -262,4 +262,54 @@ public class HelpWindowNavigationTests
         }
         finally { window.Close(); }
     });
+
+    // ----- Keyboard focus: the keys only reach the window while something inside it has focus -----
+
+    private static IInputElement? Focused(HelpWindow window) => FocusManager.GetFocusedElement(window);
+
+    [Fact]
+    public void FocusIsNeverLeftEmpty_SoTheNavigationKeysKeepReachingTheWindow() => Ui.Run(() =>
+    {
+        var window = Show();
+        try
+        {
+            Assert.Same(window.FindName("Root"), Focused(window)); // at once, before any key or click
+
+            for (int i = 0; i < 6; i++)
+            {
+                window.NavigateDown();
+                Ui.Settle();
+                Assert.NotNull(Focused(window));
+            }
+
+            Assert.Same(window.FindName("CloseButton"), Focused(window)); // Close highlighted: Enter presses it
+
+            window.NavigateUp();
+            Ui.Settle();
+            Assert.Same(window.FindName("Root"), Focused(window)); // and back on a section, still not empty
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
+    public void MovingSeveralTimes_KeepsWorking_NotJustTheFirstPress() => Ui.Run(() =>
+    {
+        var window = Show();
+        try
+        {
+            var down = Assert.Single(Bindings(window), b => b.Key == Key.Down && b.Modifiers == ModifierKeys.Alt);
+            var up = Assert.Single(Bindings(window), b => b.Key == Key.Up && b.Modifiers == ModifierKeys.Alt);
+
+            down.Command.Execute(null);
+            Assert.NotNull(Focused(window));
+            down.Command.Execute(null);
+            down.Command.Execute(null);
+            Assert.Equal(3, window.HighlightedSection);
+            up.Command.Execute(null);
+            up.Command.Execute(null);
+            Assert.Equal(1, window.HighlightedSection);
+            Assert.NotNull(Focused(window));
+        }
+        finally { window.Close(); }
+    });
 }

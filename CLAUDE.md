@@ -132,7 +132,10 @@ time, in one window; opening another swaps the content of the existing `AppViewM
   Save As (`ReamCopier`) copies the ream, brings the copy up to date with memory, and switches to it; Clear (Alt+Shift+Q) asks first and
   swaps in an empty ream - saving that trashes what disappeared, so nothing is deleted.
 - Help window (`HelpWindow`, `HelpNavigator`): the switch-workspace keys (from config, Alt+Down/Up by default) move an accent border through the
-  sections, centered, and past the last one onto the Close button.
+  sections, centered, and past the last one onto the Close button. Never `Keyboard.ClearFocus()` there: with nothing focused the
+  navigation keys stop reaching the window (keyboard focus goes to the Close button or the content root). Dialogs (Help, About) use
+  `Style="{StaticResource ModalWindowStyle}"` (Themes/Controls.xaml): the same drawn title bar as the main window
+  (`CaptionButtonStyle` is shared too) instead of a native caption; new dialogs should use it. MessageBox and the file dialogs stay native.
 - `TutorialReam` (Ream.Core) builds the tutorial (3 workspaces, 8 notes) from the live keybindings and settings, or an empty ream.
 The two always-empty edge workspaces (above the first, below the last) are never stored: a workspace is persisted only if it is
 named or has a saveable note (blank drafts are not); a ream with no workspaces is a valid, cleared ream (not a first run).

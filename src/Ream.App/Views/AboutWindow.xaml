@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="About Ream" Width="500" SizeToContent="Height" ResizeMode="NoResize"
         ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource WindowBackgroundBrush}" Foreground="{DynamicResource TextBrush}">
+        Style="{StaticResource ModalWindowStyle}">
     <StackPanel Margin="28,24,28,20">
         <TextBlock x:Name="NameText" Text="{Binding Name}" FontSize="28" FontWeight="SemiBold"/>
         <TextBlock x:Name="VersionText" Margin="0,2,0,0" Foreground="{DynamicResource MutedTextBrush}"

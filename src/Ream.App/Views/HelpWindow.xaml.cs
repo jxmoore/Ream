@@ -30,6 +30,12 @@ public partial class HelpWindow : Window
 
         Loaded += (_, _) => ShowHighlight();
         SizeChanged += (_, _) => CenterHighlighted();
+
+        // Coming back from another app, keep keyboard focus somewhere inside so the navigation keys reach the window.
+        Activated += (_, _) =>
+        {
+            if (FocusManager.GetFocusedElement(this) is null) FocusCurrent();
+        };
     }
 
     /// <summary>Which section is highlighted (null while the Close button is).</summary>
@@ -89,16 +95,25 @@ public partial class HelpWindow : Window
         {
             CloseButton.SetResourceReference(Control.BorderBrushProperty, "FocusBorderBrush");
             CloseButton.BorderThickness = new Thickness(2);
-            CloseButton.Focus();
         }
         else
         {
             CloseButton.SetResourceReference(Control.BorderBrushProperty, "ControlBorderBrush");
             CloseButton.BorderThickness = new Thickness(1);
-            Keyboard.ClearFocus();
         }
 
+        FocusCurrent();
         CenterHighlighted();
+    }
+
+    /// <summary>
+    /// Keyboard focus goes to the Close button while it is highlighted (so Enter presses it), and otherwise to the window's own
+    /// content. It must never be cleared: with nothing focused the Alt+Down / Alt+Up keys stop reaching the window.
+    /// </summary>
+    private void FocusCurrent()
+    {
+        if (_navigator.OnClose) CloseButton.Focus();
+        else Root.Focus();
     }
 
     private Border? CardOf(int index)

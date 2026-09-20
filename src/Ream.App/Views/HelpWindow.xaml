@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Ream Help" Width="580" Height="680" MinWidth="420" MinHeight="320"
         ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource WindowBackgroundBrush}" Foreground="{DynamicResource TextBrush}">
-    <Grid>
+        Style="{StaticResource ModalWindowStyle}">
+    <Grid x:Name="Root" Focusable="True" FocusVisualStyle="{x:Null}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
