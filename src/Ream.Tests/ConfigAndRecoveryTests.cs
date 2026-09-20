@@ -95,7 +95,7 @@ public class ConfigTryLoadTests
         using var dir = new TempDir();
         string path = Write(dir, """{ "layout": { "gapPx": -50 } }""");
 
-        var config = new AppConfigStore(path).Load("docs");
+        var config = new AppConfigStore(path).Load();
 
         Assert.Equal(28, config.Layout.GapPx);
         Assert.Single(Directory.GetFiles(dir.Path, "config.json.corrupt-*"));
@@ -105,7 +105,7 @@ public class ConfigTryLoadTests
     public void Theme_DefaultsToDark_AndIsHonoredWhenSet()
     {
         using var dir = new TempDir();
-        Assert.Equal("dark", new AppConfigStore(dir.Combine("fresh", "config.json")).Load("docs").Theme);
+        Assert.Equal("dark", new AppConfigStore(dir.Combine("fresh", "config.json")).Load().Theme);
 
         string path = Write(dir, """{ "theme": "dark" }""");
         Assert.True(new AppConfigStore(path).TryLoad(out var config, out _));
@@ -121,7 +121,7 @@ public class ConfigTryLoadTests
         string path = dir.Combine("config.json");
         File.WriteAllText(path + ".tmp", """{ "layout": { "gapPx": 5 }, "animations": {}, "keybindings": {} }""");
 
-        var config = new AppConfigStore(path).Load("docs");
+        var config = new AppConfigStore(path).Load();
 
         Assert.Equal(5, config.Layout.GapPx);
         Assert.False(File.Exists(path + ".tmp"));
@@ -135,7 +135,7 @@ public class ConfigTryLoadTests
         File.WriteAllText(path, """{ "layout": { "gapPx": 7 }, "animations": {}, "keybindings": {} }""");
         File.WriteAllText(path + ".tmp", "leftover");
 
-        var config = new AppConfigStore(path).Load("docs");
+        var config = new AppConfigStore(path).Load();
 
         Assert.Equal(7, config.Layout.GapPx);
         Assert.Single(Directory.GetFiles(dir.Path, "config.json.interrupted-*"));
@@ -149,7 +149,7 @@ public class ConfigTryLoadTests
         string path = dir.Combine("config.json");
         File.WriteAllText(path + ".tmp", """{ "layout": { "gapPx": 5""");
 
-        var config = new AppConfigStore(path).Load("docs");
+        var config = new AppConfigStore(path).Load();
 
         Assert.Equal(28, config.Layout.GapPx);
         Assert.Single(Directory.GetFiles(dir.Path, "config.json.interrupted-*"));
