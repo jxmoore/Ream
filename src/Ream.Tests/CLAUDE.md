@@ -9,6 +9,10 @@ desktop is in the root `CLAUDE.md` and always applies.
 - `Ui.StartHost` sets the `Ream.SkipStartup` AppContext switch so constructing `App` never runs the
   real `OnStartup` (real config, real documents, a real window). Keep it. The workspace list always
   has an empty edge workspace at both ends, so `Workspaces[0]` is not the first real workspace.
+- Repositories in tests: `TestReam.Repo(root)` makes a `DocumentRepository` with data folder "." beside `Test.ream`, so a test can look at
+  plain paths under `root`; `new DocumentRepository("...\\Foo.ream")` gives the real sibling-folder layout. `ManagerRig`
+  (`ReamManagerTests.cs`) is a running ream plus a `ReamManager` with `FakeDialogs` / `FakePrompts`, for anything about New / Open / Save /
+  Save As / Clear. Never touch real user folders: temp dirs only (`TempDir`).
 - Known open issue: the full suite hangs intermittently (roughly 1 run in 10, early on, with many
   unrelated tests in flight); not yet diagnosed. `Ui.Run` has timeouts; run with
   `--blame-hang --blame-hang-timeout 90s`.

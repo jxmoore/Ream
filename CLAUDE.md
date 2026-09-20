@@ -49,7 +49,7 @@ Blur behind is separate (`canvasBlur`, and never asked for at 0% - a blurred des
 `SetWindowCompositionAttribute`; `BlurPlan` is unit-tested, the real effect is not visible off-screen.
 Help/About are still ordinary native windows.
 Ribbon: the tab row is File | Home | View (`MainWindow.SelectTab`, `RibbonTab`); each tab swaps the panel below it:
-`FileRibbonView` (Open, disabled; Help/About raised as events; there is no workspace list - workspaces are switched by keys and the wheel), `RibbonView` (Home, the
+`FileRibbonView` (New / Open / Save / Save As, the Auto-save switch, Clear, and Help/About raised as events; bound to the `AppViewModel` ream commands, tooltips show the live gestures; there is no workspace list - workspaces are switched by keys and the wheel), `RibbonView` (Home, the
 editor controls) and `ViewRibbonView` (a theme dropdown bound to `SettingsViewModel.SelectedTheme`, canvas and note opacity sliders stacked; DataContext is the
 `SettingsViewModel`). Home's busy groups are two rows deep (Font, Paragraph, Cut/Copy beside Paste), plus a Size group (the three reset
 commands, stacked) that sits outside `RibbonView.Bar` so it works with no editor focused. When the window is too narrow
@@ -68,7 +68,7 @@ Live reload: `ConfigReloader` re-reads config.json (via `ConfigWatcher`, debounc
 `AppViewModel.Config`; panels/bindings and the window's key bindings follow. It uses the
 non-destructive `AppConfigStore.TryLoad`: an unusable file is reported in the toolbar
 (`ConfigError`) and the running settings stay - never move or rewrite a file the user is
-mid-edit. Only `documentsRoot` still needs a restart.
+mid-edit.
 
 Lazy loading: `NoteRowPanel` marks each column `IsNear` (within a viewport of the screen, in a
 workspace within ~1.5 screens); `NoteColumnView` (an `INearAware`) only parses its note in
@@ -76,7 +76,7 @@ workspace within ~1.5 screens); `NoteColumnView` (an `INearAware`) only parses i
 constructed but never shown must be loaded explicitly (`EnsureLoaded()`) in tests.
 
 Crash recovery: on load, leftover `*.tmp` files are promoted if complete and their real file is
-missing, otherwise moved to `ReemDocuments/.recovered/<stamp>/` (never deleted).
+missing, otherwise moved to the ream's `.recovered/<stamp>/` folder (never deleted).
 
 Packaging: `build/publish.ps1` makes a portable single-file build + zip under `artifacts/`
 (gitignored); `-FrameworkDependent` for the small one; `-Version x.y.z` stamps a version. It is not an installer.
@@ -111,24 +111,43 @@ ribbon; the File button, tab row and menus live in `MainWindow.xaml`) acts on wh
 editor last had keyboard focus. Focus follows the app's note focus via
 `AppViewModel.RequestEditorFocus` -> `NoteViewModel.EditorFocusRequested`.
 
-Persistence flow: `PersistenceCoordinator` (Ream.App/Services) watches the view models,
-debounces 300ms, snapshots on the UI thread via `SnapshotMapper`, then saves on a
-background queue. `IDocumentRepository.Save` reconciles disk with the snapshot
-(creates/moves/trashes note files, rewrites only changed layout/metadata).
-The two always-empty edge workspaces (above the first, below the last) are never stored: a
-workspace is persisted only if it is named or has a saveable note (blank drafts are not).
-`Flush()` runs on app exit.
+Reams (files): a *ream* is a `Foo.ream` file plus a data folder (formats: `src/Ream.Persistence/CLAUDE.md`). One is open at a
+time, in one window; opening another swaps the content of the existing `AppViewModel` in place (`AppViewModel.LoadReam`,
+`SnapshotMapper.LoadInto`), so the window, settings and key bindings stay. The pieces (all `Ream.App/Services`):
+- `ReamLauncher` picks the ream at launch: `config.lastReam`; else an old `ReemDocuments` folder converted in place
+  (`LegacyConverter`, backup copy first) or the `.ream` already in it; else a new ream (`Documents\Ream\My Ream.ream`, with the
+  tutorial, or empty if `tutorialOnNew` is false). A last ream that is missing or unreadable is explained, never fatal.
+- `ReamSession` = one open ream: its `DocumentRepository` plus a `PersistenceCoordinator`, and it tells the view model the ream's
+  name, path and unsaved state (`WindowTitle` is `Ream - Foo`, with ` *` while unsaved and auto-save is off).
+- `PersistenceCoordinator` watches the view models; after a 300 ms quiet period it snapshots on the UI thread (`SnapshotMapper`) and
+  compares a content fingerprint (`SnapshotFingerprint`) with the last saved one: that is `HasUnsavedChanges`. Moving focus, switching
+  workspace, the empty edge workspaces and blank drafts are not edits. With auto-save on the snapshot is written on a background
+  queue (`IDocumentRepository.Save` reconciles disk: creates/moves/trashes note files, rewrites only what changed); with it off nothing
+  is written until `Save()`. `Flush()` (app exit) writes only when auto-save is on.
+- `ReamManager` is New / Open / Save / Save As / Clear / auto-save switch / "may I leave this ream?" (`ConfirmLeave`, used by New, Open
+  and closing the window: with auto-save off and unsaved changes it asks Save / Don't save / Cancel). Every question goes through
+  `IFileDialogs` and `IUserPrompts` (real ones are the Windows dialogs / MessageBox; tests use `FakeDialogs` / `FakePrompts`), and
+  `AppViewModel` reaches it through `IReamFiles` (commands `NewReam`, `OpenReam`, `SaveReam`, `SaveReamAs`, `ClearReam`,
+  `ToggleAutoSave`; key ids `newReam`, `openReam`, `save`, `saveAs`, `clearReam`). New and Save As never overwrite (`ReamPaths.IsOccupied`);
+  Save As (`ReamCopier`) copies the ream, brings the copy up to date with memory, and switches to it; Clear (Alt+Shift+Q) asks first and
+  swaps in an empty ream - saving that trashes what disappeared, so nothing is deleted.
+- Help window (`HelpWindow`, `HelpNavigator`): the switch-workspace keys (from config, Alt+Down/Up by default) move an accent border through the
+  sections, centered, and past the last one onto the Close button.
+- `TutorialReam` (Ream.Core) builds the tutorial (3 workspaces, 8 notes) from the live keybindings and settings, or an empty ream.
+The two always-empty edge workspaces (above the first, below the last) are never stored: a workspace is persisted only if it is
+named or has a saveable note (blank drafts are not); a ream with no workspaces is a valid, cleared ream (not a first run).
 
 ## Storage
 
-- Default documents folder is `%USERPROFILE%\Documents\ReemDocuments`; it is written
-  into config.json as `documentsRoot` on first run and can be changed there.
-- `%AppData%\Ream\config.json` — gaps, centered focus, animations, keybindings.
-  Kept separate from documents. Unreadable JSON is set aside as `*.corrupt-<timestamp>`
+- Reams live wherever the user puts them (New / Save As pick the place). With no last ream, a fresh one is made at
+  `%USERPROFILE%\Documents\Ream\My Ream.ream`. `config.json` remembers `lastReam`; `documentsRoot` is legacy, read once to find an
+  old folder to convert.
+- `%AppData%\Ream\config.json` — gaps, centered focus, animations, keybindings, autoSave, tutorialOnNew, lastReam.
+  Kept separate from the reams. Unreadable JSON is set aside as `*.corrupt-<timestamp>`
   and defaults are used; bad/duplicate keybindings fall back to defaults.
-- `--home <dir>` on the command line puts config and documents under one folder. Use it
+- `--home <dir>` on the command line puts config and reams (`<dir>\Reams`) under one folder. Use it
   (with a temp dir) when running the app for testing so real data is never touched.
-- File formats (`metadata.json`, `layout.json`, `.reamnote`, trash, atomic writes, recovery) are described in
+- File formats (`.ream`, `.reamlayout`, `.reamnote`, data folder, trash, atomic writes, recovery, conversion) are described in
   `src/Ream.Persistence/CLAUDE.md`, which loads when you work there.
 
 ## Conventions and gotchas
