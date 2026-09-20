@@ -225,8 +225,8 @@ public class NoteTitlePersistenceTests
         var note = new NoteSnapshot(Guid.NewGuid(), "First line", "text", 0.5, false, "My title");
         var workspace = new WorkspaceSnapshot(Guid.NewGuid(), "W", "ws-aaaaaaaa", [note], note.Id);
 
-        new DocumentRepository(root).Save(new DocumentSnapshot([workspace], workspace.Id));
-        var loaded = new DocumentRepository(root).Load().Workspaces.Single().Notes.Single();
+        TestReam.Repo(root).Save(new DocumentSnapshot([workspace], workspace.Id));
+        var loaded = TestReam.Repo(root).Load().Workspaces.Single().Notes.Single();
 
         Assert.Equal("My title", loaded.CustomTitle);
         Assert.Equal("First line", loaded.Title);
@@ -240,13 +240,13 @@ public class NoteTitlePersistenceTests
         var note = new NoteSnapshot(Guid.NewGuid(), "First line", "text", 0.5, false);
         var workspace = new WorkspaceSnapshot(Guid.NewGuid(), "W", "ws-aaaaaaaa", [note], note.Id);
 
-        new DocumentRepository(root).Save(new DocumentSnapshot([workspace], workspace.Id));
+        TestReam.Repo(root).Save(new DocumentSnapshot([workspace], workspace.Id));
 
-        string layout = File.ReadAllText(Path.Combine(root, "ws-aaaaaaaa", "layout.json"));
+        string layout = File.ReadAllText(Path.Combine(root, "ws-aaaaaaaa", "layout.reamlayout"));
         using var json = JsonDocument.Parse(layout);
         var entry = json.RootElement.GetProperty("notes")[0];
         Assert.True(!entry.TryGetProperty("customTitle", out var value) || value.ValueKind == JsonValueKind.Null);
-        Assert.Null(new DocumentRepository(root).Load().Workspaces.Single().Notes.Single().CustomTitle);
+        Assert.Null(TestReam.Repo(root).Load().Workspaces.Single().Notes.Single().CustomTitle);
     }
 
     [Fact]
@@ -256,15 +256,15 @@ public class NoteTitlePersistenceTests
         string root = dir.Combine("Docs");
         var note = new NoteSnapshot(Guid.NewGuid(), "Old title", "text", 0.5, false);
         var workspace = new WorkspaceSnapshot(Guid.NewGuid(), "W", "ws-aaaaaaaa", [note], note.Id);
-        new DocumentRepository(root).Save(new DocumentSnapshot([workspace], workspace.Id));
+        TestReam.Repo(root).Save(new DocumentSnapshot([workspace], workspace.Id));
 
         // Strip the field, as an older build would have written the file.
-        string path = Path.Combine(root, "ws-aaaaaaaa", "layout.json");
+        string path = Path.Combine(root, "ws-aaaaaaaa", "layout.reamlayout");
         var node = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;
         node["notes"]![0]!.AsObject().Remove("customTitle");
         File.WriteAllText(path, node.ToJsonString());
 
-        var loaded = new DocumentRepository(root).Load().Workspaces.Single().Notes.Single();
+        var loaded = TestReam.Repo(root).Load().Workspaces.Single().Notes.Single();
 
         Assert.Equal("Old title", loaded.Title);
         Assert.Null(loaded.CustomTitle);
@@ -410,7 +410,7 @@ public class NoteTitleInTheWindowTests
         note.CommitTitleEdit();
 
         fx.Repo.Save(SnapshotMapper.ToSnapshot(fx.App));
-        var reloaded = new DocumentRepository(fx.Repo.Root).Load().Workspaces.Single().Notes.Single();
+        var reloaded = TestReam.Repo(fx.Repo.Root).Load().Workspaces.Single().Notes.Single();
 
         Assert.Equal("Saved name", reloaded.CustomTitle);
     });

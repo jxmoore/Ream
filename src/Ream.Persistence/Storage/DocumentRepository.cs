@@ -9,13 +9,15 @@ using static Ream.Persistence.Storage.StorageConstants;
 namespace Ream.Persistence.Storage;
 
 /// <summary>
-/// File-based store: one folder per workspace holding one file per note plus a layout file,
-/// and a root metadata file describing the workspaces.
+/// File-based store for one ream: a <c>Foo.ream</c> file listing the workspaces, and a data folder holding one folder
+/// per workspace with one file per note plus a <c>layout.reamlayout</c>. See <see cref="ReamPaths"/> for where things live.
 /// </summary>
 public sealed class DocumentRepository : IDocumentRepository, IAssetStore
 {
     private const string AssetsFolderName = "assets";
 
+    private readonly string _reamFile;
+    private readonly string _dataFolder;
     private readonly string _root;
     private readonly object _gate = new();
 
@@ -25,24 +27,60 @@ public sealed class DocumentRepository : IDocumentRepository, IAssetStore
     private readonly Dictionary<Guid, string> _assetFolders = [];
     private readonly Dictionary<string, string> _layoutJson = new(StringComparer.OrdinalIgnoreCase);
     private HashSet<string> _knownFolders = new(StringComparer.OrdinalIgnoreCase);
-    private string? _metadataJson;
+    private string? _reamJson;
 
-    public DocumentRepository(string root)
+    /// <param name="reamFilePath">The <c>.ream</c> file, which need not exist yet.</param>
+    /// <param name="dataFolder">
+    /// For a ream that does not exist yet: where its data goes, relative to the file (default: a folder named after it;
+    /// "." keeps everything beside the file). An existing file's own recorded data folder always wins.
+    /// </param>
+    public DocumentRepository(string reamFilePath, string? dataFolder = null)
     {
-        _root = root;
+        _reamFile = Path.GetFullPath(reamFilePath);
+        if (!ReamPaths.IsReamFile(_reamFile))
+            throw new ArgumentException($"'{reamFilePath}' is not a {ReamPaths.Extension} file.", nameof(reamFilePath));
+
+        _dataFolder = ReadRecordedDataFolder(_reamFile) ?? dataFolder ?? ReamPaths.DefaultDataFolder(_reamFile);
+        if (!ReamPaths.IsValidDataFolder(_dataFolder))
+            throw new InvalidDataException($"'{_reamFile}' names a data folder ('{_dataFolder}') that is not a plain folder name.");
+
+        _root = ReamPaths.DataRootOf(_reamFile, _dataFolder);
     }
 
+    /// <summary>The .ream file.</summary>
+    public string ReamPath => _reamFile;
+
+    /// <summary>The ream's name: the file name without its extension.</summary>
+    public string Name => ReamPaths.NameOf(_reamFile);
+
+    /// <summary>The folder holding the workspace folders (beside the .ream, or the same folder when the data folder is ".").</summary>
     public string Root => _root;
+
+    /// <summary>The data folder as recorded in the .ream (relative to it).</summary>
+    public string DataFolder => _dataFolder;
+
+    /// <summary>A quiet look at an existing file's data folder; anything wrong with the file is Load's business, not the constructor's.</summary>
+    private static string? ReadRecordedDataFolder(string reamFile)
+    {
+        try
+        {
+            if (!File.Exists(reamFile)) return null;
+            return JsonSerializer.Deserialize<ReamFile>(File.ReadAllText(reamFile), JsonDefaults.Options)?.DataFolder;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
 
     public DocumentSnapshot Load()
     {
         lock (_gate)
         {
-            bool rootExisted = Directory.Exists(_root);
             Directory.CreateDirectory(_root);
             RecoverInterruptedWrites();
 
-            var metadata = ReadJson<MetadataFile>(Path.Combine(_root, MetadataFileName));
+            var metadata = ReadJson<ReamFile>(_reamFile);
             var entries = (metadata?.Workspaces ?? [])
                 .Where(e => IsSafeName(e.FolderName) && Directory.Exists(FolderPath(e.FolderName!)))
                 .OrderBy(e => e.Order)
@@ -61,12 +99,13 @@ public sealed class DocumentRepository : IDocumentRepository, IAssetStore
             _noteBodies.Clear();
             _assetFolders.Clear();
             _layoutJson.Clear();
-            _metadataJson = null;
+            _reamJson = null;
 
             var workspaces = entries.Select(LoadWorkspace).ToList();
             _knownFolders = workspaces.Select(w => w.FolderName).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            bool firstRun = !rootExisted || (metadata is null && workspaces.Count == 0);
+            // A .ream with no workspaces (a cleared ream) is not a first run: only a ream with no file and nothing in it is.
+            bool firstRun = metadata is null && workspaces.Count == 0;
             return new DocumentSnapshot(workspaces, metadata?.CurrentWorkspaceId, firstRun);
         }
     }
@@ -100,7 +139,7 @@ public sealed class DocumentRepository : IDocumentRepository, IAssetStore
             foreach (var workspace in snapshot.Workspaces)
                 SaveLayout(workspace);
 
-            SaveMetadata(snapshot);
+            SaveReamFile(snapshot);
 
             var current = snapshot.Workspaces.Select(w => w.FolderName).ToHashSet(StringComparer.OrdinalIgnoreCase);
             foreach (var folder in _knownFolders.Where(f => !current.Contains(f)).ToList())
@@ -121,9 +160,17 @@ public sealed class DocumentRepository : IDocumentRepository, IAssetStore
     {
         string stamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
 
-        foreach (var temp in Directory.EnumerateFiles(_root, "*.tmp", SearchOption.AllDirectories).ToList())
+        var temps = Directory.EnumerateFiles(_root, "*.tmp", SearchOption.AllDirectories)
+            .Select(t => (Temp: t, Relative: Path.GetRelativePath(_root, t)))
+            .ToList();
+
+        // Foo.ream.tmp sits beside Foo.ream, which is outside the data folder unless the data folder is ".".
+        string reamTemp = _reamFile + ".tmp";
+        if (File.Exists(reamTemp) && !temps.Any(t => t.Temp.Equals(reamTemp, StringComparison.OrdinalIgnoreCase)))
+            temps.Add((reamTemp, Path.GetFileName(reamTemp)));
+
+        foreach (var (temp, relative) in temps)
         {
-            string relative = Path.GetRelativePath(_root, temp);
             if (relative.StartsWith(TrashFolderName, StringComparison.OrdinalIgnoreCase)
                 || relative.StartsWith(RecoveredFolderName, StringComparison.OrdinalIgnoreCase))
                 continue;
@@ -160,6 +207,8 @@ public sealed class DocumentRepository : IDocumentRepository, IAssetStore
             switch (kind)
             {
                 case ".json":
+                case ReamPaths.Extension:
+                case ReamPaths.LayoutExtension:
                     using (JsonDocument.Parse(File.ReadAllText(temp))) return true;
                 case NoteExtension:
                     string text = File.ReadAllText(temp);
@@ -181,7 +230,8 @@ public sealed class DocumentRepository : IDocumentRepository, IAssetStore
     {
         string folder = entry.FolderName!;
         string directory = FolderPath(folder);
-        var layout = ReadJson<LayoutFile>(Path.Combine(directory, LayoutFileName));
+        var layout = ReadJson<LayoutFile>(Path.Combine(directory, LayoutFileName))
+            ?? ReadJson<LayoutFile>(Path.Combine(directory, LegacyLayoutFileName));
 
         var notes = new List<NoteSnapshot>();
         var seen = new HashSet<Guid>();
@@ -381,14 +431,20 @@ public sealed class DocumentRepository : IDocumentRepository, IAssetStore
         string json = JsonSerializer.Serialize(file, JsonDefaults.Options);
         if (_layoutJson.TryGetValue(workspace.FolderName, out var last) && last == json) return;
 
-        AtomicFile.WriteAllText(Path.Combine(FolderPath(workspace.FolderName), LayoutFileName), json);
+        string directory = FolderPath(workspace.FolderName);
+        AtomicFile.WriteAllText(Path.Combine(directory, LayoutFileName), json);
         _layoutJson[workspace.FolderName] = json;
+
+        // The layout now lives under its new name; a leftover layout.json would only confuse.
+        string legacy = Path.Combine(directory, LegacyLayoutFileName);
+        if (File.Exists(legacy)) File.Delete(legacy);
     }
 
-    private void SaveMetadata(DocumentSnapshot snapshot)
+    private void SaveReamFile(DocumentSnapshot snapshot)
     {
-        var file = new MetadataFile
+        var file = new ReamFile
         {
+            DataFolder = _dataFolder,
             Workspaces = snapshot.Workspaces
                 .Select((w, i) => new WorkspaceEntryFile { Id = w.Id, Name = w.Name, FolderName = w.FolderName, Order = i })
                 .ToList(),
@@ -396,10 +452,10 @@ public sealed class DocumentRepository : IDocumentRepository, IAssetStore
         };
 
         string json = JsonSerializer.Serialize(file, JsonDefaults.Options);
-        if (json == _metadataJson) return;
+        if (json == _reamJson && File.Exists(_reamFile)) return;
 
-        AtomicFile.WriteAllText(Path.Combine(_root, MetadataFileName), json);
-        _metadataJson = json;
+        AtomicFile.WriteAllText(_reamFile, json);
+        _reamJson = json;
     }
 
     private void DeleteEmptyWorkspaceFolder(string folder)
@@ -410,8 +466,11 @@ public sealed class DocumentRepository : IDocumentRepository, IAssetStore
         try
         {
             TryDeleteEmptyDirectory(Path.Combine(directory, AssetsFolderName));
-            string layout = Path.Combine(directory, LayoutFileName);
-            if (File.Exists(layout)) File.Delete(layout);
+            foreach (var layoutName in new[] { LayoutFileName, LegacyLayoutFileName })
+            {
+                string layout = Path.Combine(directory, layoutName);
+                if (File.Exists(layout)) File.Delete(layout);
+            }
             Directory.Delete(directory, recursive: false);
         }
         catch (IOException ex)

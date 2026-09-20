@@ -7,10 +7,11 @@ internal interface IVersionedFile
     int SchemaVersion { get; }
 }
 
-/// <summary>ReemDocuments/metadata.json</summary>
-internal sealed class MetadataFile : IVersionedFile
+/// <summary>Foo.ream: the workspace list, and where the ream's data folder is (relative to this file; "." = the same folder).</summary>
+internal sealed class ReamFile : IVersionedFile
 {
     public int SchemaVersion { get; set; } = StorageConstants.SchemaVersion;
+    public string? DataFolder { get; set; }
     public List<WorkspaceEntryFile>? Workspaces { get; set; } = [];
     public Guid? CurrentWorkspaceId { get; set; }
 }
@@ -23,7 +24,7 @@ internal sealed class WorkspaceEntryFile
     public int Order { get; set; }
 }
 
-/// <summary>ReemDocuments/ws-xxxxxxxx/layout.json</summary>
+/// <summary>ws-xxxxxxxx/layout.reamlayout</summary>
 internal sealed class LayoutFile : IVersionedFile
 {
     public int SchemaVersion { get; set; } = StorageConstants.SchemaVersion;
@@ -52,9 +53,12 @@ internal sealed class NoteEntryFile
 internal static class StorageConstants
 {
     public const int SchemaVersion = 1;
-    public const string MetadataFileName = "metadata.json";
-    public const string LayoutFileName = "layout.json";
-    public const string NoteExtension = ".reamnote";
+    public const string LayoutFileName = "layout" + ReamPaths.LayoutExtension;
+    public const string NoteExtension = ReamPaths.NoteExtension;
+
+    // What a ream was called before it had a file of its own: <folder>/metadata.json and <ws>/layout.json.
+    public const string LegacyMetadataFileName = "metadata.json";
+    public const string LegacyLayoutFileName = "layout.json";
     public const string WorkspaceFolderPrefix = "ws-";
     public const string TrashFolderName = ".trash";
     public const string RecoveredFolderName = ".recovered";

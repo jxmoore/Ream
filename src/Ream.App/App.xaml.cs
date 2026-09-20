@@ -44,7 +44,7 @@ public partial class App : Application
                 .ConfigureServices(services =>
                 {
                     services.AddSingleton(config);
-                    services.AddSingleton(_ => new DocumentRepository(documentsRoot));
+                    services.AddSingleton(_ => new DocumentRepository(Path.Combine(documentsRoot, "ReemDocuments.ream"), ReamPaths.SameFolder)); // bridge until the launch flow arrives
                     services.AddSingleton<IDocumentRepository>(sp => sp.GetRequiredService<DocumentRepository>());
                     services.AddSingleton<IAssetStore>(sp => sp.GetRequiredService<DocumentRepository>());
                     services.AddSingleton(sp => LoadOrSeed(

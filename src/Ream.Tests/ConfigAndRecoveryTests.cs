@@ -164,7 +164,7 @@ public class DocumentRecoveryTests
     {
         string root = dir.Combine("Docs");
         note = Note();
-        new DocumentRepository(root).Save(new DocumentSnapshot(
+        TestReam.Repo(root).Save(new DocumentSnapshot(
             [new WorkspaceSnapshot(Guid.NewGuid(), "W", "ws-11111111", [note], note.Id)], null));
         return root;
     }
@@ -180,7 +180,7 @@ public class DocumentRecoveryTests
             Path.Combine(folder, orphanId.ToString("N") + ".reamnote.tmp"),
             """<ReamNote schemaVersion="1"><Doc><P><R>saved just before the crash</R></P></Doc></ReamNote>""");
 
-        var notes = new DocumentRepository(root).Load().Workspaces[0].Notes;
+        var notes = TestReam.Repo(root).Load().Workspaces[0].Notes;
 
         Assert.Contains(notes, n => n.Id == orphanId && n.Body.Contains("saved just before the crash"));
         Assert.Empty(Directory.GetFiles(root, "*.tmp", SearchOption.AllDirectories));
@@ -194,7 +194,7 @@ public class DocumentRecoveryTests
         string file = Path.Combine(root, "ws-11111111", note.Id.ToString("N") + ".reamnote");
         File.WriteAllText(file + ".tmp", "newer, unverified");
 
-        var loaded = new DocumentRepository(root).Load().Workspaces[0].Notes.Single(n => n.Id == note.Id);
+        var loaded = TestReam.Repo(root).Load().Workspaces[0].Notes.Single(n => n.Id == note.Id);
 
         Assert.Equal("body", loaded.Body);
         Assert.False(File.Exists(file + ".tmp"));
@@ -208,14 +208,14 @@ public class DocumentRecoveryTests
     {
         using var dir = new TempDir();
         string root = Seed(dir, out _);
-        string layout = Path.Combine(root, "ws-11111111", "layout.json");
+        string layout = Path.Combine(root, "ws-11111111", "layout.reamlayout");
         File.Delete(layout);
         File.WriteAllText(layout + ".tmp", """{ "notes": [ { "noteId": """);
 
-        new DocumentRepository(root).Load();
+        TestReam.Repo(root).Load();
 
         Assert.False(File.Exists(layout + ".tmp"));
-        Assert.NotEmpty(Directory.GetFiles(Path.Combine(root, ".recovered"), "layout.json.tmp", SearchOption.AllDirectories));
+        Assert.NotEmpty(Directory.GetFiles(Path.Combine(root, ".recovered"), "layout.reamlayout.tmp", SearchOption.AllDirectories));
     }
 
     [Fact]
@@ -227,7 +227,7 @@ public class DocumentRecoveryTests
         string temp = Path.Combine(root, "ws-11111111", orphanId.ToString("N") + ".reamnote.tmp");
         File.WriteAllText(temp, """<ReamNote schemaVersion="1"><Doc><P><R>cut off mid""");
 
-        var notes = new DocumentRepository(root).Load().Workspaces[0].Notes;
+        var notes = TestReam.Repo(root).Load().Workspaces[0].Notes;
 
         Assert.DoesNotContain(notes, n => n.Id == orphanId);
         Assert.NotEmpty(Directory.GetFiles(Path.Combine(root, ".recovered"), "*.reamnote.tmp", SearchOption.AllDirectories));
@@ -247,7 +247,7 @@ public class DocumentRecoveryTests
         File.WriteAllBytes(Path.Combine(assets, "whole.png.tmp"), whole);
         File.WriteAllBytes(Path.Combine(assets, "cut.png.tmp"), whole[..(whole.Length - 20)]);
 
-        new DocumentRepository(root).Load();
+        TestReam.Repo(root).Load();
 
         Assert.True(File.Exists(Path.Combine(assets, "whole.png")));
         Assert.False(File.Exists(Path.Combine(assets, "cut.png")));
@@ -263,7 +263,7 @@ public class DocumentRecoveryTests
         string trashed = Path.Combine(root, ".trash", "ws-x", "old.reamnote.tmp");
         File.WriteAllText(trashed, "keep me where I am");
 
-        new DocumentRepository(root).Load();
+        TestReam.Repo(root).Load();
 
         Assert.True(File.Exists(trashed));
     }
@@ -274,7 +274,7 @@ public class DocumentRecoveryTests
         using var dir = new TempDir();
         string root = Seed(dir, out _);
 
-        new DocumentRepository(root).Load();
+        TestReam.Repo(root).Load();
 
         Assert.False(Directory.Exists(Path.Combine(root, ".recovered")));
     }
@@ -286,7 +286,7 @@ public class DocumentRecoveryTests
         string root = Seed(dir, out var note);
         File.WriteAllText(Path.Combine(root, "ws-11111111", note.Id.ToString("N") + ".reamnote.tmp"), "x");
 
-        var loaded = new DocumentRepository(root).Load();
+        var loaded = TestReam.Repo(root).Load();
 
         Assert.Single(loaded.Workspaces);
     }
