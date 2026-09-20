@@ -94,6 +94,11 @@ public sealed class AppConfig
         ["closeNote"] = "Alt+Q",
         ["renameNote"] = "F2",
         ["renameWorkspace"] = "Shift+F2",
+        ["newReam"] = "Ctrl+Shift+N",
+        ["openReam"] = "Ctrl+O",
+        ["save"] = "Ctrl+S",
+        ["saveAs"] = "Ctrl+Shift+S",
+        ["clearReam"] = "Alt+Shift+Q",
     };
 }
 

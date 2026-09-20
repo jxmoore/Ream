@@ -159,7 +159,7 @@ public class RibbonTabTests
         Assert.Same(fx.Window, help.Owner);
 
         var sections = ((IEnumerable<HelpSection>)help.Sections.ItemsSource).ToList();
-        Assert.Equal(["Notes", "Workspaces", "Size and view", "Mouse", "Editing"], sections.Select(s => s.Title));
+        Assert.Equal(["Notes", "Workspaces", "Size and view", "Reams", "Mouse", "Editing"], sections.Select(s => s.Title));
         Assert.Contains(sections.SelectMany(s => s.Entries), e => e.Gesture == "F11");
     });
 
