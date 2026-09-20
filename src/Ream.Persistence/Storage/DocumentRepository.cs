@@ -160,13 +160,16 @@ public sealed class DocumentRepository : IDocumentRepository, IAssetStore
     {
         string stamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
 
-        var temps = Directory.EnumerateFiles(_root, "*.tmp", SearchOption.AllDirectories)
+        // Only what Ream owns: the workspace folders (notes, layouts, images) and the .ream's own temp file. Never the whole
+        // data folder tree - with data folder "." that is the user's own folder, full of files that are not ours.
+        var temps = Directory.EnumerateDirectories(_root, WorkspaceFolderPrefix + "*")
+            .SelectMany(d => Directory.EnumerateFiles(d, "*.tmp", SearchOption.AllDirectories))
             .Select(t => (Temp: t, Relative: Path.GetRelativePath(_root, t)))
             .ToList();
 
         // Foo.ream.tmp sits beside Foo.ream, which is outside the data folder unless the data folder is ".".
         string reamTemp = _reamFile + ".tmp";
-        if (File.Exists(reamTemp) && !temps.Any(t => t.Temp.Equals(reamTemp, StringComparison.OrdinalIgnoreCase)))
+        if (File.Exists(reamTemp))
             temps.Add((reamTemp, Path.GetFileName(reamTemp)));
 
         foreach (var (temp, relative) in temps)
