@@ -9,6 +9,7 @@
                 <ItemsPanelTemplate>
                     <controls:NoteRowPanel
                         FocusedIndex="{Binding FocusedIndex}"
+                        IsCurrentWorkspace="{Binding IsCurrent}"
                         Config="{Binding DataContext.Config, RelativeSource={RelativeSource AncestorType=Window}}"/>
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>

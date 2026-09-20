@@ -53,7 +53,9 @@ internal sealed class WindowFixture : IDisposable
     public AppViewModel App { get; }
     public Ream.App.MainWindow Window { get; }
 
-    public WorkspaceTabs Tabs => Ui.Descendants<WorkspaceTabs>(Window).Single();
+    /// <summary>The panel behind the notes; it carries the canvas color.</summary>
+    public Panel Canvas => (Panel)Window.FindName("CanvasArea");
+
 
     public IEnumerable<NoteColumnView> Columns => Ui.Descendants<NoteColumnView>(Window);
 
@@ -188,17 +190,20 @@ public class MainWindowIntegrationTests
     });
 
     [Fact]
-    public void ADraggedWidth_ShowsInTheLabel_AndIsSaved() => Ui.Run(() =>
+    public void ADraggedWidth_FlashesThePercentage_AndIsSaved() => Ui.Run(() =>
     {
         using var fx = new WindowFixture(("W", 2));
         var note = fx.App.CurrentWorkspace.Notes[0];
         var view = fx.ColumnOf(note);
+        var toasts = new List<string>();
+        note.SizeToastRequested += toasts.Add;
 
         DragStart(view);
         DragBy(view, 77);
         DragEnd(view);
 
-        Assert.EndsWith("%", note.WidthLabel);
+        Assert.NotEmpty(toasts);
+        Assert.Equal(WidthPresets.Percent(note.WidthFraction), toasts[^1]);
         Assert.Equal(note.WidthFraction, SnapshotMapper.ToSnapshot(fx.App).Workspaces[0].Notes[0].WidthFraction, 9);
     });
 
@@ -299,54 +304,141 @@ public class MainWindowIntegrationTests
         Assert.Equal(1, requests);
     });
 
-    // ----- Workspace strip -----
+    // ----- The workspace label (bottom right) and the title bar (just "Ream") -----
+
+    private static TextBox NameBox(WindowFixture fx) => (TextBox)fx.Window.FindName("WorkspaceNameBox");
+
+    private static TextBlock LabelText(WindowFixture fx) => (TextBlock)fx.Window.FindName("WorkspaceLabel");
+
+    private static TextBlock TitleText(WindowFixture fx) => (TextBlock)fx.Window.FindName("TitleText");
+
+    private static void DoubleClick(UIElement target)
+    {
+        var args = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+        {
+            RoutedEvent = UIElement.MouseLeftButtonDownEvent,
+        };
+        typeof(MouseButtonEventArgs).GetProperty("ClickCount")!.GetSetMethod(true)!.Invoke(args, [2]);
+        target.RaiseEvent(args);
+    }
 
     [Fact]
-    public void TheStrip_ShowsOneChipPerWorkspace_WithNamesAndNumbers() => Ui.Run(() =>
+    public void TheTitleBarAndTheTaskbar_JustSayReam_WhicheverWorkspaceYouAreIn() => Ui.Run(() =>
     {
         using var fx = new WindowFixture(("Work", 1), (null, 1));
 
-        Assert.Equal(3, fx.Tabs.Tabs.Items.Count);
-        var labels = Ui.Descendants<TextBlock>(fx.Tabs).Where(t => t.Name == "Label").Select(t => t.Text).ToList();
-        Assert.Equal(["Work", "2", "3"], labels);
-    });
+        Assert.Equal("Ream", fx.Window.Title);
+        Assert.Equal("Ream", TitleText(fx).Text);
 
-    [Fact]
-    public void TheStrip_FollowsSwitchesAndRenames() => Ui.Run(() =>
-    {
-        using var fx = new WindowFixture(("Work", 1), (null, 1));
-
-        fx.App.SelectWorkspaceCommand.Execute(fx.App.Workspaces[1]);
-        fx.App.Workspaces[1].Name = "Home";
+        fx.App.SelectWorkspaceCommand.Execute(fx.App.Workspaces[2]);
         Ui.Settle();
 
-        var labels = Ui.Descendants<TextBlock>(fx.Tabs).Where(t => t.Name == "Label").Select(t => t.Text).ToList();
-        Assert.Equal(["Work", "Home", "3"], labels);
-        Assert.Equal([false, true, false], fx.App.Workspaces.Select(w => w.IsCurrent));
+        Assert.Equal("Ream", fx.Window.Title);
+        Assert.Equal("Ream", TitleText(fx).Text);
     });
 
     [Fact]
-    public void TheStrip_ShowsANewWorkspace_WhenOneIsAdded() => Ui.Run(() =>
+    public void TheLabel_NamesTheCurrentWorkspace() => Ui.Run(() =>
+    {
+        using var fx = new WindowFixture(("Work", 1), (null, 1));
+        Assert.Equal("Work", LabelText(fx).Text);
+
+        fx.App.SelectWorkspaceCommand.Execute(fx.App.Workspaces[2]);
+        Ui.Settle();
+        Assert.Equal("Workspace 2", LabelText(fx).Text);
+
+        fx.App.CurrentIndex = 0;
+        Ui.Settle();
+        Assert.Equal("New workspace", LabelText(fx).Text);
+    });
+
+    [Fact]
+    public void TheLabel_SitsInTheBottomRightOfTheCanvas_NotInTheTitleBar() => Ui.Run(() =>
     {
         using var fx = new WindowFixture(("Work", 1));
-        fx.App.SelectWorkspaceCommand.Execute(fx.App.Workspaces[1]);
+        var label = LabelText(fx);
+        var canvas = (FrameworkElement)fx.Window.FindName("CanvasArea");
+        var titleBar = (FrameworkElement)fx.Window.FindName("TitleBar");
 
-        fx.App.NewNoteCommand.Execute(null);
-        Ui.Settle();
+        var centre = label.TranslatePoint(new Point(label.ActualWidth / 2, label.ActualHeight / 2), canvas);
 
-        Assert.Equal(3, fx.Tabs.Tabs.Items.Count);
+        Assert.True(centre.X > canvas.ActualWidth * 0.75, $"label centre x {centre.X} of {canvas.ActualWidth}");
+        Assert.True(centre.Y > canvas.ActualHeight * 0.9, $"label centre y {centre.Y} of {canvas.ActualHeight}");
+        Assert.DoesNotContain(label, Ui.Descendants<TextBlock>(titleBar));
     });
 
-    private static TextBox VisibleNameBox(WindowFixture fx)
+    [Fact]
+    public void TheLabel_FollowsARename() => Ui.Run(() =>
     {
-        var boxes = Ui.Descendants<TextBox>(fx.Tabs).ToList();
-        var visible = boxes.Where(box => box.Visibility == Visibility.Visible).ToList();
-        Assert.True(
-            visible.Count == 1,
-            $"visible boxes: {visible.Count} of {boxes.Count}; " +
-            $"workspaces: {string.Join(", ", fx.App.Workspaces.Select(w => $"[{w.DisplayLabel} renaming={w.IsRenaming} edit='{w.EditName}']"))}");
-        return visible[0];
-    }
+        using var fx = new WindowFixture(("Work", 1));
+
+        fx.App.CurrentWorkspace.Name = "Home";
+        Ui.Settle();
+
+        Assert.Equal("Home", LabelText(fx).Text);
+        Assert.Equal("Ream", TitleText(fx).Text);
+    });
+
+    [Fact]
+    public void TheTopBar_NoLongerHasWorkspaceChips() => Ui.Run(() =>
+    {
+        using var fx = new WindowFixture(("Work", 1), (null, 1));
+
+        Assert.DoesNotContain(Ui.Descendants<FrameworkElement>(fx.Window), e => e.GetType().Name == "WorkspaceTabs");
+        Assert.DoesNotContain(Ui.Descendants<Border>(fx.Window), b => b.Name == "Chip");
+    });
+
+    [Fact]
+    public void ADoubleClickOnTheLabel_StartsARename_ASingleClickDoesNot() => Ui.Run(() =>
+    {
+        using var fx = new WindowFixture(("Work", 1));
+
+        var single = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = UIElement.MouseLeftButtonDownEvent };
+        LabelText(fx).RaiseEvent(single);
+        Assert.False(fx.App.CurrentWorkspace.IsRenaming);
+
+        DoubleClick(LabelText(fx));
+        Ui.Settle();
+
+        Assert.True(fx.App.CurrentWorkspace.IsRenaming);
+        Assert.True(NameBox(fx).IsVisible);
+        Assert.Equal("Work", NameBox(fx).Text);
+        Assert.False(LabelText(fx).IsVisible);
+    });
+
+    [Fact]
+    public void ADoubleClickOnTheTitle_DoesNothing() => Ui.Run(() =>
+    {
+        using var fx = new WindowFixture(("Work", 1));
+
+        DoubleClick(TitleText(fx));
+        Ui.Settle();
+
+        Assert.False(fx.App.CurrentWorkspace.IsRenaming);
+    });
+
+    [Fact]
+    public void Renaming_ShowsATextBoxInTheCorner_AndEnterAppliesTheName() => Ui.Run(() =>
+    {
+        using var fx = new WindowFixture(("Work", 1));
+
+        fx.App.BeginRenameCommand.Execute(null);
+        Ui.Settle();
+        var box = NameBox(fx);
+        Assert.True(box.IsVisible);
+        Assert.Equal("Work", box.Text);
+        Assert.Same(box, Keyboard.FocusedElement);
+
+        box.Text = "Projects";
+        Press(box, Key.Enter);
+        Ui.Settle();
+
+        Assert.Equal("Projects", fx.App.Workspaces[1].Name);
+        Assert.False(fx.App.Workspaces[1].IsRenaming);
+        Assert.False(box.IsVisible);
+        Assert.Equal("Projects", LabelText(fx).Text);
+        Assert.True(LabelText(fx).IsVisible);
+    });
 
     private static void Press(UIElement target, Key key)
     {
@@ -358,38 +450,89 @@ public class MainWindowIntegrationTests
     }
 
     [Fact]
-    public void Renaming_ShowsATextBox_AndEnterAppliesTheName() => Ui.Run(() =>
-    {
-        using var fx = new WindowFixture(("Work", 1));
-
-        fx.App.BeginRenameCommand.Execute(null);
-        Ui.Settle();
-        var box = VisibleNameBox(fx);
-        Assert.Equal("Work", box.Text);
-
-        box.Text = "Projects";
-        Press(box, Key.Enter);
-        Ui.Settle();
-
-        Assert.Equal("Projects", fx.App.Workspaces[0].Name);
-        Assert.False(fx.App.Workspaces[0].IsRenaming);
-        Assert.Empty(Ui.Descendants<TextBox>(fx.Tabs).Where(b => b.Visibility == Visibility.Visible));
-    });
-
-    [Fact]
     public void Escape_CancelsARename() => Ui.Run(() =>
     {
         using var fx = new WindowFixture(("Work", 1));
         fx.App.BeginRenameCommand.Execute(null);
         Ui.Settle();
 
-        var box = VisibleNameBox(fx);
+        var box = NameBox(fx);
         box.Text = "Nope";
         Press(box, Key.Escape);
         Ui.Settle();
 
-        Assert.Equal("Work", fx.App.Workspaces[0].Name);
-        Assert.False(fx.App.Workspaces[0].IsRenaming);
+        Assert.Equal("Work", fx.App.Workspaces[1].Name);
+        Assert.False(fx.App.Workspaces[1].IsRenaming);
+        Assert.Equal("Work", LabelText(fx).Text);
+    });
+
+    [Fact]
+    public void ClickingAway_KeepsWhatWasTyped() => Ui.Run(() =>
+    {
+        using var fx = new WindowFixture(("Work", 1));
+        fx.App.BeginRenameCommand.Execute(null);
+        Ui.Settle();
+
+        NameBox(fx).Text = "Typed";
+        fx.ColumnOf(fx.App.CurrentWorkspace.Notes[0]).Editor.Focus();
+        Ui.Settle();
+
+        Assert.Equal("Typed", fx.App.Workspaces[1].Name);
+        Assert.False(fx.App.Workspaces[1].IsRenaming);
+    });
+
+    [Fact]
+    public void ABlankName_GoesBackToTheNumber() => Ui.Run(() =>
+    {
+        using var fx = new WindowFixture(("Work", 1));
+        fx.App.BeginRenameCommand.Execute(null);
+        Ui.Settle();
+
+        NameBox(fx).Text = "   ";
+        Press(NameBox(fx), Key.Enter);
+        Ui.Settle();
+
+        Assert.Null(fx.App.Workspaces[1].Name);
+        Assert.Equal("Workspace 1", LabelText(fx).Text);
+    });
+
+    [Fact]
+    public void NamingAnEmptyEdgeWorkspace_Works() => Ui.Run(() =>
+    {
+        using var fx = new WindowFixture(("Work", 1));
+        fx.App.CurrentIndex = fx.App.Workspaces.Count - 1;
+        Ui.Settle();
+        Assert.Equal("New workspace", LabelText(fx).Text);
+
+        fx.App.BeginRenameCommand.Execute(null);
+        Ui.Settle();
+        Assert.Equal("", NameBox(fx).Text);
+        NameBox(fx).Text = "Someday";
+        Press(NameBox(fx), Key.Enter);
+        Ui.Settle();
+
+        Assert.Equal("Someday", LabelText(fx).Text);
+    });
+
+    [Fact]
+    public void InAppFullscreen_TheTitleBarStaysAway_AndTheLabelStillRenames() => Ui.Run(() =>
+    {
+        using var fx = new WindowFixture(("Work", 1));
+        var titleBar = (Grid)fx.Window.FindName("TitleBar");
+
+        fx.Window.ApplyFullscreenChrome(true);
+        Ui.Settle();
+        Assert.Equal(Visibility.Collapsed, titleBar.Visibility);
+        Assert.True(LabelText(fx).IsVisible);
+
+        fx.App.BeginRenameCommand.Execute(null);
+        Ui.Settle();
+        Assert.Equal(Visibility.Collapsed, titleBar.Visibility);
+        Assert.True(NameBox(fx).IsVisible);
+
+        Press(NameBox(fx), Key.Escape);
+        Ui.Settle();
+        Assert.Equal(Visibility.Collapsed, titleBar.Visibility);
     });
 
     [Fact]
@@ -398,7 +541,7 @@ public class MainWindowIntegrationTests
         using var fx = new WindowFixture(("Work", 1));
 
         var binding = fx.Window.InputBindings.OfType<KeyBinding>()
-            .Single(b => b.Key == Key.R && b.Modifiers == (ModifierKeys.Alt | ModifierKeys.Shift));
+            .Single(b => b.Key == Key.F2 && b.Modifiers == ModifierKeys.Shift);
 
         Assert.Same(fx.App.BeginRenameCommand, binding.Command);
     });
@@ -407,9 +550,9 @@ public class MainWindowIntegrationTests
     public void ARenamedWorkspace_SurvivesSaveAndReload() => Ui.Run(() =>
     {
         using var fx = new WindowFixture(("Work", 1));
-        fx.App.Workspaces[0].BeginRename();
-        fx.App.Workspaces[0].EditName = "Renamed";
-        fx.App.CommitRenameCommand.Execute(fx.App.Workspaces[0]);
+        fx.App.Workspaces[1].BeginRename();
+        fx.App.Workspaces[1].EditName = "Renamed";
+        fx.App.CommitRenameCommand.Execute(fx.App.Workspaces[1]);
 
         fx.Repo.Save(SnapshotMapper.ToSnapshot(fx.App));
         var reloaded = new DocumentRepository(fx.Repo.Root).Load();

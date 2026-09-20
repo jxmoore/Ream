@@ -61,6 +61,19 @@ public static class NoteContent
         return text.ToString().TrimEnd('\n');
     }
 
+    /// <summary>
+    /// True when a note has no visible text and no images. Anything that can't be read as a note
+    /// counts as blank only if it is empty, so unreadable content is never mistaken for nothing.
+    /// </summary>
+    public static bool IsBlank(string content)
+    {
+        if (!IsReamNote(content) || !TryParse(content, out var document))
+            return string.IsNullOrWhiteSpace(content);
+
+        if (document.Descendants().Any(e => e.Name.LocalName == "IMG")) return false;
+        return string.IsNullOrWhiteSpace(ToPlainText(content));
+    }
+
     /// <summary>First non-empty line, trimmed and capped; null if the text is blank.</summary>
     public static string? TryDeriveTitle(string plainText)
     {

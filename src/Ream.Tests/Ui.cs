@@ -20,6 +20,11 @@ internal static class Ui
         Dispatcher? dispatcher = null;
         using var ready = new ManualResetEventSlim();
 
+        // WPF's Application constructor queues a call to OnStartup, and the real one loads the user's config and
+        // documents, applies their theme and shows a real window - none of which a test may ever do. This switch
+        // makes it return immediately, leaving just the app's resources (palette, control styles) loaded.
+        AppContext.SetSwitch("Ream.SkipStartup", true);
+
         var thread = new Thread(() =>
         {
             var app = new Ream.App.App { ShutdownMode = ShutdownMode.OnExplicitShutdown };
@@ -32,7 +37,8 @@ internal static class Ui
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
 
-        ready.Wait();
+        if (!ready.Wait(HostStartTimeout))
+            throw new TimeoutException($"The test UI thread did not start within {HostStartTimeout.TotalSeconds:0}s.");
         return dispatcher!;
     }
 
@@ -40,17 +46,37 @@ internal static class Ui
     // Keyboard focus is process-wide, so overlapping tests interfere; run them strictly one at a time.
     private static readonly object OneTestAtATime = new();
 
+    // A stuck test must fail loudly, naming who is stuck, instead of hanging the whole run (and CI) forever.
+    private static readonly TimeSpan HostStartTimeout = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan LockTimeout = TimeSpan.FromSeconds(90);
+    private static readonly TimeSpan RunTimeout = TimeSpan.FromSeconds(60);
+    private static string? _insideNow;
+
     public static void Run(Action action)
     {
+        if (!Monitor.TryEnter(OneTestAtATime, LockTimeout))
+            throw new TimeoutException($"Waited {LockTimeout.TotalSeconds:0}s to use the UI thread. It is held by:\n{_insideNow}");
+
         Exception? error = null;
-        lock (OneTestAtATime)
+        bool finished = false;
+        try
         {
+            _insideNow = new System.Diagnostics.StackTrace(1, fNeedFileInfo: false).ToString();
             Host.Value.Invoke(() =>
             {
                 try { action(); }
                 catch (Exception ex) { error = ex; }
-            });
+                finished = true;
+            }, DispatcherPriority.Normal, CancellationToken.None, RunTimeout);
         }
+        finally
+        {
+            if (finished) _insideNow = null;
+            Monitor.Exit(OneTestAtATime);
+        }
+
+        if (!finished)
+            throw new TimeoutException($"A UI test did not finish within {RunTimeout.TotalSeconds:0}s:\n{_insideNow}");
         if (error is not null) ExceptionDispatchInfo.Capture(error).Throw();
     }
 
@@ -95,6 +121,33 @@ internal static class Ui
         for (var d = VisualTreeHelper.GetParent(start); d is not null; d = VisualTreeHelper.GetParent(d))
             if (d is T match) return match;
         return null;
+    }
+
+    /// <summary>Renders an element to a bitmap so a test can look at the pixels (and their alpha) it really draws.</summary>
+    public static RenderTargetBitmap Render(FrameworkElement element)
+    {
+        var target = new RenderTargetBitmap((int)element.ActualWidth, (int)element.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+        target.Render(element);
+        return target;
+    }
+
+    /// <summary>One pixel as (alpha, r, g, b), un-premultiplied so colors can be compared with brush colors.</summary>
+    public static (byte A, byte R, byte G, byte B) PixelAt(BitmapSource bitmap, int x, int y)
+    {
+        var px = new byte[4];
+        bitmap.CopyPixels(new Int32Rect(x, y, 1, 1), px, 4, 0);
+        byte a = px[3];
+        if (a == 0) return (0, 0, 0, 0);
+
+        byte Un(byte c) => (byte)Math.Min(255, (int)Math.Round(c * 255.0 / a));
+        return (a, Un(px[2]), Un(px[1]), Un(px[0]));
+    }
+
+    /// <summary>A point in the middle of an element's empty space, in the coordinates of the window being rendered.</summary>
+    public static (int X, int Y) CenterOf(FrameworkElement element, FrameworkElement window, double xFraction = 0.5)
+    {
+        var p = element.TranslatePoint(new Point(element.ActualWidth * xFraction, element.ActualHeight / 2), window);
+        return ((int)p.X, (int)p.Y);
     }
 
     public static void RenderToPng(FrameworkElement element, string path)

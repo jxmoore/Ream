@@ -18,4 +18,5 @@ public sealed record NoteSnapshot(
     string Title,
     string Body,
     double WidthFraction,
-    bool IsFullscreen);
+    bool IsFullscreen,
+    string? CustomTitle = null);

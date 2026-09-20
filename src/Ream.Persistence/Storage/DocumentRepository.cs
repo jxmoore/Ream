@@ -197,7 +197,7 @@ public sealed class DocumentRepository : IDocumentRepository, IAssetStore
 
             string body = File.ReadAllText(path);
             double width = WidthPresets.Clamp(item.WidthFraction ?? item.Width?.Fraction() ?? WidthPresets.Default);
-            notes.Add(new NoteSnapshot(item.NoteId, item.Title ?? TitleOf(body), body, width, item.IsFullscreen));
+            notes.Add(new NoteSnapshot(item.NoteId, item.Title ?? TitleOf(body), body, width, item.IsFullscreen, item.CustomTitle));
             Remember(item.NoteId, folder, body);
         }
 
@@ -370,6 +370,7 @@ public sealed class DocumentRepository : IDocumentRepository, IAssetStore
                     NoteId = n.Id,
                     FileName = NoteFileName(n.Id),
                     Title = n.Title,
+                    CustomTitle = n.CustomTitle,
                     WidthFraction = Math.Round(WidthPresets.Clamp(n.WidthFraction), 4),
                     IsFullscreen = n.IsFullscreen,
                 })

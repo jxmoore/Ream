@@ -1,0 +1,32 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Canvas and cards -->
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#242933"/>
+    <SolidColorBrush x:Key="CardBrush" Color="#2e3440"/>
+    <SolidColorBrush x:Key="CardBorderBrush" Color="#3b4252"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="#88c0d0"/>
+    <SolidColorBrush x:Key="TextBrush" Color="#e5e9f0"/>
+    <SolidColorBrush x:Key="MutedTextBrush" Color="#98a2b8"/>
+
+    <!-- Toolbar and workspace chips -->
+    <SolidColorBrush x:Key="ToolbarBrush" Color="#272c36"/>
+    <SolidColorBrush x:Key="ToolbarBorderBrush" Color="#3b4252"/>
+    <SolidColorBrush x:Key="ToolbarMutedBrush" Color="#9aa4b8"/>
+    <SolidColorBrush x:Key="SeparatorBrush" Color="#434c5e"/>
+    <SolidColorBrush x:Key="ChipCurrentBrush" Color="#46688f"/>
+    <SolidColorBrush x:Key="ChipCurrentTextBrush" Color="#eceff4"/>
+    <SolidColorBrush x:Key="ErrorBrush" Color="#d87c86"/>
+
+    <!-- Buttons, drop-downs, text boxes -->
+    <SolidColorBrush x:Key="ControlBrush" Color="#3b4252"/>
+    <SolidColorBrush x:Key="ControlHoverBrush" Color="#434c5e"/>
+    <SolidColorBrush x:Key="ControlPressedBrush" Color="#4c566a"/>
+    <SolidColorBrush x:Key="ControlBorderBrush" Color="#4c566a"/>
+    <SolidColorBrush x:Key="ControlCheckedBrush" Color="#4c6a8a"/>
+    <SolidColorBrush x:Key="ControlTextBrush" Color="#e5e9f0"/>
+    <SolidColorBrush x:Key="InputBrush" Color="#242933"/>
+
+    <!-- Scrollbars -->
+    <SolidColorBrush x:Key="ScrollThumbBrush" Color="#4c566a"/>
+    <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#616e88"/>
+</ResourceDictionary>
