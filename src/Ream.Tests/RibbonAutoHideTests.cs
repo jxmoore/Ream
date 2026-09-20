@@ -603,14 +603,14 @@ public class RibbonAutoHideTests
     });
 
     [Fact]
-    public void TheWholeHomeRibbon_FitsInTheDefaultWindow_WithNoChevrons() => Ui.Run(() =>
+    public void TheWholeHomeRibbon_FitsInTheDefaultWindowWidth() => Ui.Run(() =>
     {
         using var fx = Fixture(autoHide: false);
-        var scroll = (ScrollViewer)fx.Window.FindName("RibbonScroll");
+        var home = (FrameworkElement)fx.Window.FindName("Ribbon");
 
-        Assert.Equal(1200, fx.Window.Width);
-        Assert.Equal(0, scroll.ScrollableWidth);
-        Assert.Equal(Visibility.Collapsed, ((UIElement)fx.Window.FindName("RibbonScrollRight")).Visibility);
+        // The window is declared 1200 wide, but a small screen (a CI runner's) clamps what the fixture actually gets, so
+        // measure the ribbon itself: its natural width plus the panel's side margins must fit in 1200.
+        Assert.True(home.ActualWidth + 24 <= 1200, $"the Home ribbon is {home.ActualWidth:0} px wide");
     });
 
     [Fact]
