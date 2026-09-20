@@ -24,12 +24,12 @@ internal static class SnapshotMapper
         return (workspaces, Math.Max(0, current));
     }
 
-    /// <summary>Puts a loaded ream into an existing view model, at the beginning of its first row like a launch.</summary>
-    public static void LoadInto(AppViewModel app, DocumentSnapshot snapshot, IAssetStore assets)
+    /// <summary>Puts a loaded ream into an existing view model; by default at the beginning of its row, like a launch.</summary>
+    public static void LoadInto(AppViewModel app, DocumentSnapshot snapshot, IAssetStore assets, bool startAtFirstNote = true)
     {
         var (workspaces, current) = ToWorkspaces(snapshot, assets);
         app.LoadReam(workspaces, current, assets);
-        app.CurrentWorkspace.SetFocus(0);
+        if (startAtFirstNote) app.CurrentWorkspace.SetFocus(0);
     }
 
     public static DocumentSnapshot ToSnapshot(AppViewModel app)

@@ -13,7 +13,7 @@ namespace Ream.App;
 public partial class App : Application
 {
     private IHost? _host;
-    private ReamSession? _session;
+    private ReamManager? _manager;
     private ThemeService? _theme;
     private SettingsViewModel? _settings;
     private ConfigReloader? _reloader;
@@ -36,26 +36,29 @@ public partial class App : Application
             _theme = new ThemeService(this);
             _theme.Apply(config);
 
-            string documentsRoot = string.IsNullOrWhiteSpace(config.DocumentsRoot)
-                ? paths.DefaultDocumentsRoot
-                : config.DocumentsRoot;
+            // Which ream to start with: the last one, an old-format folder converted in place, or a fresh one.
+            var launch = ReamLauncher.Launch(config, paths);
+            var viewModel = new AppViewModel(config, [], 0, launch.Repository);
+            SnapshotMapper.LoadInto(viewModel, launch.Snapshot, launch.Repository);
 
             _host = Host.CreateDefaultBuilder()
                 .ConfigureServices(services =>
                 {
                     services.AddSingleton(config);
-                    services.AddSingleton(_ => new DocumentRepository(BridgeReamPath(documentsRoot), ReamPaths.SameFolder)); // bridge until the launch flow arrives
-                    services.AddSingleton<IDocumentRepository>(sp => sp.GetRequiredService<DocumentRepository>());
-                    services.AddSingleton<IAssetStore>(sp => sp.GetRequiredService<DocumentRepository>());
-                    services.AddSingleton(sp => LoadOrSeed(
-                        sp.GetRequiredService<IDocumentRepository>(), config, sp.GetRequiredService<IAssetStore>()));
-                    services.AddSingleton(sp => new ReamSession(
-                        sp.GetRequiredService<DocumentRepository>(),
-                        sp.GetRequiredService<AppViewModel>(),
+                    services.AddSingleton(viewModel);
+                    services.AddSingleton(launch.Repository);
+                    services.AddSingleton(sp => new ReamSession(launch.Repository, viewModel, Dispatcher, config.AutoSave));
+                    services.AddSingleton<IUserPrompts, WpfUserPrompts>();
+                    services.AddSingleton<IFileDialogs, Win32FileDialogs>();
+                    services.AddSingleton(sp => new ReamManager(
+                        sp.GetRequiredService<ReamSession>(),
+                        viewModel,
+                        store,
+                        sp.GetRequiredService<IFileDialogs>(),
+                        sp.GetRequiredService<IUserPrompts>(),
                         Dispatcher,
-                        config.AutoSave));
-                    services.AddSingleton(sp => new SettingsViewModel(
-                        sp.GetRequiredService<AppViewModel>(), _theme, store, Dispatcher));
+                        paths.ConfigFile));
+                    services.AddSingleton(sp => new SettingsViewModel(viewModel, _theme, store, Dispatcher));
                     services.AddSingleton<MainWindow>();
                 })
                 .Build();
@@ -63,20 +66,22 @@ public partial class App : Application
             _host.StartAsync().GetAwaiter().GetResult();
 
             var window = _host.Services.GetRequiredService<MainWindow>();
-            _session = _host.Services.GetRequiredService<ReamSession>();
-            var app = _host.Services.GetRequiredService<AppViewModel>();
-            app.PropertyChanged += (_, args) =>
+            _manager = _host.Services.GetRequiredService<ReamManager>();
+            _manager.RecordLastReam(launch.Repository.ReamPath);
+            viewModel.PropertyChanged += (_, args) =>
             {
                 // Turning auto-save on or off in config.json takes effect at once.
-                if (args.PropertyName == nameof(AppViewModel.Config)) _session.AutoSave = app.Config.AutoSave;
+                if (args.PropertyName == nameof(AppViewModel.Config)) _manager.Current.AutoSave = viewModel.Config.AutoSave;
             };
             _settings = _host.Services.GetRequiredService<SettingsViewModel>();
 
             window.FollowTheme(_theme);
-            window.About = AboutInfo.Create(documentsRoot, paths.ConfigFile);
-            _reloader = new ConfigReloader(store, _host.Services.GetRequiredService<AppViewModel>(), _theme, Dispatcher);
+            window.About = AboutInfo.Create(launch.Repository.ReamPath, paths.ConfigFile);
+            _reloader = new ConfigReloader(store, viewModel, _theme, Dispatcher);
 
             window.Show();
+            if (launch.Warning is not null)
+                _host.Services.GetRequiredService<IUserPrompts>().ShowError("Ream", launch.Warning);
         }
         catch (Exception ex)
         {
@@ -94,7 +99,7 @@ public partial class App : Application
         _reloader?.Dispose();
         _settings?.Flush();
         _settings?.Dispose();
-        _session?.Coordinator.Flush();
+        _manager?.Current.Coordinator.Flush();
 
         if (_host is not null)
         {
@@ -103,32 +108,6 @@ public partial class App : Application
         }
 
         base.OnExit(e);
-    }
-
-    /// <summary>
-    /// Until the launch flow opens the last ream: convert an old-format folder in place (backup first), then use the
-    /// .ream that is in it - or the one a fresh folder will get, named after the folder.
-    /// </summary>
-    private static string BridgeReamPath(string folder)
-    {
-        var converted = LegacyConverter.ConvertIfNeeded(folder);
-        if (converted is not null) return converted.ReamFilePath;
-
-        string? existing = Directory.Exists(folder)
-            ? Directory.EnumerateFiles(folder, "*" + ReamPaths.Extension).OrderBy(p => p, StringComparer.OrdinalIgnoreCase).FirstOrDefault()
-            : null;
-        if (existing is not null) return existing;
-
-        string name = Path.GetFileName(folder.TrimEnd('\\', '/'));
-        return Path.Combine(folder, (ReamPaths.IsValidName(name) ? name : "Ream") + ReamPaths.Extension);
-    }
-
-    private static AppViewModel LoadOrSeed(IDocumentRepository repository, AppConfig config, IAssetStore assets)
-    {
-        var snapshot = repository.Load();
-        return snapshot.IsFirstRun
-            ? SeedData.CreateWelcome(config, assets)
-            : SnapshotMapper.ToViewModel(snapshot, config, assets);
     }
 
     /// <summary>Optional `--home &lt;dir&gt;` keeps config and documents under one folder (dev and testing).</summary>
