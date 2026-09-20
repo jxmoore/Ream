@@ -23,8 +23,11 @@ public static class ReamPaths
         "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
     };
 
+    /// <summary>A path that names a .ream file: the extension, and a name in front of it (a file called just ".ream" is not one).</summary>
     public static bool IsReamFile(string? path) =>
-        !string.IsNullOrWhiteSpace(path) && string.Equals(Path.GetExtension(path), Extension, StringComparison.OrdinalIgnoreCase);
+        !string.IsNullOrWhiteSpace(path)
+        && string.Equals(Path.GetExtension(path), Extension, StringComparison.OrdinalIgnoreCase)
+        && Path.GetFileNameWithoutExtension(path).Length > 0;
 
     /// <summary>The ream's name: its file name without the extension ("C:\x\Foo.ream" is "Foo").</summary>
     public static string NameOf(string reamFilePath) => Path.GetFileNameWithoutExtension(reamFilePath);

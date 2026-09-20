@@ -70,6 +70,14 @@ public class ReamPathsTests
     }
 
     [Fact]
+    public void AFileCalledJustDotReam_IsNotAReamFile()
+    {
+        Assert.False(ReamPaths.IsReamFile(@"C:\x\.ream"));
+        Assert.False(ReamPaths.IsReamFile(".ream"));
+        Assert.True(ReamPaths.IsReamFile(@"C:\x\a.ream"));
+    }
+
+    [Fact]
     public void DataRootOf_IsBesideTheFile_OrTheFilesOwnFolderForDot()
     {
         using var dir = new TempDir();
