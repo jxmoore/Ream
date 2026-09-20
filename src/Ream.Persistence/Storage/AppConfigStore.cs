@@ -26,13 +26,12 @@ public sealed class AppConfigStore
     /// Startup load. A missing file is created with defaults; an unreadable one is set aside
     /// (never deleted) and replaced with defaults so the app can always start.
     /// </summary>
-    /// <param name="defaultDocumentsRoot">Written into a newly created config so the location is visible and editable.</param>
-    public AppConfig Load(string defaultDocumentsRoot)
+    public AppConfig Load()
     {
         RecoverInterruptedWrite();
 
         if (!File.Exists(_path))
-            return WriteDefaults(defaultDocumentsRoot);
+            return WriteDefaults();
 
         if (TryLoad(out var config, out var error))
             return config;
@@ -40,7 +39,7 @@ public sealed class AppConfigStore
         string aside = $"{_path}.corrupt-{DateTime.UtcNow:yyyyMMddHHmmss}";
         File.Move(_path, aside);
         Debug.WriteLine($"Set aside unusable config ({error}): {aside}");
-        return WriteDefaults(defaultDocumentsRoot);
+        return WriteDefaults();
     }
 
     /// <summary>
@@ -184,6 +183,9 @@ public sealed class AppConfigStore
         if (config.NoteOpacity is < 0 or > 100)
             return "noteOpacity must be between 0 and 100";
 
+        if (!string.IsNullOrEmpty(config.LastReam) && !IsReamFilePath(config.LastReam))
+            return "lastReam must be the full path of a .ream file";
+
         string? border = config.Layout.FocusBorderColor;
         if (!string.IsNullOrWhiteSpace(border) && !Rgba.TryParse(border, out _))
             return "layout.focusBorderColor must look like #RRGGBB or #AARRGGBB";
@@ -199,6 +201,11 @@ public sealed class AppConfigStore
 
         return null;
     }
+
+    private static bool IsReamFilePath(string path) =>
+        path.EndsWith(".ream", StringComparison.OrdinalIgnoreCase)
+        && path.IndexOfAny(System.IO.Path.GetInvalidPathChars()) < 0
+        && System.IO.Path.IsPathFullyQualified(path);
 
     /// <summary>A crash between writing config.json.tmp and replacing config.json leaves the temp file behind.</summary>
     private void RecoverInterruptedWrite()
@@ -232,9 +239,9 @@ public sealed class AppConfigStore
         }
     }
 
-    private AppConfig WriteDefaults(string defaultDocumentsRoot)
+    private AppConfig WriteDefaults()
     {
-        var config = new AppConfig { DocumentsRoot = defaultDocumentsRoot };
+        var config = new AppConfig();
         AtomicFile.WriteAllText(_path, JsonSerializer.Serialize(config, JsonDefaults.Options));
         return config;
     }

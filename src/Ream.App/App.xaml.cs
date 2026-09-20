@@ -30,7 +30,7 @@ public partial class App : Application
         {
             var paths = AppPaths.Resolve(ParseHome(e.Args));
             var store = new AppConfigStore(paths.ConfigFile);
-            var config = store.Load(paths.DefaultDocumentsRoot);
+            var config = store.Load();
 
             // Before any window exists, so nothing is ever drawn in the wrong palette.
             _theme = new ThemeService(this);
