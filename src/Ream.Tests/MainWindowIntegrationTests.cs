@@ -25,7 +25,7 @@ internal sealed class WindowFixture : IDisposable
     public WindowFixture(AppConfig config, params (string? Name, int Notes)[] workspaces)
     {
         Dir = new TempDir();
-        Repo = new DocumentRepository(Dir.Combine("Docs"));
+        Repo = TestReam.Repo(Dir.Combine("Docs"));
 
         var built = workspaces.Select(spec =>
         {
@@ -218,7 +218,7 @@ public class MainWindowIntegrationTests
         DragEnd(view);
 
         fx.Repo.Save(SnapshotMapper.ToSnapshot(fx.App));
-        var reloaded = new DocumentRepository(fx.Repo.Root).Load();
+        var reloaded = TestReam.Repo(fx.Repo.Root).Load();
 
         Assert.Equal(note.WidthFraction, reloaded.Workspaces[0].Notes[0].WidthFraction, 3);
     });
@@ -555,7 +555,7 @@ public class MainWindowIntegrationTests
         fx.App.CommitRenameCommand.Execute(fx.App.Workspaces[1]);
 
         fx.Repo.Save(SnapshotMapper.ToSnapshot(fx.App));
-        var reloaded = new DocumentRepository(fx.Repo.Root).Load();
+        var reloaded = TestReam.Repo(fx.Repo.Root).Load();
 
         Assert.Equal("Renamed", reloaded.Workspaces[0].Name);
     });
@@ -567,7 +567,7 @@ public class MainWindowIntegrationTests
         fx.App.Workspaces[^1].Name = "Someday";
 
         fx.Repo.Save(SnapshotMapper.ToSnapshot(fx.App));
-        var reloaded = new DocumentRepository(fx.Repo.Root).Load();
+        var reloaded = TestReam.Repo(fx.Repo.Root).Load();
 
         Assert.Equal(["Work", "Someday"], reloaded.Workspaces.Select(w => w.Name));
         Assert.Empty(reloaded.Workspaces[1].Notes);

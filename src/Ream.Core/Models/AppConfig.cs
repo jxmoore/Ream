@@ -4,8 +4,20 @@ public sealed class AppConfig
 {
     public int SchemaVersion { get; init; } = 1;
 
-    /// <summary>Folder holding all workspaces. Null/empty means the default location.</summary>
+    /// <summary>
+    /// Legacy. The folder that held all workspaces before reams were single files; it is only read, once, to find
+    /// an old folder to convert. A fresh config no longer writes it and nothing new is stored there.
+    /// </summary>
     public string? DocumentsRoot { get; init; }
+
+    /// <summary>Whether changes are written to the open ream as you go. Off means only an explicit save writes.</summary>
+    public bool AutoSave { get; init; } = true;
+
+    /// <summary>Whether a newly created ream starts with the tutorial. Off starts it empty.</summary>
+    public bool TutorialOnNew { get; init; } = true;
+
+    /// <summary>Full path of the .ream file that was open last; Ream reopens it at launch. Null means none.</summary>
+    public string? LastReam { get; init; }
 
     /// <summary>A theme id from <see cref="ThemeCatalog"/>; anything else is the dark default.</summary>
     public string Theme { get; init; } = ThemeCatalog.DefaultId;
@@ -25,13 +37,34 @@ public sealed class AppConfig
     public Dictionary<string, string> Keybindings { get; init; } = DefaultKeybindings();
 
     /// <summary>A copy with the settings the Settings panel edits changed; everything else is carried over.</summary>
-    public AppConfig With(string? theme = null, int? canvasOpacity = null, int? noteOpacity = null) => new()
+    public AppConfig With(string? theme = null, int? canvasOpacity = null, int? noteOpacity = null, bool? autoSave = null) => new()
     {
         SchemaVersion = SchemaVersion,
         DocumentsRoot = DocumentsRoot,
+        AutoSave = autoSave ?? AutoSave,
+        TutorialOnNew = TutorialOnNew,
+        LastReam = LastReam,
         Theme = theme ?? Theme,
         CanvasOpacity = canvasOpacity ?? CanvasOpacity,
         NoteOpacity = noteOpacity ?? NoteOpacity,
+        CanvasBlur = CanvasBlur,
+        Layout = Layout,
+        Ribbon = Ribbon,
+        Animations = Animations,
+        Keybindings = Keybindings,
+    };
+
+    /// <summary>A copy remembering <paramref name="path"/> as the ream to reopen at launch (null forgets it); everything else is carried over.</summary>
+    public AppConfig WithLastReam(string? path) => new()
+    {
+        SchemaVersion = SchemaVersion,
+        DocumentsRoot = DocumentsRoot,
+        AutoSave = AutoSave,
+        TutorialOnNew = TutorialOnNew,
+        LastReam = path,
+        Theme = Theme,
+        CanvasOpacity = CanvasOpacity,
+        NoteOpacity = NoteOpacity,
         CanvasBlur = CanvasBlur,
         Layout = Layout,
         Ribbon = Ribbon,
@@ -61,6 +94,11 @@ public sealed class AppConfig
         ["closeNote"] = "Alt+Q",
         ["renameNote"] = "F2",
         ["renameWorkspace"] = "Shift+F2",
+        ["newReam"] = "Ctrl+Shift+N",
+        ["openReam"] = "Ctrl+O",
+        ["save"] = "Ctrl+S",
+        ["saveAs"] = "Ctrl+Shift+S",
+        ["clearReam"] = "Alt+Shift+Q",
     };
 }
 

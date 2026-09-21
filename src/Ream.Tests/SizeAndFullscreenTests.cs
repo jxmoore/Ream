@@ -312,31 +312,3 @@ public class FullscreenControllerTests
         Assert.Empty(frame.Log);
     }
 }
-
-public class WelcomeNoteTests
-{
-    [Fact]
-    public void TheWelcomeNote_IsValidAndMentionsTheCurrentShortcuts()
-    {
-        var app = SeedData.CreateWelcome(new AppConfig(), null!);
-        var body = app.CurrentWorkspace.Notes.Single().Body;
-
-        Assert.True(NoteContent.TryParse(body, out _));
-        string text = NoteContent.ToPlainText(body);
-        Assert.Contains("Alt+F11", text);
-        Assert.Contains("F11", text);
-        Assert.Contains("Alt+=", text);
-        Assert.Contains("Alt+-", text);
-        Assert.Contains("Shift+F2", text);
-        Assert.DoesNotContain("Alt+F ", text);
-    }
-
-    [Fact]
-    public void TheWelcomeWorkspace_IsFlankedByEmptyOnes()
-    {
-        var app = SeedData.CreateWelcome(new AppConfig(), null!);
-
-        Assert.Equal(["New workspace above", "Welcome", "New workspace below"], app.Workspaces.Select(w => w.MenuLabel));
-        Assert.Equal("Welcome", app.CurrentWorkspace.Name);
-    }
-}

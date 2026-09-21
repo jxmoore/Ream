@@ -130,7 +130,7 @@ public class RibbonConfigTests
     {
         using var dir = new TempDir();
         string path = dir.Combine("fresh", "config.json");
-        new AppConfigStore(path).Load("docs");
+        new AppConfigStore(path).Load();
 
         var root = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
 

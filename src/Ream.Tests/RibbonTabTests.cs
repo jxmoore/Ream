@@ -103,46 +103,17 @@ public class RibbonTabTests
     private static Button ButtonNamed(FileRibbonView view, string name) => (Button)view.FindName(name);
 
     [Fact]
-    public void TheFileRibbon_HasOpenDisabled_AndHelpAndAbout() => Ui.Run(() =>
-    {
-        using var fx = Docked(("W", 1));
-        var view = FileRibbon(fx);
-
-        var open = ButtonNamed(view, "OpenButton");
-        Assert.False(open.IsEnabled);
-        Assert.Equal("Coming soon", open.ToolTip);
-        Assert.True(ButtonNamed(view, "HelpButton").IsEnabled);
-        Assert.True(ButtonNamed(view, "AboutButton").IsEnabled);
-    });
-
-
-
-
-
-
-
-    [Fact]
-    public void TheFileRibbon_HasNoWorkspaceButtons() => Ui.Run(() =>
+    public void TheFileRibbon_HasTheReamButtons_TheAutoSaveSwitch_AndHelpAndAbout() => Ui.Run(() =>
     {
         using var fx = Docked(("Work", 1), ("Ideas", 1));
         var view = FileRibbon(fx);
 
         Assert.Null(view.FindName("WorkspaceList"));
-        Assert.DoesNotContain(Ui.Descendants<Button>(view), b => b.Name == "WorkspaceButton");
-        Assert.Equal(["OpenButton", "HelpButton", "AboutButton"], Ui.Descendants<Button>(view).Select(b => b.Name));
-    });
-
-    [Fact]
-    public void Open_DoesNothing_EvenIfClicked() => Ui.Run(() =>
-    {
-        using var fx = Docked(("W", 1));
-        var view = FileRibbon(fx);
-        var shown = new List<Window>();
-        fx.Window.ShowModal = shown.Add;
-
-        Click(ButtonNamed(view, "OpenButton"));
-
-        Assert.Empty(shown);
+        Assert.Equal(
+            ["NewButton", "OpenButton", "SaveButton", "SaveAsButton", "ClearButton", "HelpButton", "AboutButton"],
+            Ui.Descendants<Button>(view).Select(b => b.Name));
+        Assert.All(Ui.Descendants<Button>(view), b => Assert.True(b.IsEnabled, b.Name));
+        Assert.IsType<ToggleButton>(view.FindName("AutoSaveToggle"));
     });
 
     [Fact]
@@ -159,7 +130,7 @@ public class RibbonTabTests
         Assert.Same(fx.Window, help.Owner);
 
         var sections = ((IEnumerable<HelpSection>)help.Sections.ItemsSource).ToList();
-        Assert.Equal(["Notes", "Workspaces", "Size and view", "Mouse", "Editing"], sections.Select(s => s.Title));
+        Assert.Equal(["Notes", "Workspaces", "Size and view", "Reams", "Mouse", "Editing"], sections.Select(s => s.Title));
         Assert.Contains(sections.SelectMany(s => s.Entries), e => e.Gesture == "F11");
     });
 

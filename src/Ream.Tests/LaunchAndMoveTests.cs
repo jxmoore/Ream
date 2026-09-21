@@ -52,9 +52,10 @@ public class LaunchFocusTests
     }
 
     [Fact]
-    public void TheFirstEverLaunch_StartsOnTheWelcomeNote()
+    public void ANewReam_StartsOnTheFirstTutorialNote()
     {
-        var app = SeedData.CreateWelcome(new AppConfig(), null!);
+        var config = new AppConfig();
+        var app = SnapshotMapper.ToViewModel(TutorialReam.Create(config, null, null), config, null!);
 
         Assert.Equal(0, app.CurrentWorkspace.FocusedIndex);
         Assert.True(app.CurrentWorkspace.Notes[0].IsFocused);

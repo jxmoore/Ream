@@ -129,7 +129,7 @@ public class SettingsConfigTests
     {
         using var dir = new TempDir();
         string path = dir.Combine("fresh", "config.json");
-        new AppConfigStore(path).Load("docs");
+        new AppConfigStore(path).Load();
 
         var root = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
 
@@ -192,6 +192,9 @@ public class SettingsConfigTests
         var original = new AppConfig
         {
             DocumentsRoot = "D:/notes",
+            AutoSave = false,
+            TutorialOnNew = false,
+            LastReam = @"C:\Notes\Work.ream",
             Theme = "nord",
             CanvasOpacity = 80,
             CanvasBlur = false,
@@ -206,6 +209,9 @@ public class SettingsConfigTests
         Assert.Equal(20, changed.CanvasOpacity);
         Assert.Equal(55, changed.NoteOpacity);
         Assert.Equal("D:/notes", changed.DocumentsRoot);
+        Assert.False(changed.AutoSave);
+        Assert.False(changed.TutorialOnNew);
+        Assert.Equal(@"C:\Notes\Work.ream", changed.LastReam);
         Assert.False(changed.CanvasBlur);
         Assert.Same(original.Layout, changed.Layout);
         Assert.Same(original.Animations, changed.Animations);
@@ -253,7 +259,7 @@ public class SettingsConfigTests
     {
         using var dir = new TempDir();
         var store = new AppConfigStore(dir.Combine("config.json"));
-        store.Load("docs");
+        store.Load();
 
         Assert.True(store.Update(root => { root["theme"] = "material"; root["canvasOpacity"] = 30; }, out _));
 
