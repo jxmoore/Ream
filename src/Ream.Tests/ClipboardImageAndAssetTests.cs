@@ -81,7 +81,7 @@ public class AssetStoreTests
     public void SavedAsset_CanBeFoundAgain()
     {
         using var dir = new TempDir();
-        var repo = new DocumentRepository(dir.Combine("Docs"));
+        var repo = TestReam.Repo(dir.Combine("Docs"));
         var noteId = Guid.NewGuid();
 
         string name = repo.SaveAsset("ws-11111111", noteId, Png);
@@ -101,7 +101,7 @@ public class AssetStoreTests
     public void UnsafeAssetNames_AreRefused(string name)
     {
         using var dir = new TempDir();
-        var repo = new DocumentRepository(dir.Combine("Docs"));
+        var repo = TestReam.Repo(dir.Combine("Docs"));
 
         Assert.Null(repo.GetAssetPath("ws-11111111", Guid.NewGuid(), name));
     }
@@ -110,7 +110,7 @@ public class AssetStoreTests
     public void UnsafeWorkspaceFolder_IsRefusedWhenSaving()
     {
         using var dir = new TempDir();
-        var repo = new DocumentRepository(dir.Combine("Docs"));
+        var repo = TestReam.Repo(dir.Combine("Docs"));
 
         Assert.Throws<ArgumentException>(() => repo.SaveAsset("..\\outside", Guid.NewGuid(), Png));
     }
@@ -120,7 +120,7 @@ public class AssetStoreTests
     {
         using var dir = new TempDir();
         string root = dir.Combine("Docs");
-        var repo = new DocumentRepository(root);
+        var repo = TestReam.Repo(root);
         var note = Note();
         var source = Workspace("ws-aaaaaaaa", note);
         var target = Workspace("ws-bbbbbbbb");
@@ -138,7 +138,7 @@ public class AssetStoreTests
     {
         using var dir = new TempDir();
         string root = dir.Combine("Docs");
-        var repo = new DocumentRepository(root);
+        var repo = TestReam.Repo(root);
         var note = Note();
         repo.Save(new DocumentSnapshot([Workspace("ws-aaaaaaaa", note), Workspace("ws-bbbbbbbb")], null));
         string first = repo.SaveAsset("ws-aaaaaaaa", note.Id, Png);
@@ -155,7 +155,7 @@ public class AssetStoreTests
     {
         using var dir = new TempDir();
         string root = dir.Combine("Docs");
-        var repo = new DocumentRepository(root);
+        var repo = TestReam.Repo(root);
         var note = Note();
         var workspace = Workspace("ws-aaaaaaaa", note);
         repo.Save(new DocumentSnapshot([workspace], null));
@@ -176,11 +176,11 @@ public class AssetStoreTests
         var note = Note();
         var source = Workspace("ws-aaaaaaaa", note);
         var target = Workspace("ws-bbbbbbbb");
-        var first = new DocumentRepository(root);
+        var first = TestReam.Repo(root);
         first.Save(new DocumentSnapshot([source, target], null));
         string name = first.SaveAsset("ws-aaaaaaaa", note.Id, Png);
 
-        var restarted = new DocumentRepository(root);
+        var restarted = TestReam.Repo(root);
         var loaded = restarted.Load();
         restarted.Save(new DocumentSnapshot(
             [loaded.Workspaces[0] with { Notes = [] }, loaded.Workspaces[1] with { Notes = loaded.Workspaces[0].Notes }], null));

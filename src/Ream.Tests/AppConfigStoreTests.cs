@@ -11,14 +11,14 @@ public class AppConfigStoreTests
         using var dir = new TempDir();
         string path = dir.Combine("Ream", "config.json");
 
-        var config = new AppConfigStore(path).Load(@"C:\Docs\ReemDocuments");
+        var config = new AppConfigStore(path).Load();
 
         Assert.True(File.Exists(path));
         string json = File.ReadAllText(path);
         Assert.Contains("\"gapPx\": 28", json);
         Assert.Contains("\"focusNextNote\": \"Alt+Right\"", json);
-        Assert.Contains("ReemDocuments", json);
-        Assert.Equal(@"C:\Docs\ReemDocuments", config.DocumentsRoot);
+        Assert.DoesNotContain("documentsRoot", json);
+        Assert.Null(config.DocumentsRoot);
         Assert.Equal(AppConfig.DefaultKeybindings().Count, config.Keybindings.Count);
     }
 
@@ -35,7 +35,7 @@ public class AppConfigStoreTests
             }
             """);
 
-        var config = new AppConfigStore(path).Load("unused");
+        var config = new AppConfigStore(path).Load();
 
         Assert.Equal(4, config.Layout.GapPx);
         Assert.True(config.Layout.CenterFocusedColumn);
@@ -54,7 +54,7 @@ public class AppConfigStoreTests
         string path = dir.Combine("config.json");
         File.WriteAllText(path, "{ nope");
 
-        var config = new AppConfigStore(path).Load("docs");
+        var config = new AppConfigStore(path).Load();
 
         Assert.Equal(28, config.Layout.GapPx);
         Assert.Single(Directory.GetFiles(dir.Path, "config.json.corrupt-*"));
@@ -68,7 +68,7 @@ public class AppConfigStoreTests
         string path = dir.Combine("config.json");
         File.WriteAllText(path, """{ "layout": null }""");
 
-        var config = new AppConfigStore(path).Load("docs");
+        var config = new AppConfigStore(path).Load();
 
         Assert.NotNull(config.Layout);
         Assert.Single(Directory.GetFiles(dir.Path, "config.json.corrupt-*"));

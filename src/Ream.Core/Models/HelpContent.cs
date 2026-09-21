@@ -13,6 +13,7 @@ public static class ActionCatalog
     public const string Notes = "Notes";
     public const string Workspaces = "Workspaces";
     public const string Layout = "Size and view";
+    public const string Reams = "Reams";
 
     public static IReadOnlyList<ActionInfo> All { get; } =
     [
@@ -38,6 +39,12 @@ public static class ActionCatalog
         new("resetAllSizes", "Reset every note's width in every workspace", Layout),
         new("toggleFullscreen", "Note fullscreen, and back", Layout),
         new("toggleAppFullscreen", "App fullscreen, and back", Layout),
+
+        new("newReam", "New ream", Reams),
+        new("openReam", "Open a ream", Reams),
+        new("save", "Save the ream", Reams),
+        new("saveAs", "Save the ream under another name (a copy, which you then work in)", Reams),
+        new("clearReam", "Clear the ream: remove every workspace and note (asks first; nothing is deleted)", Reams),
     ];
 
     public static ActionInfo? Find(string id) => All.FirstOrDefault(a => a.Id == id);

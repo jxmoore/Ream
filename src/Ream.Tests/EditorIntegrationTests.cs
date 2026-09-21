@@ -19,7 +19,7 @@ internal sealed class EditorFixture : IDisposable
     public EditorFixture(string body = "")
     {
         Dir = new TempDir();
-        Repo = new DocumentRepository(Dir.Combine("Docs"));
+        Repo = TestReam.Repo(Dir.Combine("Docs"));
         Workspace = new WorkspaceViewModel("W", Repo);
         Note = new NoteViewModel { Title = "Untitled", Body = body };
         Workspace.LoadNotes([Note], Note.Id);
@@ -430,7 +430,7 @@ public class EditorIntegrationTests
         var snapshot = SnapshotMapper.ToSnapshot(app);
         fx.Repo.Save(snapshot);
 
-        var reloadedRepo = new DocumentRepository(fx.Repo.Root);
+        var reloadedRepo = TestReam.Repo(fx.Repo.Root);
         var reloaded = SnapshotMapper.ToViewModel(reloadedRepo.Load(), new AppConfig(), reloadedRepo);
         var note = reloaded.Workspaces[1].Notes[0];
         var view = new NoteColumnView { DataContext = note };

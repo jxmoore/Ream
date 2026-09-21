@@ -657,3 +657,142 @@ public class DraftInTheWindowTests
         Assert.Equal("something worth keeping", saved[1].Title);
     });
 }
+
+public class DraftWorkspaceDoesNotBreedTests
+{
+    private static WorkspaceViewModel Workspace(string? name, int notes)
+    {
+        var workspace = new WorkspaceViewModel(name);
+        workspace.LoadNotes(Enumerable.Range(0, notes).Select(i => new NoteViewModel { Title = $"note {i}" }), null);
+        return workspace;
+    }
+
+    private static AppViewModel App(params WorkspaceViewModel[] workspaces) => new(new AppConfig(), workspaces);
+
+    private static int Drafts(AppViewModel app) => app.Workspaces.Sum(w => w.Notes.Count(n => n.IsDraft));
+
+    [Fact]
+    public void HoldingAltUp_MakesOneDraftWorkspace_NotAnEndlessStream()
+    {
+        var app = App(Workspace("A", 1));
+
+        for (int i = 0; i < 12; i++) app.SwitchWorkspaceUpCommand.Execute(null);
+
+        Assert.Equal(4, app.Workspaces.Count); // empty edge, the draft workspace, A, empty edge
+        Assert.Equal(1, app.CurrentIndex);
+        var draft = Assert.Single(app.CurrentWorkspace.Notes);
+        Assert.True(draft.IsDraft);
+        Assert.Equal("Untitled 2", draft.Title); // numbered once, not "Untitled 13"
+        Assert.Equal(1, Drafts(app));
+    }
+
+    [Fact]
+    public void HoldingAltDown_IsTheSameGoingTheOtherWay()
+    {
+        var app = App(Workspace("A", 1));
+
+        for (int i = 0; i < 12; i++) app.SwitchWorkspaceDownCommand.Execute(null);
+
+        Assert.Equal(4, app.Workspaces.Count);
+        Assert.True(Assert.Single(app.CurrentWorkspace.Notes).IsDraft);
+        Assert.Equal(1, Drafts(app));
+        Assert.Same(app.Workspaces[^2], app.CurrentWorkspace);
+    }
+
+    [Fact]
+    public void OnceTheDraftHasContent_TheNextWorkspaceCanBeMade()
+    {
+        var app = App(Workspace("A", 1));
+        app.SwitchWorkspaceUpCommand.Execute(null);
+        var draft = app.CurrentWorkspace.Notes[0];
+
+        draft.Body = "<ReamNote schemaVersion=\"1\"><Doc><P><R>typed</R></P></Doc></ReamNote>";
+        draft.IsDraft = false; // what typing does
+
+        app.SwitchWorkspaceUpCommand.Execute(null);
+
+        Assert.Equal(5, app.Workspaces.Count);
+        Assert.Equal(1, Drafts(app));
+        Assert.Contains(draft, app.Workspaces[2].Notes); // the typed one is kept, one below the new draft
+        Assert.True(app.CurrentWorkspace.Notes[0].IsDraft);
+    }
+
+    [Fact]
+    public void NamingTheDraftWorkspace_MakesItReal_AndLetsTheNextOneBeMade()
+    {
+        var app = App(Workspace("A", 1));
+        app.SwitchWorkspaceUpCommand.Execute(null);
+        app.CurrentWorkspace.Name = "Ideas";
+
+        app.SwitchWorkspaceUpCommand.Execute(null);
+
+        Assert.Equal(5, app.Workspaces.Count);
+    }
+
+    [Fact]
+    public void ADraftWorkspaceIsStillEasyToLeave_TheWayYouCame()
+    {
+        var app = App(Workspace("A", 1));
+        for (int i = 0; i < 3; i++) app.SwitchWorkspaceUpCommand.Execute(null);
+        var draftWorkspace = app.CurrentWorkspace;
+
+        app.SwitchWorkspaceDownCommand.Execute(null);
+
+        Assert.Equal("A", app.CurrentWorkspace.Name);
+        Assert.True(draftWorkspace.IsEmpty); // its blank draft was dropped on the way out
+        app.PruneEmptyWorkspacesCommand.Execute(null);
+        Assert.Equal(3, app.Workspaces.Count);
+    }
+
+    [Fact]
+    public void AfterLeavingAndComingBack_ADraftCanBeMadeAgain_JustOneAtATime()
+    {
+        var app = App(Workspace("A", 1));
+        app.SwitchWorkspaceUpCommand.Execute(null);
+        app.SwitchWorkspaceDownCommand.Execute(null);
+        app.PruneEmptyWorkspacesCommand.Execute(null);
+
+        for (int i = 0; i < 5; i++) app.SwitchWorkspaceUpCommand.Execute(null);
+
+        Assert.Equal(4, app.Workspaces.Count);
+        Assert.Equal(1, Drafts(app));
+    }
+
+    [Fact]
+    public void RealWorkspacesInTheMiddle_AreUnaffected()
+    {
+        var app = App(Workspace("A", 1), Workspace("B", 1), Workspace("C", 1));
+
+        app.SwitchWorkspace(1);
+        app.SwitchWorkspace(1);
+        app.SwitchWorkspace(-1);
+
+        Assert.Equal("B", app.CurrentWorkspace.Name);
+        Assert.Equal(0, Drafts(app));
+    }
+
+    [Fact]
+    public void ABlockedStep_StillReturnsTheKeyboardToTheEditor()
+    {
+        var app = App(Workspace("A", 1));
+        app.SwitchWorkspaceUpCommand.Execute(null);
+        int requests = 0;
+        app.FocusEditorRequested += () => requests++;
+
+        app.SwitchWorkspaceUpCommand.Execute(null);
+
+        Assert.Equal(1, requests);
+    }
+
+    [Fact]
+    public void TheDraftNumberDoesNotClimbWhileTheKeyIsHeld()
+    {
+        var app = App(Workspace("A", 1));
+        app.SwitchWorkspaceUpCommand.Execute(null);
+        string title = app.CurrentWorkspace.Notes[0].Title;
+
+        for (int i = 0; i < 20; i++) app.SwitchWorkspaceUpCommand.Execute(null);
+
+        Assert.Equal(title, app.CurrentWorkspace.Notes[0].Title);
+    }
+}

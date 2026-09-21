@@ -77,7 +77,7 @@ public class HelpContentTests
     {
         var sections = HelpContent.Build(AppConfig.DefaultKeybindings());
 
-        Assert.Equal(["Notes", "Workspaces", "Size and view", "Mouse", "Editing"], sections.Select(s => s.Title));
+        Assert.Equal(["Notes", "Workspaces", "Size and view", "Reams", "Mouse", "Editing"], sections.Select(s => s.Title));
         Assert.Contains(sections.Single(s => s.Title == "Mouse").Entries, e => e.Gesture == "Alt + Scroll");
         Assert.Contains(sections.Single(s => s.Title == "Editing").Entries, e => e.Gesture == "Ctrl + B");
     }

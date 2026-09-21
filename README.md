@@ -27,13 +27,16 @@ A Windows desktop note-taking app built around an infinitely scrollable,
 - **Fast with many notes:** a note's text is only loaded once it is near the screen.
 - **Safe on crashes:** interrupted writes are recovered or set aside, never lost.
 
-Notes are plain files on disk under a `ReemDocuments/` folder (by default in your
-Documents folder): one folder per workspace, one file per note, and a JSON layout file
-describing the arrangement. Closing a note moves it to `ReemDocuments/.trash/` rather
-than deleting it.
+A *ream* is your notes as plain files on disk: a `Foo.ream` file (the list of workspaces) with a `Foo`
+folder beside it holding one folder per workspace, one file per note (`.reamnote`), a `.reamlayout` file describing
+the arrangement, and any pasted images. Closing a note moves it to the ream's `.trash` folder rather than deleting it.
+Use the **File** tab to start a new ream (with a short tutorial), open one, save, save a copy under a new name, or clear
+the current one; auto-save can be switched off there or in `config.json`, in which case the title shows a `*` while there
+are unsaved changes and Ream asks before you close. Ream reopens the ream you had open last.
 
 Settings live in `%AppData%\Ream\config.json`, created on first run. Edit it to change
-the gap between columns, centered focus, animation timing and every keyboard shortcut.
+the gap between columns, centered focus, animation timing, auto-save, whether new reams start with the tutorial,
+and every keyboard shortcut.
 
 ## Build and run
 

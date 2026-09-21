@@ -349,9 +349,9 @@ public partial class MainWindow : Window
     /// <summary>How Help and About are shown (modally, over this window). Tests replace it so nothing really opens.</summary>
     internal Action<Window> ShowModal { get; set; } = window => window.ShowDialog();
 
-    internal void OpenHelp() => Present(new HelpWindow(HelpContent.Build(_viewModel.Config.Keybindings)));
+    internal void OpenHelp() => Present(new HelpWindow(HelpContent.Build(_viewModel.Config.Keybindings), _viewModel.Config.Keybindings));
 
-    internal void OpenAbout() => Present(new AboutWindow(About));
+    internal void OpenAbout() => Present(new AboutWindow(About with { DocumentsFolder = _viewModel.ReamPath ?? About.DocumentsFolder }));
 
     private void Present(Window window)
     {
@@ -397,6 +397,13 @@ public partial class MainWindow : Window
 
         ApplyKeyBindings();
         if (_viewModel.Config.Ribbon.AutoHide != _ribbonState.AutoHide) ApplyRibbonMode(_viewModel.Config.Ribbon.AutoHide);
+    }
+
+    /// <summary>Closing the window asks about unsaved changes (only ever when auto-save is off and something changed).</summary>
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        if (_viewModel.Files is { } files && !files.ConfirmLeave()) e.Cancel = true;
+        base.OnClosing(e);
     }
 
     protected override void OnSourceInitialized(EventArgs e)
