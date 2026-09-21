@@ -80,7 +80,7 @@ missing, otherwise moved to the ream's `.recovered/<stamp>/` folder (never delet
 
 Packaging: `build/publish.ps1` makes a portable single-file build + zip under `artifacts/`
 (gitignored); `-FrameworkDependent` for the small one; `-Version x.y.z` stamps a version. It is not an installer.
-Releases: a push to `main` runs the `release` job in `.github/workflows/tests.yml` (after the tests pass): GitVersion (`GitVersion.yml`)
+Releases: a push to `main` runs only the `release` job in `.github/workflows/tests.yml` (the tests run on every branch push, and a ruleset requires them to pass on a PR's source branch, so main does not re-run them): GitVersion (`GitVersion.yml`)
 works out a plain major.minor.patch (the `MajorMinorPatch` variable only - never `FullSemVer`, which grows a `-N` suffix), the
 framework-dependent zip is published with that version, and a GitHub release `v<version>` is created (which also tags it). Each merge to
 main is a patch bump; `+semver: minor` / `+semver: major` in a commit message bumps more. A commit that already has a release is skipped.
