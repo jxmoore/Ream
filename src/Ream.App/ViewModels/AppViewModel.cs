@@ -70,6 +70,8 @@ public sealed partial class AppViewModel : ObservableObject
             ["save"] = SaveReamCommand,
             ["saveAs"] = SaveReamAsCommand,
             ["clearReam"] = ClearReamCommand,
+            ["find"] = FindCommand,
+            ["replace"] = ReplaceCommand,
         };
     }
 
@@ -172,6 +174,12 @@ public sealed partial class AppViewModel : ObservableObject
     public event Action? FocusEditorRequested;
 
     public void RequestEditorFocus() => FocusEditorRequested?.Invoke();
+
+    /// <summary>Raised for the find / replace keys; the window opens its Find and Replace dialog (true = with the Replace row).</summary>
+    public event Action<bool>? FindRequested;
+
+    [RelayCommand] private void Find() => FindRequested?.Invoke(false);
+    [RelayCommand] private void Replace() => FindRequested?.Invoke(true);
 
     public void SwitchWorkspace(int delta)
     {

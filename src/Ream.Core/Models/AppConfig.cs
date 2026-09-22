@@ -99,6 +99,8 @@ public sealed class AppConfig
         ["save"] = "Ctrl+S",
         ["saveAs"] = "Ctrl+Shift+S",
         ["clearReam"] = "Alt+Shift+Q",
+        ["find"] = "Ctrl+F",
+        ["replace"] = "Ctrl+H",
     };
 }
 

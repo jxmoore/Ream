@@ -13,9 +13,7 @@ public class RibbonWordLayoutTests
     /// <summary>The Word controls that are drawn but have nothing behind them yet.</summary>
     private static readonly string[] Placed =
     [
-        "FormatPainterButton", "ChangeCaseButton", "ClearFormattingButton", "SubscriptButton", "SuperscriptButton",
-        "TextEffectsButton", "MultilevelListButton", "SortButton", "ShowMarksButton", "LineSpacingButton",
-        "ShadingButton", "BordersButton", "FindButton", "ReplaceButton", "SelectButton", "AddInsButton",
+        "FormatPainterButton", "TextEffectsButton", "MultilevelListButton", "ShowMarksButton",
     ];
 
     private static RibbonView ShowRibbon(double width = 1400)
@@ -41,7 +39,7 @@ public class RibbonWordLayoutTests
         var ribbon = ShowRibbon();
         try
         {
-            string[] order = ["ClipboardGroup", "FontGroup", "ParagraphGroup", "StylesGroup", "EditingGroup", "AddInsGroup", "SizeGroup"];
+            string[] order = ["ClipboardGroup", "FontGroup", "ParagraphGroup", "StylesGroup", "EditingGroup", "SizeGroup"];
             var lefts = order.Select(name => LeftOf(ribbon, name)).ToList();
 
             Assert.Equal(lefts.OrderBy(x => x), lefts);
@@ -56,13 +54,13 @@ public class RibbonWordLayoutTests
         var ribbon = ShowRibbon();
         try
         {
-            string[] groups = ["ClipboardGroup", "FontGroup", "ParagraphGroup", "StylesGroup", "EditingGroup", "AddInsGroup"];
-            string[] labels = ["Clipboard", "Font", "Paragraph", "Styles", "Editing", "Add-ins"];
+            string[] groups = ["ClipboardGroup", "FontGroup", "ParagraphGroup", "StylesGroup", "EditingGroup"];
+            string[] labels = ["Clipboard", "Font", "Paragraph", "Styles", "Editing"];
 
             for (int i = 0; i < groups.Length; i++)
             {
                 var group = Part<StackPanel>(ribbon, groups[i]);
-                var label = Ui.Descendants<TextBlock>(group).Last(t => t.Text == labels[i]); // Add-ins is a tile caption too
+                var label = Ui.Descendants<TextBlock>(group).Single(t => t.Text == labels[i]);
 
                 // The label is under the tools: its top is lower than the top of the group's band of controls.
                 Assert.True(label.TranslatePoint(new Point(0, 0), group).Y > group.ActualHeight / 2, labels[i]);
@@ -171,18 +169,45 @@ public class RibbonWordLayoutTests
     });
 
     [Fact]
-    public void StylesAreAFramedGallery_WithItsScrollAndExpandArrowsDisabled() => Ui.Run(() =>
+    public void StylesAreAFramedGallery_WithWorkingScrollAndExpandArrows() => Ui.Run(() =>
     {
         var ribbon = ShowRibbon();
         try
         {
+            ribbon.Bar.IsEnabled = true; // what focusing a note editor does
+            Ui.Settle();
             var group = Part<StackPanel>(ribbon, "StylesGroup");
             var arrows = Ui.Descendants<Button>(group).ToList();
 
             Assert.Equal(3, arrows.Count);
-            Assert.All(arrows, a => Assert.False(a.IsEnabled));
+            // "Previous" starts disabled - the gallery opens scrolled all the way to its first tile.
+            Assert.False(ribbon.FindName("StylesPreviousButton") is Button { IsEnabled: true });
+            Assert.True(((Button)ribbon.FindName("StylesNextButton")).IsEnabled);
+            Assert.True(((Button)ribbon.FindName("StylesAllButton")).IsEnabled);
             Assert.Contains(Ui.Descendants<TextBlock>(group), t => t.Text == "¶ Normal");
             Assert.Contains(Ui.Descendants<TextBlock>(group), t => t.Text == "Heading 1");
+            Assert.Contains(Ui.Descendants<TextBlock>(group), t => t.Text == "Title");
+            Assert.Contains(Ui.Descendants<TextBlock>(group), t => t.Text == "Quote");
+        }
+        finally { Window.GetWindow(ribbon)!.Close(); }
+    });
+
+    [Fact]
+    public void StylesGallery_ScrollsWithTheArrows_AndOffersEveryStyleInTheAllMenu() => Ui.Run(() =>
+    {
+        var ribbon = ShowRibbon();
+        try
+        {
+            ribbon.Bar.IsEnabled = true; // what focusing a note editor does
+            var scroll = (ScrollViewer)ribbon.FindName("StylesScroll");
+            var next = (Button)ribbon.FindName("StylesNextButton");
+            var previous = (Button)ribbon.FindName("StylesPreviousButton");
+
+            next.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            Ui.Settle();
+
+            Assert.True(scroll.HorizontalOffset > 0);
+            Assert.True(previous.IsEnabled);
         }
         finally { Window.GetWindow(ribbon)!.Close(); }
     });
@@ -218,9 +243,13 @@ public class RibbonWordLayoutTests
             string[] working =
             [
                 "PasteButton", "CutButton", "CopyButton", "FontBox", "SizeBox", "BoldButton", "ItalicButton", "UnderlineButton",
-                "StrikeButton", "HighlightButton", "TextColorButton", "BulletsButton", "NumbersButton", "OutdentButton", "IndentButton",
+                "StrikeButton", "HighlightButton", "TextColorButton", "ChangeCaseButton", "ClearFormattingButton",
+                "SubscriptButton", "SuperscriptButton", "BulletsButton", "NumbersButton", "OutdentButton", "IndentButton",
                 "AlignLeftButton", "AlignCenterButton", "AlignRightButton", "AlignJustifyButton",
+                "SortButton", "LineSpacingButton", "ShadingButton", "BordersButton",
                 "StyleNormalButton", "StyleHeading1Button", "StyleHeading2Button", "StyleHeading3Button",
+                "StyleHeading4Button", "StyleTitleButton", "StyleSubtitleButton", "StyleQuoteButton",
+                "FindButton", "ReplaceButton", "SelectButton",
             ];
             foreach (var name in working) Assert.True(Part<Control>(ribbon, name).IsEnabled, name);
         }

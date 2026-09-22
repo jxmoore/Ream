@@ -51,10 +51,21 @@ Help/About are still ordinary native windows.
 Ribbon: the tab row is File | Home | View (`MainWindow.SelectTab`, `RibbonTab`); each tab swaps the panel below it:
 `FileRibbonView` (New / Open / Save / Save As, the Auto-save switch, Clear, and Help/About raised as events; bound to the `AppViewModel` ream commands, tooltips show the live gestures; there is no workspace list - workspaces are switched by keys and the wheel), `RibbonView` (Home, the
 editor controls) and `ViewRibbonView` (a theme dropdown bound to `SettingsViewModel.SelectedTheme`, canvas and note opacity sliders stacked; DataContext is the
-`SettingsViewModel`). Home is laid out like Word's Home tab (flat buttons, icon rows, a label under each group with its launcher corner): Clipboard, Font, Paragraph, Styles
-(a framed gallery), Editing, Add-ins, then Ream's own Size group (the three reset commands, stacked). Word controls Ream has no behaviour for yet (Format Painter,
-change case, sub/superscript, multilevel list, sort, ¶, line spacing, shading, borders, Find/Replace/Select, Add-ins) are drawn but disabled
-(`RibbonWordLayoutTests.Placed` lists them; enabling one means adding its handler and removing `IsEnabled="False"`) that sits outside `RibbonView.Bar` so it works with no editor focused. When the window is too narrow
+`SettingsViewModel`). Home is laid out like Word's Home tab (flat buttons, icon rows, a label centered under each group; there is no
+dialog-launcher corner and no Add-ins group - Ream doesn't have either): Clipboard, Font, Paragraph, Styles (a framed, horizontally
+scrollable gallery: Normal, Heading 1-4, Title, Subtitle, Quote, with working Previous/More arrows and an "All styles" menu -
+`RibbonView.Styles`, `ApplyStyle`), Editing (Find/Replace open a modeless `FindReplaceWindow` bound to `AppViewModel.FindCommand`/
+`ReplaceCommand`, which `MainWindow.OnFindRequested` opens or re-shows against `RibbonView.CurrentEditor`; Select is a small menu -
+Select All / Select Paragraph), then Ream's own Size group (the three reset commands, stacked). A few Word controls Ream still has
+no behaviour for (Format Painter, a true multilevel list, formatting marks / ¶, Text Effects) are drawn but disabled
+(`RibbonWordLayoutTests.Placed` lists them; enabling one means adding its handler and removing `IsEnabled="False"`); most of Font and
+Paragraph are otherwise live, including subscript/superscript, clear formatting, change case, line spacing, paragraph shading and
+borders, and sort - these act on `Ream.App/Editing/SelectionParagraphs` (the paragraphs touched by the selection) and, for
+Find/Replace, `Ream.App/Editing/DocumentSearch` (a flattened-text scan so a query can straddle two differently-formatted runs).
+Line height, paragraph spacing, borders and subscript/superscript are new `.reamnote` attributes (`src/Ream.Persistence/CLAUDE.md`);
+shading rides the existing run/paragraph `bg` attribute for free. A border's color is a fixed gray owned by the persistence layer, not
+a theme resource, so it looks the same before and after a reload regardless of the live theme (`RibbonView` uses the same fixed color
+when applying one live, for the same reason). Home's own Size group sits outside `RibbonView.Bar` so it works with no editor focused. When the window is too narrow
 the panel scrolls sideways with no scrollbar: chevron buttons (`RibbonScrollLeft/Right`) appear at the edge with more to see, and the wheel scrolls. There is no File menu or
 settings popup any more. `ribbon.autoHide` (default true): the tab row stays, the panel (always grid row 2) grows from height 0 when
 summoned and back to 0 when put away, so it pushes the notes down rather than covering them (`Core/Layout/RibbonVisibility` is the

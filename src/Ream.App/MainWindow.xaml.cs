@@ -35,6 +35,7 @@ public partial class MainWindow : Window
     private bool _overTabRow;
     private bool _overRibbonPanel;
     private bool _ribbonShown = true;
+    private FindReplaceWindow? _findReplaceWindow;
 
     /// <param name="settings">What the View tab edits; when omitted the panel works on this run only (tests).</param>
     internal MainWindow(AppViewModel viewModel, SettingsViewModel? settings, IWindowBackdrop? backdrop)
@@ -73,6 +74,7 @@ public partial class MainWindow : Window
 
         ApplyKeyBindings();
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        viewModel.FindRequested += OnFindRequested;
 
         // The new note's view may not exist yet when focus is requested, so wait until layout has caught up.
         viewModel.FocusEditorRequested += () => Dispatcher.BeginInvoke(
@@ -352,6 +354,23 @@ public partial class MainWindow : Window
     internal void OpenHelp() => Present(new HelpWindow(HelpContent.Build(_viewModel.Config.Keybindings), _viewModel.Config.Keybindings));
 
     internal void OpenAbout() => Present(new AboutWindow(About with { DocumentsFolder = _viewModel.ReamPath ?? About.DocumentsFolder }));
+
+    /// <summary>Opens Find (or Find and Replace) on whichever editor last had focus; modeless, so it re-shows an already-open window rather than stacking another.</summary>
+    internal void OnFindRequested(bool withReplace)
+    {
+        if (Ribbon.CurrentEditor is not { } editor) return;
+
+        if (_findReplaceWindow is { IsVisible: true } open)
+        {
+            open.SetMode(withReplace);
+            open.Activate();
+            return;
+        }
+
+        _findReplaceWindow = new FindReplaceWindow(editor, withReplace) { Owner = this };
+        _findReplaceWindow.Closed += (_, _) => _findReplaceWindow = null;
+        _findReplaceWindow.Show();
+    }
 
     private void Present(Window window)
     {

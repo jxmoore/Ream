@@ -306,6 +306,114 @@ public class EditorIntegrationTests
     });
 
     [Fact]
+    public void SubscriptAndSuperscript_ToggleAndAreSaved() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Editor.SelectAll();
+
+        Click(fx.Toolbar.SubscriptButton);
+        Assert.Contains("va=\"sub\"", fx.Saved());
+        Assert.True(fx.Toolbar.SubscriptButton.IsChecked);
+
+        // Toggling it back off removes the marker, and turns superscript on instead is a separate click.
+        Click(fx.Toolbar.SubscriptButton);
+        Assert.DoesNotContain("va=", fx.Saved());
+
+        Click(fx.Toolbar.SuperscriptButton);
+        Assert.Contains("va=\"super\"", fx.Saved());
+    });
+
+    [Fact]
+    public void ClearFormatting_RemovesCharacterFormattingFromTheSelection() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Editor.SelectAll();
+        Click(fx.Toolbar.BoldButton);
+        Click(fx.Toolbar.ItalicButton);
+        fx.Toolbar.ApplyTextColor(Colors.Red);
+        Assert.Contains("b=\"1\"", fx.Saved());
+
+        fx.Editor.SelectAll();
+        Click(fx.Toolbar.ClearFormattingButton);
+
+        string cleared = fx.Saved();
+        Assert.DoesNotContain("b=\"1\"", cleared);
+        Assert.DoesNotContain("i=\"1\"", cleared);
+        Assert.DoesNotContain("color=", cleared);
+    });
+
+    [Fact]
+    public void ChangeCase_UppercasesTheSelection() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Editor.SelectAll();
+
+        fx.Toolbar.TransformCase(t => t.ToUpperInvariant());
+
+        Assert.Equal("HELLO WORLD", TextOf(fx.Editor.Document).TrimEnd());
+    });
+
+    [Fact]
+    public void LineSpacing_SetsLineHeight_AsAMultipleOfTheFontSize() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Editor.SelectAll();
+
+        fx.Toolbar.ApplyLineSpacing(2.0);
+
+        Assert.Contains("lh=", fx.Saved());
+    });
+
+    [Fact]
+    public void Shading_SetsAndClearsTheParagraphBackground() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Editor.SelectAll();
+
+        fx.Toolbar.ApplyShading(Colors.LightBlue);
+        Assert.Contains("bg=", fx.Saved());
+
+        fx.Toolbar.ApplyShading(null);
+        Assert.DoesNotContain("bg=", fx.Saved());
+    });
+
+    [Fact]
+    public void Borders_AddAndRemoveAParagraphBorder() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Editor.SelectAll();
+
+        fx.Toolbar.ApplyBorder((_, _) => new Thickness(1));
+        Assert.Contains("bd=", fx.Saved());
+
+        fx.Toolbar.ApplyBorder((_, _) => new Thickness(0));
+        Assert.DoesNotContain("bd=", fx.Saved());
+    });
+
+    [Fact]
+    public void Sort_OrdersSelectedParagraphsAlphabetically() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture("""<ReamNote schemaVersion="1"><Doc><P><R>banana</R></P><P><R>apple</R></P><P><R>cherry</R></P></Doc></ReamNote>""");
+        fx.Editor.SelectAll();
+
+        fx.Toolbar.SortParagraphs(ascending: true);
+
+        Assert.Equal("apple\r\nbanana\r\ncherry", TextOf(fx.Editor.Document).TrimEnd());
+    });
+
+    [Fact]
+    public void MoreStyles_SetSizeAndSlant_NotJustWeight() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Editor.SelectAll();
+
+        fx.Toolbar.ApplyStyle(6); // Subtitle: italic, not bold
+        string saved = fx.Saved();
+        Assert.Contains("i=\"1\"", saved);
+        Assert.DoesNotContain("b=\"1\"", saved);
+    });
+
+    [Fact]
     public void Undo_RevertsToolbarFormatting() => Ui.Run(() =>
     {
         using var fx = new EditorFixture(Plain);
