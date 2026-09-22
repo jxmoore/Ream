@@ -2,30 +2,87 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <UserControl.Resources>
-        <!-- These extend the app-wide themed control styles rather than replacing them. -->
+        <!--
+            The Home tab is laid out like Word's: flat buttons that only show a frame on hover / when on, small icon rows,
+            a group label centered under each group with its dialog-launcher corner. Controls Ream has no behaviour for yet
+            (Format Painter, change case, line spacing, Find...) are here too, disabled, so the layout matches.
+        -->
+
+        <!-- A flat button: no frame until the pointer is on it (or, for a toggle, it is on). -->
+        <ControlTemplate x:Key="FlatButtonTemplate" TargetType="Button">
+            <Border x:Name="Frame" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="3">
+                <ContentPresenter Margin="{TemplateBinding Padding}" RecognizesAccessKey="True"
+                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Frame" Property="Background" Value="{DynamicResource ControlHoverBrush}"/>
+                    <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter TargetName="Frame" Property="Background" Value="{DynamicResource ControlPressedBrush}"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.45"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <ControlTemplate x:Key="FlatToggleTemplate" TargetType="ToggleButton">
+            <Border x:Name="Frame" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="3">
+                <ContentPresenter Margin="{TemplateBinding Padding}" RecognizesAccessKey="True"
+                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Frame" Property="Background" Value="{DynamicResource ControlHoverBrush}"/>
+                    <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+                </Trigger>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter TargetName="Frame" Property="Background" Value="{DynamicResource ControlCheckedBrush}"/>
+                    <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter TargetName="Frame" Property="Background" Value="{DynamicResource ControlPressedBrush}"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.45"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
         <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Template" Value="{StaticResource FlatButtonTemplate}"/>
             <Setter Property="Focusable" Value="False"/>
-            <Setter Property="MinWidth" Value="30"/>
-            <Setter Property="Height" Value="28"/>
-            <Setter Property="Margin" Value="2,1"/>
-            <Setter Property="Padding" Value="7,0"/>
+            <Setter Property="MinWidth" Value="26"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Margin" Value="1"/>
+            <Setter Property="Padding" Value="4,0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
-        <Style TargetType="ToggleButton" x:Key="ToggleTool" BasedOn="{StaticResource {x:Type ToggleButton}}">
+        <Style x:Key="ToggleTool" TargetType="ToggleButton" BasedOn="{StaticResource {x:Type ToggleButton}}">
+            <Setter Property="Template" Value="{StaticResource FlatToggleTemplate}"/>
             <Setter Property="Focusable" Value="False"/>
-            <Setter Property="MinWidth" Value="30"/>
-            <Setter Property="Height" Value="28"/>
-            <Setter Property="Margin" Value="2,1"/>
-            <Setter Property="Padding" Value="7,0"/>
+            <Setter Property="MinWidth" Value="26"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Margin" Value="1"/>
+            <Setter Property="Padding" Value="4,0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
         <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
-            <Setter Property="Height" Value="28"/>
-            <Setter Property="Margin" Value="2,1,4,1"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Margin" Value="1,2,2,2"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
-        <!-- A group is a band as tall as two rows of small controls; a group with fewer rows centers in it. -->
+
+        <!-- Layout: a group is a band as tall as two rows of small controls; a group with fewer rows centers in it. -->
         <Style x:Key="GroupBand" TargetType="StackPanel">
             <Setter Property="Orientation" Value="Horizontal"/>
             <Setter Property="MinHeight" Value="60"/>
@@ -36,176 +93,391 @@
         <Style x:Key="ToolRow" TargetType="StackPanel">
             <Setter Property="Orientation" Value="Horizontal"/>
         </Style>
-        <!-- Big buttons: an icon over a caption (Paste). -->
+        <!-- A little space inside a row, between clusters of buttons (Word puts one before the color buttons, the indent buttons...). -->
+        <Style x:Key="ClusterGap" TargetType="Rectangle">
+            <Setter Property="Width" Value="6"/>
+        </Style>
+
+        <!-- Icons drawn as paths take the button's own foreground, so they follow the theme and dim when disabled. -->
+        <Style x:Key="LineIcon" TargetType="Path">
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="Stretch" Value="None"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="StrokeThickness" Value="1"/>
+            <Setter Property="Stroke" Value="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}"/>
+        </Style>
+        <Style x:Key="DropArrow" TargetType="Path">
+            <Setter Property="Data" Value="M0.5,0.5 L3.5,3.5 L6.5,0.5"/>
+            <Setter Property="Width" Value="7"/>
+            <Setter Property="Height" Value="4"/>
+            <Setter Property="Margin" Value="3,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Stretch" Value="None"/>
+            <Setter Property="StrokeThickness" Value="1"/>
+            <Setter Property="Stroke" Value="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}"/>
+        </Style>
+        <Style x:Key="Launcher" TargetType="Path">
+            <Setter Property="Data" Value="M0.5,0.5 V9.5 H9.5 M3,3 L8,8 M8,4.5 V8 H4.5"/>
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="Stretch" Value="None"/>
+            <Setter Property="StrokeThickness" Value="1"/>
+            <Setter Property="Stroke" Value="{DynamicResource ToolbarMutedBrush}"/>
+        </Style>
+        <Style x:Key="HomeDivider" TargetType="Rectangle" BasedOn="{StaticResource RibbonGroupDivider}">
+            <Setter Property="Margin" Value="5,2"/>
+        </Style>
+        <Style x:Key="GroupLabelRow" TargetType="Grid">
+            <Setter Property="Margin" Value="0,0,0,0"/>
+        </Style>
+
+        <!-- Big buttons: an icon over a caption (Paste, Add-ins). -->
         <Style x:Key="ActionTile" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Height" Value="Auto"/>
-            <Setter Property="MinWidth" Value="52"/>
-            <Setter Property="Margin" Value="2,1,4,1"/>
-            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="MinWidth" Value="44"/>
+            <Setter Property="Margin" Value="1,1,3,1"/>
+            <Setter Property="Padding" Value="4,3"/>
         </Style>
-        <!-- Cut / Copy: icon and caption side by side, stacked two high beside Paste. -->
-        <Style x:Key="SideAction" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="MinWidth" Value="70"/>
+        <!-- Editing: an icon and a caption in a row, three high. -->
+        <Style x:Key="TextRow" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="MinWidth" Value="64"/>
+            <Setter Property="Margin" Value="1,0"/>
+            <Setter Property="Padding" Value="4,0"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
         </Style>
         <!-- The three small size-reset buttons, stacked three high. -->
         <Style x:Key="TinyAction" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Height" Value="19"/>
-            <Setter Property="MinWidth" Value="96"/>
+            <Setter Property="MinWidth" Value="86"/>
             <Setter Property="Margin" Value="2,0.5"/>
             <Setter Property="Padding" Value="8,0"/>
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
         </Style>
+        <!-- A style in the gallery: a sample over its name, in a tile that is framed while it is the one in use. -->
         <Style x:Key="StyleTile" TargetType="ToggleButton" BasedOn="{StaticResource ToggleTool}">
             <Setter Property="Height" Value="Auto"/>
-            <Setter Property="MinWidth" Value="66"/>
-            <Setter Property="Margin" Value="2,1"/>
-            <Setter Property="Padding" Value="8,3"/>
+            <Setter Property="MinWidth" Value="54"/>
+            <Setter Property="Margin" Value="1,0"/>
+            <Setter Property="Padding" Value="4,4,4,3"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+        </Style>
+        <Style x:Key="GalleryArrow" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Height" Value="Auto"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+            <Setter Property="IsEnabled" Value="False"/>
         </Style>
     </UserControl.Resources>
 
-    <!-- The Home tab of a Word-style ribbon: labelled groups, the busy ones two rows deep, the label underneath. -->
-    <StackPanel Orientation="Horizontal" Margin="12,6,12,2">
+    <StackPanel Orientation="Horizontal" Margin="6,5,6,0">
         <StackPanel x:Name="Bar" Orientation="Horizontal" IsEnabled="False">
 
-            <!-- Clipboard: Paste big, Cut and Copy stacked beside it -->
+            <!-- Clipboard: Paste big, Cut / Copy / Format Painter stacked beside it -->
             <StackPanel x:Name="ClipboardGroup">
                 <StackPanel Style="{StaticResource GroupBand}">
                     <Button x:Name="PasteButton" Style="{StaticResource ActionTile}" ToolTip="Paste (Ctrl+V)" Click="OnPaste">
                         <StackPanel>
-                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE77F;" FontSize="22"/>
-                            <TextBlock Text="Paste" HorizontalAlignment="Center" Margin="0,2,0,0" FontSize="12"/>
+                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE77F;" FontSize="28" Margin="0,2,0,3"/>
+                            <TextBlock Text="Paste" HorizontalAlignment="Center" FontSize="12"/>
                         </StackPanel>
                     </Button>
                     <StackPanel Style="{StaticResource GroupRows}">
-                        <Button x:Name="CutButton" Style="{StaticResource SideAction}" ToolTip="Cut (Ctrl+X)" Click="OnCut">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8C6;" FontSize="13" Margin="0,0,6,0"/>
-                                <TextBlock Text="Cut" FontSize="12"/>
-                            </StackPanel>
+                        <Button x:Name="CutButton" ToolTip="Cut (Ctrl+X)" Click="OnCut" Height="19" HorizontalContentAlignment="Left">
+                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8C6;" FontSize="13"/>
                         </Button>
-                        <Button x:Name="CopyButton" Style="{StaticResource SideAction}" ToolTip="Copy (Ctrl+C)" Click="OnCopy">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8C8;" FontSize="13" Margin="0,0,6,0"/>
-                                <TextBlock Text="Copy" FontSize="12"/>
-                            </StackPanel>
+                        <Button x:Name="CopyButton" ToolTip="Copy (Ctrl+C)" Click="OnCopy" Height="19" HorizontalContentAlignment="Left">
+                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8C8;" FontSize="13"/>
+                        </Button>
+                        <Button x:Name="FormatPainterButton" ToolTip="Format Painter (not available yet)" IsEnabled="False" Height="19" HorizontalContentAlignment="Left">
+                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE771;" FontSize="13"/>
                         </Button>
                     </StackPanel>
                 </StackPanel>
-                <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Clipboard"/>
+                <Grid Style="{StaticResource GroupLabelRow}">
+                    <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Clipboard"/>
+                    <Path Style="{StaticResource Launcher}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,2,2"/>
+                </Grid>
             </StackPanel>
 
-            <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
+            <Rectangle Style="{StaticResource HomeDivider}"/>
 
-            <!-- Font: the typeface and size on top; emphasis and color below -->
+            <!-- Font: typeface, size, grow / shrink, case, clear on top; emphasis and color below -->
             <StackPanel x:Name="FontGroup">
                 <StackPanel Style="{StaticResource GroupBand}">
                     <StackPanel Style="{StaticResource GroupRows}">
                         <StackPanel Style="{StaticResource ToolRow}">
-                            <ComboBox x:Name="FontBox" Width="130" ToolTip="Font" SelectionChanged="OnFontChanged"/>
-                            <ComboBox x:Name="SizeBox" Width="58" ToolTip="Font size" SelectionChanged="OnSizeChanged"/>
-                            <Button ToolTip="Smaller text" Click="OnSmaller" Content="A-" FontSize="11"/>
-                            <Button ToolTip="Larger text" Click="OnLarger" Content="A+" FontSize="15"/>
+                            <ComboBox x:Name="FontBox" Width="104" ToolTip="Font" SelectionChanged="OnFontChanged"/>
+                            <ComboBox x:Name="SizeBox" Width="46" ToolTip="Font size" SelectionChanged="OnSizeChanged"/>
+                            <Button ToolTip="Grow Font (Ctrl+Shift+&gt;)" Click="OnLarger">
+                                <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8E8;" FontSize="15"/>
+                            </Button>
+                            <Button ToolTip="Shrink Font (Ctrl+Shift+&lt;)" Click="OnSmaller">
+                                <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8E7;" FontSize="15"/>
+                            </Button>
+                            <Button x:Name="ChangeCaseButton" ToolTip="Change Case (not available yet)" IsEnabled="False">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Aa" FontSize="15"/>
+                                    <Path Style="{StaticResource DropArrow}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ClearFormattingButton" ToolTip="Clear All Formatting (not available yet)" IsEnabled="False">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="A" FontSize="14"/>
+                                    <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE75C;" FontSize="10" Margin="-2,6,0,0"/>
+                                </StackPanel>
+                            </Button>
                         </StackPanel>
                         <StackPanel Style="{StaticResource ToolRow}">
-                            <ToggleButton x:Name="BoldButton" Style="{StaticResource ToggleTool}" Content="B" FontWeight="Bold"
+                            <ToggleButton x:Name="BoldButton" Style="{StaticResource ToggleTool}" Content="B" FontWeight="Bold" FontSize="14"
                                           ToolTip="Bold (Ctrl+B)" Click="OnBold"/>
-                            <ToggleButton x:Name="ItalicButton" Style="{StaticResource ToggleTool}" Content="I" FontStyle="Italic"
+                            <ToggleButton x:Name="ItalicButton" Style="{StaticResource ToggleTool}" Content="I" FontStyle="Italic" FontSize="14"
                                           ToolTip="Italic (Ctrl+I)" Click="OnItalic"/>
                             <ToggleButton x:Name="UnderlineButton" Style="{StaticResource ToggleTool}"
                                           ToolTip="Underline (Ctrl+U)" Click="OnUnderline">
-                                <TextBlock Text="U" TextDecorations="Underline"/>
+                                <TextBlock Text="U" FontSize="14" TextDecorations="Underline"/>
                             </ToggleButton>
                             <ToggleButton x:Name="StrikeButton" Style="{StaticResource ToggleTool}"
                                           ToolTip="Strikethrough" Click="OnStrikethrough">
-                                <TextBlock Text="S" TextDecorations="Strikethrough"/>
+                                <TextBlock Text="abc" FontSize="12" TextDecorations="Strikethrough"/>
                             </ToggleButton>
-                            <Button x:Name="TextColorButton" ToolTip="Text color" Click="OnTextColor" Margin="12,1,2,1">
+                            <ToggleButton x:Name="SubscriptButton" Style="{StaticResource ToggleTool}" IsEnabled="False"
+                                          ToolTip="Subscript (not available yet)">
+                                <TextBlock FontSize="13"><Run Text="x"/><Run Text="2" FontSize="8" BaselineAlignment="Subscript"/></TextBlock>
+                            </ToggleButton>
+                            <ToggleButton x:Name="SuperscriptButton" Style="{StaticResource ToggleTool}" IsEnabled="False"
+                                          ToolTip="Superscript (not available yet)">
+                                <TextBlock FontSize="13"><Run Text="x"/><Run Text="2" FontSize="8" BaselineAlignment="Superscript"/></TextBlock>
+                            </ToggleButton>
+                            <Rectangle Style="{StaticResource ClusterGap}"/>
+                            <Button x:Name="TextEffectsButton" ToolTip="Text Effects and Typography (not available yet)" IsEnabled="False">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="A" FontWeight="Bold"/>
-                                    <TextBlock Text=" ▾" FontSize="9" VerticalAlignment="Center"/>
+                                    <TextBlock Text="A" FontSize="15" FontWeight="SemiBold"/>
+                                    <Path Style="{StaticResource DropArrow}"/>
                                 </StackPanel>
                             </Button>
-                            <Button x:Name="HighlightButton" ToolTip="Highlight color" Click="OnHighlight">
+                            <Button x:Name="HighlightButton" ToolTip="Text Highlight Color" Click="OnHighlight">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="ab" Background="#fff3a3" Foreground="#1a1a1a" Padding="2,0"/>
-                                    <TextBlock Text=" ▾" FontSize="9" VerticalAlignment="Center"/>
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE7E6;" FontSize="13"/>
+                                        <Rectangle Height="3" Width="14" Margin="0,1,0,0" Fill="#ffe14d"/>
+                                    </StackPanel>
+                                    <Path Style="{StaticResource DropArrow}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="TextColorButton" ToolTip="Font Color" Click="OnTextColor">
+                                <StackPanel Orientation="Horizontal">
+                                    <StackPanel>
+                                        <TextBlock Text="A" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,-2,0,0"/>
+                                        <Rectangle Height="3" Width="14" Margin="0,0,0,0" Fill="#e5484d"/>
+                                    </StackPanel>
+                                    <Path Style="{StaticResource DropArrow}"/>
                                 </StackPanel>
                             </Button>
                         </StackPanel>
                     </StackPanel>
                 </StackPanel>
-                <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Font"/>
+                <Grid Style="{StaticResource GroupLabelRow}">
+                    <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Font"/>
+                    <Path Style="{StaticResource Launcher}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,2,2"/>
+                </Grid>
             </StackPanel>
 
-            <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
+            <Rectangle Style="{StaticResource HomeDivider}"/>
 
-            <!-- Paragraph: lists and indent on top, alignment below -->
+            <!-- Paragraph: lists, indent, sort and marks on top; alignment, spacing, shading and borders below -->
             <StackPanel x:Name="ParagraphGroup">
                 <StackPanel Style="{StaticResource GroupBand}">
                     <StackPanel Style="{StaticResource GroupRows}">
                         <StackPanel Style="{StaticResource ToolRow}">
-                            <ToggleButton x:Name="BulletsButton" Style="{StaticResource ToggleTool}" Content="•"
-                                          ToolTip="Bulleted list" Click="OnBullets"/>
-                            <ToggleButton x:Name="NumbersButton" Style="{StaticResource ToggleTool}" Content="1."
-                                          ToolTip="Numbered list" Click="OnNumbers"/>
-                            <Button ToolTip="Decrease indent" Click="OnOutdent" FontFamily="Segoe UI Symbol" Content="⇤"/>
-                            <Button ToolTip="Increase indent" Click="OnIndent" FontFamily="Segoe UI Symbol" Content="⇥"/>
+                            <ToggleButton x:Name="BulletsButton" Style="{StaticResource ToggleTool}"
+                                          ToolTip="Bullets" Click="OnBullets">
+                                <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8FD;" FontSize="15"/>
+                            </ToggleButton>
+                            <ToggleButton x:Name="NumbersButton" Style="{StaticResource ToggleTool}"
+                                          ToolTip="Numbering" Click="OnNumbers">
+                                <Canvas Width="16" Height="16">
+                                    <TextBlock Canvas.Left="1" Canvas.Top="-1" FontSize="6" Text="1"/>
+                                    <TextBlock Canvas.Left="1" Canvas.Top="4" FontSize="6" Text="2"/>
+                                    <TextBlock Canvas.Left="1" Canvas.Top="9" FontSize="6" Text="3"/>
+                                    <Path Style="{StaticResource LineIcon}" Data="M6,3.5 H15 M6,8.5 H15 M6,13.5 H15"/>
+                                </Canvas>
+                            </ToggleButton>
+                            <Button x:Name="MultilevelListButton" ToolTip="Multilevel List (not available yet)" IsEnabled="False">
+                                <Path Style="{StaticResource LineIcon}" Data="M1,3.5 H3.5 M5,3.5 H15 M4,8.5 H6.5 M8,8.5 H15 M7,13.5 H9.5 M11,13.5 H15"/>
+                            </Button>
+                            <Rectangle Style="{StaticResource ClusterGap}"/>
+                            <Button x:Name="OutdentButton" ToolTip="Decrease Indent" Click="OnOutdent">
+                                <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE290;" FontSize="15"/>
+                            </Button>
+                            <Button x:Name="IndentButton" ToolTip="Increase Indent" Click="OnIndent">
+                                <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE291;" FontSize="15"/>
+                            </Button>
+                            <Rectangle Style="{StaticResource ClusterGap}"/>
+                            <Button x:Name="SortButton" ToolTip="Sort (not available yet)" IsEnabled="False">
+                                <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8CB;" FontSize="15"/>
+                            </Button>
+                            <ToggleButton x:Name="ShowMarksButton" Style="{StaticResource ToggleTool}" IsEnabled="False"
+                                          ToolTip="Show/Hide ¶ (not available yet)" Content="¶" FontSize="15"/>
                         </StackPanel>
                         <StackPanel Style="{StaticResource ToolRow}">
-                            <ToggleButton x:Name="AlignLeftButton" Style="{StaticResource ToggleTool}" Content="L"
-                                          ToolTip="Align left (Ctrl+L)" Click="OnAlignLeft"/>
-                            <ToggleButton x:Name="AlignCenterButton" Style="{StaticResource ToggleTool}" Content="C"
-                                          ToolTip="Center (Ctrl+E)" Click="OnAlignCenter"/>
-                            <ToggleButton x:Name="AlignRightButton" Style="{StaticResource ToggleTool}" Content="R"
-                                          ToolTip="Align right (Ctrl+R)" Click="OnAlignRight"/>
-                            <ToggleButton x:Name="AlignJustifyButton" Style="{StaticResource ToggleTool}" Content="J"
-                                          ToolTip="Justify (Ctrl+J)" Click="OnAlignJustify"/>
+                            <ToggleButton x:Name="AlignLeftButton" Style="{StaticResource ToggleTool}"
+                                          ToolTip="Align Left (Ctrl+L)" Click="OnAlignLeft">
+                                <Path Style="{StaticResource LineIcon}" Data="M1,3.5 H15 M1,6.5 H10 M1,9.5 H15 M1,12.5 H10"/>
+                            </ToggleButton>
+                            <ToggleButton x:Name="AlignCenterButton" Style="{StaticResource ToggleTool}"
+                                          ToolTip="Center (Ctrl+E)" Click="OnAlignCenter">
+                                <Path Style="{StaticResource LineIcon}" Data="M1,3.5 H15 M3.5,6.5 H12.5 M1,9.5 H15 M3.5,12.5 H12.5"/>
+                            </ToggleButton>
+                            <ToggleButton x:Name="AlignRightButton" Style="{StaticResource ToggleTool}"
+                                          ToolTip="Align Right (Ctrl+R)" Click="OnAlignRight">
+                                <Path Style="{StaticResource LineIcon}" Data="M1,3.5 H15 M6,6.5 H15 M1,9.5 H15 M6,12.5 H15"/>
+                            </ToggleButton>
+                            <ToggleButton x:Name="AlignJustifyButton" Style="{StaticResource ToggleTool}"
+                                          ToolTip="Justify (Ctrl+J)" Click="OnAlignJustify">
+                                <Path Style="{StaticResource LineIcon}" Data="M1,3.5 H15 M1,6.5 H15 M1,9.5 H15 M1,12.5 H15"/>
+                            </ToggleButton>
+                            <Rectangle Style="{StaticResource ClusterGap}"/>
+                            <Button x:Name="LineSpacingButton" ToolTip="Line and Paragraph Spacing (not available yet)" IsEnabled="False">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Style="{StaticResource LineIcon}" Data="M3.5,2 V14 M1.5,4 L3.5,2 L5.5,4 M1.5,12 L3.5,14 L5.5,12 M8,4.5 H15 M8,8.5 H15 M8,12.5 H15"/>
+                                    <Path Style="{StaticResource DropArrow}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ShadingButton" ToolTip="Shading (not available yet)" IsEnabled="False">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE790;" FontSize="14"/>
+                                    <Path Style="{StaticResource DropArrow}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="BordersButton" ToolTip="Borders (not available yet)" IsEnabled="False">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Style="{StaticResource LineIcon}" Data="M2.5,2.5 H13.5 V13.5 H2.5 Z M8,2.5 V13.5 M2.5,8 H13.5"/>
+                                    <Path Style="{StaticResource DropArrow}"/>
+                                </StackPanel>
+                            </Button>
                         </StackPanel>
                     </StackPanel>
                 </StackPanel>
-                <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Paragraph"/>
+                <Grid Style="{StaticResource GroupLabelRow}">
+                    <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Paragraph"/>
+                    <Path Style="{StaticResource Launcher}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,2,2"/>
+                </Grid>
             </StackPanel>
 
-            <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
+            <Rectangle Style="{StaticResource HomeDivider}"/>
 
-            <!-- Styles -->
+            <!-- Styles: a gallery of the paragraph styles, framed, with its scroll / expand arrows -->
             <StackPanel x:Name="StylesGroup">
                 <StackPanel Style="{StaticResource GroupBand}">
-                    <StackPanel Style="{StaticResource ToolRow}" VerticalAlignment="Center">
-                        <ToggleButton x:Name="StyleNormalButton" Style="{StaticResource StyleTile}" ToolTip="Normal text" Click="OnStyleTile" Tag="0">
-                            <StackPanel>
-                                <TextBlock Text="AaBb" FontSize="14" HorizontalAlignment="Center"/>
-                                <TextBlock Text="Normal" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                    <Border BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="2" Margin="2,3,2,3"
+                            Background="{DynamicResource InputBrush}">
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel Orientation="Horizontal" Margin="2">
+                                <ToggleButton x:Name="StyleNormalButton" Style="{StaticResource StyleTile}" ToolTip="Normal" Click="OnStyleTile" Tag="0">
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="AaBbCcD" FontSize="12" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="¶ Normal" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </ToggleButton>
+                                <ToggleButton x:Name="StyleHeading1Button" Style="{StaticResource StyleTile}" ToolTip="Heading 1" Click="OnStyleTile" Tag="1">
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="AaBbC" FontSize="17" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Heading 1" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </ToggleButton>
+                                <ToggleButton x:Name="StyleHeading2Button" Style="{StaticResource StyleTile}" ToolTip="Heading 2" Click="OnStyleTile" Tag="2">
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="AaBbC" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Heading 2" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                                    </StackPanel>
+                                </ToggleButton>
+                                <ToggleButton x:Name="StyleHeading3Button" Style="{StaticResource StyleTile}" ToolTip="Heading 3" Click="OnStyleTile" Tag="3">
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="AaBbC" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Heading 3" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </ToggleButton>
                             </StackPanel>
-                        </ToggleButton>
-                        <ToggleButton x:Name="StyleHeading1Button" Style="{StaticResource StyleTile}" ToolTip="Heading 1" Click="OnStyleTile" Tag="1">
-                            <StackPanel>
-                                <TextBlock Text="AaBb" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center"/>
-                                <TextBlock Text="Heading 1" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            <Border BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1,0,0,0">
+                                <StackPanel>
+                                    <Button Style="{StaticResource GalleryArrow}" Height="17" ToolTip="Previous styles">
+                                        <Path Data="M0.5,3.5 L3.5,0.5 L6.5,3.5" Stretch="None" StrokeThickness="1"
+                                              Stroke="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}"/>
+                                    </Button>
+                                    <Button Style="{StaticResource GalleryArrow}" Height="17" ToolTip="More styles">
+                                        <Path Style="{StaticResource DropArrow}" Margin="0"/>
+                                    </Button>
+                                    <Button Style="{StaticResource GalleryArrow}" Height="17" ToolTip="All styles">
+                                        <Path Data="M0.5,0.5 H6.5 M0.5,3.5 L3.5,6.5 L6.5,3.5" Stretch="None" StrokeThickness="1"
+                                              Stroke="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}"/>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                <Grid Style="{StaticResource GroupLabelRow}">
+                    <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Styles"/>
+                    <Path Style="{StaticResource Launcher}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,2,2"/>
+                </Grid>
+            </StackPanel>
+
+            <Rectangle Style="{StaticResource HomeDivider}"/>
+
+            <!-- Editing: Find / Replace / Select, three rows -->
+            <StackPanel x:Name="EditingGroup">
+                <StackPanel Style="{StaticResource GroupBand}">
+                    <StackPanel Style="{StaticResource GroupRows}">
+                        <Button x:Name="FindButton" Style="{StaticResource TextRow}" IsEnabled="False" ToolTip="Find (not available yet)">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE721;" FontSize="12" Width="16"/>
+                                <TextBlock Text="Find" FontSize="12" Margin="4,0,0,0"/>
+                                <Path Style="{StaticResource DropArrow}" Margin="6,0,0,0"/>
                             </StackPanel>
-                        </ToggleButton>
-                        <ToggleButton x:Name="StyleHeading2Button" Style="{StaticResource StyleTile}" ToolTip="Heading 2" Click="OnStyleTile" Tag="2">
-                            <StackPanel>
-                                <TextBlock Text="AaBb" FontSize="17" FontWeight="Bold" HorizontalAlignment="Center"/>
-                                <TextBlock Text="Heading 2" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                        </Button>
+                        <Button x:Name="ReplaceButton" Style="{StaticResource TextRow}" IsEnabled="False" ToolTip="Replace (not available yet)">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Width="16" FontSize="7" LineHeight="7" LineStackingStrategy="BlockLineHeight" Text="ab&#x0A;ac" TextAlignment="Center"/>
+                                <TextBlock Text="Replace" FontSize="12" Margin="4,0,0,0"/>
                             </StackPanel>
-                        </ToggleButton>
-                        <ToggleButton x:Name="StyleHeading3Button" Style="{StaticResource StyleTile}" ToolTip="Heading 3" Click="OnStyleTile" Tag="3">
-                            <StackPanel>
-                                <TextBlock Text="AaBb" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center"/>
-                                <TextBlock Text="Heading 3" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                        </Button>
+                        <Button x:Name="SelectButton" Style="{StaticResource TextRow}" IsEnabled="False" ToolTip="Select (not available yet)">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Width="16" Height="14" Stretch="None" Data="M4,1.5 V12 L6.5,9.5 L8.5,13.5 L10,12.8 L8,9 H11.5 Z" StrokeThickness="1"
+                                      Stroke="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}"/>
+                                <TextBlock Text="Select" FontSize="12" Margin="4,0,0,0"/>
+                                <Path Style="{StaticResource DropArrow}" Margin="6,0,0,0"/>
                             </StackPanel>
-                        </ToggleButton>
+                        </Button>
                     </StackPanel>
                 </StackPanel>
-                <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Styles"/>
+                <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Editing"/>
+            </StackPanel>
+
+            <Rectangle Style="{StaticResource HomeDivider}"/>
+
+            <!-- Add-ins: a big tile -->
+            <StackPanel x:Name="AddInsGroup">
+                <StackPanel Style="{StaticResource GroupBand}">
+                    <Button x:Name="AddInsButton" Style="{StaticResource ActionTile}" IsEnabled="False" ToolTip="Add-ins (not available yet)" MinWidth="46">
+                        <StackPanel>
+                            <Ellipse Width="16" Height="16" Margin="0,8,0,10" Fill="{DynamicResource MutedTextBrush}"/>
+                            <TextBlock Text="Add-ins" HorizontalAlignment="Center" FontSize="12" Foreground="{DynamicResource MutedTextBrush}"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+                <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Add-ins"/>
             </StackPanel>
         </StackPanel>
 
         <!-- Size: outside the bar above because these act on notes, not on the editor, so they work with no editor focused. -->
-        <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
+        <Rectangle Style="{StaticResource HomeDivider}"/>
 
         <StackPanel x:Name="SizeGroup">
             <StackPanel Style="{StaticResource GroupBand}">

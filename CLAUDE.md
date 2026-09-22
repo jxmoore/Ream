@@ -51,14 +51,16 @@ Help/About are still ordinary native windows.
 Ribbon: the tab row is File | Home | View (`MainWindow.SelectTab`, `RibbonTab`); each tab swaps the panel below it:
 `FileRibbonView` (New / Open / Save / Save As, the Auto-save switch, Clear, and Help/About raised as events; bound to the `AppViewModel` ream commands, tooltips show the live gestures; there is no workspace list - workspaces are switched by keys and the wheel), `RibbonView` (Home, the
 editor controls) and `ViewRibbonView` (a theme dropdown bound to `SettingsViewModel.SelectedTheme`, canvas and note opacity sliders stacked; DataContext is the
-`SettingsViewModel`). Home's busy groups are two rows deep (Font, Paragraph, Cut/Copy beside Paste), plus a Size group (the three reset
-commands, stacked) that sits outside `RibbonView.Bar` so it works with no editor focused. When the window is too narrow
+`SettingsViewModel`). Home is laid out like Word's Home tab (flat buttons, icon rows, a label under each group with its launcher corner): Clipboard, Font, Paragraph, Styles
+(a framed gallery), Editing, Add-ins, then Ream's own Size group (the three reset commands, stacked). Word controls Ream has no behaviour for yet (Format Painter,
+change case, sub/superscript, multilevel list, sort, ¶, line spacing, shading, borders, Find/Replace/Select, Add-ins) are drawn but disabled
+(`RibbonWordLayoutTests.Placed` lists them; enabling one means adding its handler and removing `IsEnabled="False"`) that sits outside `RibbonView.Bar` so it works with no editor focused. When the window is too narrow
 the panel scrolls sideways with no scrollbar: chevron buttons (`RibbonScrollLeft/Right`) appear at the edge with more to see, and the wheel scrolls. There is no File menu or
 settings popup any more. `ribbon.autoHide` (default true): the tab row stays, the panel (always grid row 2) grows from height 0 when
 summoned and back to 0 when put away, so it pushes the notes down rather than covering them (`Core/Layout/RibbonVisibility` is the
 pure state: pointer, open menu, pin; the window adds a 400 ms hide delay). Clicking a tab holds it open (`Engaged`) until a click
-elsewhere or Escape (`MainWindow.DismissRibbon`); the pin button (`PinButton`, inside the panel's right edge) keeps it open until
-clicked again. autoHide off leaves the panel up always (and hides the pin).
+elsewhere or Escape (`MainWindow.DismissRibbon`); the pin button (`PinButton`, bottom right of the panel) keeps it open until
+clicked again; like Word's it is a pin while unpinned and a caret up once pinned. autoHide off leaves the panel up always (and hides the pin).
 Watch `ComboBox.IsDropDownOpen` itself, not DropDownOpened/Closed (Closed can arrive before the property flips).
 `SettingsViewModel` applies theme and both opacities live and saves them (debounced) via
 `AppConfigStore.Update`, which patches only the given keys and refuses to rewrite a file with

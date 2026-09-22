@@ -181,10 +181,43 @@
                                 ToolTip="More to the right" Content="›" FontSize="20"/>
                     </Grid>
 
-                    <!-- Keeps the ribbon open until clicked again. Only meaningful with auto-hide. -->
-                    <ToggleButton x:Name="PinButton" Grid.Column="1" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="4,6,8,0"
-                                  Width="28" Height="26" Padding="0" MinWidth="0" Focusable="False" Click="OnPinClick"
-                                  ToolTip="Keep the ribbon open" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13" Content="&#xE718;"/>
+                    <!--
+                        Word's pin: while the ribbon is only shown for a moment it is a pin ("Pin the ribbon"); once pinned open
+                        it becomes a caret pointing up ("Collapse the ribbon"). Clicking either one flips it. Bottom right, level
+                        with the group labels. Only meaningful with auto-hide.
+                    -->
+                    <ToggleButton x:Name="PinButton" Grid.Column="1" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="4,0,6,2"
+                                  Width="22" Height="20" Padding="0" MinWidth="0" Focusable="False" Click="OnPinClick">
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton">
+                                <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+                                <Setter Property="FontSize" Value="12"/>
+                                <Setter Property="Foreground" Value="{DynamicResource ControlTextBrush}"/>
+                                <Setter Property="Content" Value="&#xE718;"/>
+                                <Setter Property="ToolTip" Value="Pin the ribbon"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border x:Name="Frame" Background="Transparent" CornerRadius="3">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Frame" Property="Background" Value="{DynamicResource ControlHoverBrush}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter Property="Content" Value="&#xE70E;"/>
+                                        <Setter Property="ToolTip" Value="Collapse the ribbon"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ToggleButton.Style>
+                    </ToggleButton>
                 </Grid>
             </Border>
 
