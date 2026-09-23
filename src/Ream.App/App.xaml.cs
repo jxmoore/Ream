@@ -49,7 +49,7 @@ public partial class App : Application
                     services.AddSingleton(launch.Repository);
                     services.AddSingleton(sp => new ReamSession(launch.Repository, viewModel, Dispatcher, config.AutoSave));
                     services.AddSingleton<IUserPrompts, WpfUserPrompts>();
-                    services.AddSingleton<IFileDialogs, ThemedFileDialogs>();
+                    services.AddSingleton<IFileDialogs, NativeFileDialogs>();
                     services.AddSingleton(sp => new ReamManager(
                         sp.GetRequiredService<ReamSession>(),
                         viewModel,
