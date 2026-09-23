@@ -95,7 +95,7 @@
         </Style>
         <!-- A little space inside a row, between clusters of buttons (Word puts one before the color buttons, the indent buttons...). -->
         <Style x:Key="ClusterGap" TargetType="Rectangle">
-            <Setter Property="Width" Value="6"/>
+            <Setter Property="Width" Value="3"/>
         </Style>
 
         <!-- Icons drawn as paths take the button's own foreground, so they follow the theme and dim when disabled. -->
@@ -357,7 +357,7 @@
                     <Border BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="2" Margin="2,3,2,3"
                             Background="{DynamicResource InputBrush}">
                         <StackPanel Orientation="Horizontal">
-                            <ScrollViewer x:Name="StylesScroll" Width="228" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
+                            <ScrollViewer x:Name="StylesScroll" Width="112" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
                                           ScrollChanged="OnStylesScrollChanged">
                                 <StackPanel Orientation="Horizontal" Margin="2">
                                     <ToggleButton x:Name="StyleNormalButton" Style="{StaticResource StyleTile}" ToolTip="Normal" Click="OnStyleTile" Tag="0">
@@ -442,7 +442,6 @@
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE721;" FontSize="12" Width="16"/>
                                 <TextBlock Text="Find" FontSize="12" Margin="4,0,0,0"/>
-                                <Path Style="{StaticResource DropArrow}" Margin="6,0,0,0"/>
                             </StackPanel>
                         </Button>
                         <Button x:Name="ReplaceButton" Style="{StaticResource TextRow}" Command="{Binding ReplaceCommand}" ToolTip="Replace (Ctrl+H)">
