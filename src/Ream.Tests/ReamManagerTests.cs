@@ -314,6 +314,69 @@ public class ReamManagerNewTests
     }
 }
 
+/// <summary>The File tab's Recent list (AppConfig.RecentReams): built and persisted by RecordLastReam as reams are opened/created/saved-as.</summary>
+public class RecentReamsTests
+{
+    [Fact]
+    public void OpeningAndCreatingReams_BuildsTheRecentList_MostRecentFirst()
+    {
+        using var rig = new ManagerRig();
+        Directory.CreateDirectory(rig.ReamsFolder);
+        rig.Dialogs.NewAnswers.Enqueue(rig.PathOf("Second"));
+        Assert.True(rig.Manager.NewReam());
+
+        rig.Dialogs.NewAnswers.Enqueue(rig.PathOf("Third"));
+        Assert.True(rig.Manager.NewReam());
+
+        Assert.Equal([rig.PathOf("Third"), rig.PathOf("Second")], rig.App.Config.RecentReams);
+    }
+
+    [Fact]
+    public void ReopeningAReamAlreadyInTheList_MovesItToTheFront_WithoutDuplicating()
+    {
+        using var rig = new ManagerRig();
+        Directory.CreateDirectory(rig.ReamsFolder);
+        rig.Dialogs.NewAnswers.Enqueue(rig.PathOf("Second"));
+        Assert.True(rig.Manager.NewReam());
+        rig.Dialogs.NewAnswers.Enqueue(rig.PathOf("Third"));
+        Assert.True(rig.Manager.NewReam());
+
+        Assert.True(rig.Manager.OpenReam(rig.PathOf("Second")));
+
+        Assert.Equal([rig.PathOf("Second"), rig.PathOf("Third")], rig.App.Config.RecentReams);
+    }
+
+    [Fact]
+    public void TheRecentList_IsCappedAtTheLimit()
+    {
+        using var rig = new ManagerRig();
+        Directory.CreateDirectory(rig.ReamsFolder);
+
+        for (int i = 0; i < AppConfig.RecentReamsLimit + 3; i++)
+        {
+            rig.Dialogs.NewAnswers.Enqueue(rig.PathOf($"Ream{i}"));
+            Assert.True(rig.Manager.NewReam());
+        }
+
+        Assert.Equal(AppConfig.RecentReamsLimit, rig.App.Config.RecentReams.Count);
+        Assert.Equal(rig.PathOf($"Ream{AppConfig.RecentReamsLimit + 2}"), rig.App.Config.RecentReams[0]);
+    }
+
+    [Fact]
+    public void TheRecentList_IsSavedAlongsideLastReam()
+    {
+        using var rig = new ManagerRig();
+        Directory.CreateDirectory(rig.ReamsFolder);
+        rig.Dialogs.NewAnswers.Enqueue(rig.PathOf("Second"));
+
+        Assert.True(rig.Manager.NewReam());
+
+        Assert.True(rig.Store.TryLoad(out var saved, out var error), error);
+        Assert.Equal(rig.App.Config.RecentReams, saved.RecentReams);
+        Assert.Equal(rig.App.Config.LastReam, saved.LastReam);
+    }
+}
+
 public class ReamLauncherTests
 {
     private sealed class Rig : IDisposable

@@ -479,6 +479,7 @@ public class ReamCommandsAndKeysTests
         public bool Leave { get; set; } = true;
         public bool NewReam() => Record("new");
         public bool OpenReam() => Record("open");
+        public bool OpenReam(string path) => Record($"openRecent:{path}");
         public bool Save() => Record("save");
         public bool SaveAs() => Record("saveAs");
         public bool ClearReam() => Record("clear");

@@ -13,6 +13,16 @@
             <Setter Property="Padding" Value="10,6"/>
             <Setter Property="Margin" Value="3,1"/>
         </Style>
+        <Style x:Key="DropArrow" TargetType="Path">
+            <Setter Property="Data" Value="M0.5,0.5 L3.5,3.5 L6.5,0.5"/>
+            <Setter Property="Width" Value="7"/>
+            <Setter Property="Height" Value="4"/>
+            <Setter Property="Margin" Value="4,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Stretch" Value="None"/>
+            <Setter Property="StrokeThickness" Value="1"/>
+            <Setter Property="Stroke" Value="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}"/>
+        </Style>
     </UserControl.Resources>
 
     <!-- The File tab: the ream itself (its file and how it is saved), and Help / About. -->
@@ -46,6 +56,24 @@
                 </Button>
             </StackPanel>
             <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Ream"/>
+        </StackPanel>
+
+        <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
+
+        <!-- Recent: the last few reams opened, saved or created, newest first, like Word's Backstage Open > Recent. -->
+        <StackPanel>
+            <StackPanel Style="{StaticResource GroupBand}">
+                <Button x:Name="RecentButton" Style="{StaticResource RibbonTile}" Click="OnRecentClick">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE81C;" FontSize="20"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,3,0,0">
+                            <TextBlock Text="Recent" FontSize="12"/>
+                            <Path Style="{StaticResource DropArrow}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+            <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Recent"/>
         </StackPanel>
 
         <Rectangle Style="{StaticResource RibbonGroupDivider}"/>

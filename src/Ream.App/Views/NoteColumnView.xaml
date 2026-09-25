@@ -102,6 +102,12 @@
                          HorizontalScrollBarVisibility="Disabled"
                          AcceptsTab="True"
                          SpellCheck.IsEnabled="True">
+                <!-- The View tab's Zoom slider (ThemeService.NoteZoomScaleKey): a LayoutTransform, not a RenderTransform, so
+                     text actually re-wraps at the zoomed width instead of just being stretched, and the note's own scrollbar
+                     keeps working - it scales with everything else, same as it would zooming a whole page in a real app. -->
+                <RichTextBox.LayoutTransform>
+                    <ScaleTransform ScaleX="{DynamicResource NoteZoomScale}" ScaleY="{DynamicResource NoteZoomScale}"/>
+                </RichTextBox.LayoutTransform>
                 <RichTextBox.Resources>
                     <Style TargetType="Paragraph">
                         <Setter Property="Margin" Value="0,0,0,6"/>

@@ -58,10 +58,34 @@ public partial class FileRibbonView : UserControl
         Tip(SaveButton, "Save the ream", "save");
         Tip(SaveAsButton, "Save the ream under another name", "saveAs");
         Tip(ClearButton, "Remove every workspace and note (asks first; removed notes are kept in the .trash folder)", "clearReam");
+
+        var others = OtherRecentReams();
+        RecentButton.IsEnabled = others.Count > 0;
+        RecentButton.ToolTip = others.Count > 0 ? "Reams opened, saved or created recently" : "No other reams yet";
     }
 
     private void Tip(Button button, string text, string action) =>
         button.ToolTip = _app is not null && _app.Config.Keybindings.TryGetValue(action, out var gesture) && !string.IsNullOrWhiteSpace(gesture)
             ? $"{text} ({GestureText.Pretty(gesture)})"
             : text;
+
+    /// <summary>The Recent list, newest first, without whichever ream is open right now (reopening it would be a no-op).</summary>
+    internal List<string> OtherRecentReams() => _app is null
+        ? []
+        : _app.Config.RecentReams.Where(p => !string.Equals(p, _app.Config.LastReam, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    private void OnRecentClick(object sender, RoutedEventArgs e)
+    {
+        if (_app is null) return;
+
+        var menu = new ContextMenu { PlacementTarget = RecentButton, Placement = PlacementMode.Bottom };
+        foreach (string path in OtherRecentReams())
+        {
+            var item = new MenuItem { Header = System.IO.Path.GetFileNameWithoutExtension(path), ToolTip = path };
+            item.Click += (_, _) => _app.OpenRecentReamCommand.Execute(path);
+            menu.Items.Add(item);
+        }
+
+        if (menu.Items.Count > 0) menu.IsOpen = true;
+    }
 }

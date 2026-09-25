@@ -9,6 +9,8 @@ namespace Ream.App.Services;
 /// on settings as well as the palette - the canvas behind the notes (its see-through amount), the ribbon panel and the
 /// window's outline (both follow the canvas exactly, so at 0% nothing of Ream is left behind the notes), each
 /// note's background, the backdrops that appear behind Ream's own text on hover, and the border around the focused note.
+/// Also publishes <see cref="NoteZoomScaleKey"/> (a boxed double, config.zoom / 100): every note's editor binds its
+/// LayoutTransform to it with a DynamicResource, so zoom is live and app-wide, the same way the palette is.
 /// </summary>
 internal sealed class ThemeService
 {
@@ -19,6 +21,7 @@ internal sealed class ThemeService
     public const string NoteBrushKey = "NoteBrush";
     public const string ChromeHoverBrushKey = "ChromeHoverBrush";
     public const string RibbonHoverBrushKey = "RibbonHoverBrush";
+    public const string NoteZoomScaleKey = "NoteZoomScale";
 
     private readonly Application _application;
     private readonly Func<bool> _blurSupported;
@@ -33,6 +36,7 @@ internal sealed class ThemeService
     private Color _ribbonHover;
     private bool _isLight;
     private WindowAppearance _appearance;
+    private int _zoomPercent = 100;
 
     /// <param name="blurSupported">
     /// Whether Windows can blur behind the window (Windows 10 1803 or later). Only decides whether blur is asked for;
@@ -55,9 +59,9 @@ internal sealed class ThemeService
     public WindowAppearance Appearance => _appearance;
 
     public void Apply(AppConfig config) =>
-        Apply(config.Theme, config.CanvasOpacity, config.CanvasBlur, config.Layout.FocusBorderColor, config.NoteOpacity);
+        Apply(config.Theme, config.CanvasOpacity, config.CanvasBlur, config.Layout.FocusBorderColor, config.NoteOpacity, config.Zoom);
 
-    public void Apply(string? themeId, int canvasOpacity = 100, bool canvasBlur = true, string? focusBorderColor = null, int noteOpacity = 100)
+    public void Apply(string? themeId, int canvasOpacity = 100, bool canvasBlur = true, string? focusBorderColor = null, int noteOpacity = 100, int zoomPercent = 100)
     {
         var theme = ThemeCatalog.Resolve(themeId);
         bool changed = false;
@@ -98,6 +102,7 @@ internal sealed class ThemeService
         if (note != _note || changed) { Publish(NoteBrushKey, note); changed = true; }
         if (chromeHover != _chromeHover || changed) { Publish(ChromeHoverBrushKey, chromeHover); changed = true; }
         if (ribbonHover != _ribbonHover || changed) { Publish(RibbonHoverBrushKey, ribbonHover); changed = true; }
+        if (zoomPercent != _zoomPercent) { _application.Resources[NoteZoomScaleKey] = zoomPercent / 100.0; changed = true; }
 
         _canvas = canvas;
         _ribbon = ribbon;
@@ -106,6 +111,7 @@ internal sealed class ThemeService
         _note = note;
         _chromeHover = chromeHover;
         _ribbonHover = ribbonHover;
+        _zoomPercent = zoomPercent;
 
         bool seeThrough = CanvasStyle.IsSeeThrough(canvasOpacity);
         var appearance = new WindowAppearance(seeThrough, Blur: seeThrough && canvasBlur && CanvasStyle.AllowsBlur(canvasOpacity) && _blurSupported());

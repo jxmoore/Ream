@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -52,6 +53,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     private string? _pendingTheme;
     private int? _pendingOpacity;
     private int? _pendingNoteOpacity;
+    private int? _pendingZoom;
+    private double? _pendingGapPx;
+    private bool? _pendingCenterFocusedColumn;
 
     /// <param name="store">Where changes are saved; null keeps them for this run only.</param>
     /// <param name="dispatcher">Runs the delayed save on the UI thread; null runs it on a pool thread.</param>
@@ -87,6 +91,17 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     private int _noteOpacityPercent = 100;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ZoomLabel))]
+    [NotifyPropertyChangedFor(nameof(ZoomResetTooltip))]
+    private int _zoomPercent = 100;
+
+    [ObservableProperty]
+    private double _gapPx = 28;
+
+    [ObservableProperty]
+    private bool _centerFocusedColumn = true;
+
+    [ObservableProperty]
     private string _selectedThemeId = ThemeCatalog.DefaultId;
 
     /// <summary>The dropdown's selection: reads the theme in use, and choosing one applies it.</summary>
@@ -103,6 +118,15 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     public string NoteOpacityLabel => $"{NoteOpacityPercent}%";
 
+    public string ZoomLabel => $"{ZoomPercent}%";
+
+    public string ZoomResetTooltip => ZoomPercent == 100 ? "Zoom is 100%" : $"Zoom is {ZoomPercent}% - click to reset to 100%";
+
+    internal const int MinZoomPercent = 50;
+    internal const int MaxZoomPercent = 200;
+    internal const double MinGapPx = 8;
+    internal const double MaxGapPx = 60;
+
     /// <summary>What the slider does, and whether the blur behind the see-through canvas is on (canvasBlur in config.json).</summary>
     public string OpacityHint => !_app.Config.CanvasBlur
         ? "Lower it to see the desktop through Ream. Blur is off (canvasBlur in config.json)."
@@ -114,7 +138,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     private void SelectTheme(ThemeOption? option)
     {
         if (option is null || option.Id == SelectedThemeId) return;
-        Change(theme: option.Id, opacity: null, noteOpacity: null);
+        Change(theme: option.Id, opacity: null, noteOpacity: null, zoom: null);
     }
 
     partial void OnOpacityPercentChanged(int value)
@@ -127,7 +151,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
             OpacityPercent = clamped;
             return;
         }
-        Change(theme: null, opacity: clamped, noteOpacity: null);
+        Change(theme: null, opacity: clamped, noteOpacity: null, zoom: null);
     }
 
     partial void OnNoteOpacityPercentChanged(int value)
@@ -140,12 +164,44 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
             NoteOpacityPercent = clamped;
             return;
         }
-        Change(theme: null, opacity: null, noteOpacity: clamped);
+        Change(theme: null, opacity: null, noteOpacity: clamped, zoom: null);
     }
 
-    private void Change(string? theme, int? opacity, int? noteOpacity)
+    partial void OnZoomPercentChanged(int value)
     {
-        var next = _app.Config.With(theme, opacity, noteOpacity);
+        if (_syncing) return;
+
+        int clamped = Math.Clamp(value, MinZoomPercent, MaxZoomPercent);
+        if (clamped != value)
+        {
+            ZoomPercent = clamped;
+            return;
+        }
+        Change(theme: null, opacity: null, noteOpacity: null, zoom: clamped);
+    }
+
+    partial void OnGapPxChanged(double value)
+    {
+        if (_syncing) return;
+
+        double clamped = Math.Clamp(value, MinGapPx, MaxGapPx);
+        if (Math.Abs(clamped - value) > 0.01)
+        {
+            GapPx = clamped;
+            return;
+        }
+        ChangeLayout(gapPx: clamped, centerFocusedColumn: null);
+    }
+
+    partial void OnCenterFocusedColumnChanged(bool value)
+    {
+        if (_syncing) return;
+        ChangeLayout(gapPx: null, centerFocusedColumn: value);
+    }
+
+    private void Change(string? theme, int? opacity, int? noteOpacity, int? zoom)
+    {
+        var next = _app.Config.With(theme, opacity, noteOpacity, zoom: zoom);
 
         _syncing = true;
         try
@@ -162,6 +218,28 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         if (theme is not null) _pendingTheme = theme;
         if (opacity is not null) _pendingOpacity = opacity;
         if (noteOpacity is not null) _pendingNoteOpacity = noteOpacity;
+        if (zoom is not null) _pendingZoom = zoom;
+        _save.Trigger();
+    }
+
+    /// <summary>Gap size and centered focus (the "Layout" group): a nested config.json section, saved separately from the flat settings above.</summary>
+    private void ChangeLayout(double? gapPx, bool? centerFocusedColumn)
+    {
+        var next = _app.Config.WithLayout(gapPx, centerFocusedColumn);
+
+        _syncing = true;
+        try
+        {
+            _app.Config = next;
+            ShowCurrent(next);
+        }
+        finally
+        {
+            _syncing = false;
+        }
+
+        if (gapPx is not null) _pendingGapPx = gapPx;
+        if (centerFocusedColumn is not null) _pendingCenterFocusedColumn = centerFocusedColumn;
         _save.Trigger();
     }
 
@@ -187,6 +265,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         SelectedThemeId = id;
         OpacityPercent = config.CanvasOpacity;
         NoteOpacityPercent = config.NoteOpacity;
+        ZoomPercent = config.Zoom;
+        GapPx = config.Layout.GapPx;
+        CenterFocusedColumn = config.Layout.CenterFocusedColumn;
         foreach (var option in Themes) option.IsSelected = option.Id == id;
         OnPropertyChanged(nameof(SelectedTheme));
 
@@ -198,16 +279,35 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         string? theme = _pendingTheme;
         int? opacity = _pendingOpacity;
         int? noteOpacity = _pendingNoteOpacity;
+        int? zoom = _pendingZoom;
+        double? gapPx = _pendingGapPx;
+        bool? centerFocusedColumn = _pendingCenterFocusedColumn;
         _pendingTheme = null;
         _pendingOpacity = null;
         _pendingNoteOpacity = null;
-        if (_store is null || (theme is null && opacity is null && noteOpacity is null)) return;
+        _pendingZoom = null;
+        _pendingGapPx = null;
+        _pendingCenterFocusedColumn = null;
+        if (_store is null || (theme is null && opacity is null && noteOpacity is null && zoom is null && gapPx is null && centerFocusedColumn is null))
+            return;
 
         bool saved = _store.Update(root =>
         {
             if (theme is not null) root["theme"] = theme;
             if (opacity is not null) root["canvasOpacity"] = opacity.Value;
             if (noteOpacity is not null) root["noteOpacity"] = noteOpacity.Value;
+            if (zoom is not null) root["zoom"] = zoom.Value;
+            if (gapPx is not null || centerFocusedColumn is not null)
+            {
+                var layout = root["layout"] as JsonObject;
+                if (layout is null)
+                {
+                    layout = new JsonObject();
+                    root["layout"] = layout;
+                }
+                if (gapPx is not null) layout["gapPx"] = gapPx.Value;
+                if (centerFocusedColumn is not null) layout["centerFocusedColumn"] = centerFocusedColumn.Value;
+            }
         }, out var error);
 
         if (!saved) _app.ConfigError = $"Settings not saved: {error}";

@@ -21,6 +21,7 @@ public class FileRibbonTests
 
         public bool NewReam() => Record("new");
         public bool OpenReam() => Record("open");
+        public bool OpenReam(string path) => Record($"openRecent:{path}");
         public bool Save() => Record("save");
         public bool SaveAs() => Record("saveAs");
         public bool ClearReam() => Record("clear");
@@ -258,8 +259,8 @@ public class FileRibbonTests
             Assert.True(button.ActualHeight >= 50, $"{button.Name} is only {button.ActualHeight:0} px tall");
         }
 
-        var group = Ui.Descendants<TextBlock>(view).Where(t => t.Text is "Ream" or "Saving" or "Tidy up" or "Help").Where(t => Ui.Ancestor<ButtonBase>(t) is null).ToList();
-        Assert.Equal(4, group.Count);
+        var group = Ui.Descendants<TextBlock>(view).Where(t => t.Text is "Ream" or "Recent" or "Saving" or "Tidy up" or "Help").Where(t => Ui.Ancestor<ButtonBase>(t) is null).ToList();
+        Assert.Equal(5, group.Count);
         Assert.All(group, label => Assert.True(label.TranslatePoint(new Point(0, label.ActualHeight), panel).Y <= panel.ActualHeight, label.Text));
     });
 
@@ -275,6 +276,45 @@ public class FileRibbonTests
 
         Assert.True(view.ActualWidth <= 1150, $"the File ribbon is {view.ActualWidth:0} px wide");
         if (fx.Window.ActualWidth >= 1200) Assert.Equal(0, scroll.ScrollableWidth);
+    });
+
+    [Fact]
+    public void RecentButton_IsDisabled_WithNoOtherReamsYet() => Ui.Run(() =>
+    {
+        using var fx = Docked();
+        var view = FileRibbon(fx);
+        var button = Named<Button>(view, "RecentButton");
+
+        Assert.False(button.IsEnabled);
+        Assert.Equal("No other reams yet", button.ToolTip);
+        Assert.Empty(view.OtherRecentReams());
+    });
+
+    [Fact]
+    public void RecentButton_IsEnabled_AndExcludesTheOpenReam_WhenThereAreOthers() => Ui.Run(() =>
+    {
+        using var fx = Docked();
+        var view = FileRibbon(fx);
+
+        fx.App.Config = fx.App.Config.WithLastReam(@"C:\Reams\Current.ream")
+            .WithRecentReams([@"C:\Reams\Current.ream", @"C:\Reams\Older.ream", @"C:\Reams\Oldest.ream"]);
+
+        var button = Named<Button>(view, "RecentButton");
+        Assert.True(button.IsEnabled);
+        Assert.Equal("Reams opened, saved or created recently", button.ToolTip);
+        Assert.Equal([@"C:\Reams\Older.ream", @"C:\Reams\Oldest.ream"], view.OtherRecentReams());
+    });
+
+    [Fact]
+    public void OpenRecentReamCommand_AsksTheManagerToOpenThatPath() => Ui.Run(() =>
+    {
+        using var fx = Docked();
+        var files = new RecordingReamFiles(fx.App);
+        fx.App.Files = files;
+
+        fx.App.OpenRecentReamCommand.Execute(@"C:\Reams\Older.ream");
+
+        Assert.Equal([$"openRecent:C:\\Reams\\Older.ream"], files.Calls);
     });
 
     [Fact]

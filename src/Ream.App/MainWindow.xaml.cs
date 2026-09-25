@@ -26,6 +26,7 @@ public partial class MainWindow : Window
     private readonly WheelAccumulator _workspaceWheel = new();
     private readonly WheelAccumulator _rowWheel = new();
     private readonly WheelAccumulator _tiltWheel = new();
+    private readonly WheelAccumulator _zoomWheel = new();
     private readonly List<InputBinding> _configuredBindings = [];
     private readonly FullscreenController _fullscreen;
     private readonly IWindowBackdrop _backdrop;
@@ -55,6 +56,9 @@ public partial class MainWindow : Window
         ViewRibbon.DataContext = Settings;
         FileRibbon.HelpRequested += OpenHelp;
         FileRibbon.AboutRequested += OpenAbout;
+        ViewRibbon.ReadModeRequested += () => viewModel.ToggleFullscreenCommand.Execute(null);
+        ViewRibbon.NewNoteRequested += () => viewModel.NewNoteCommand.Execute(null);
+        ViewRibbon.NewWorkspaceRequested += () => viewModel.NewWorkspaceCommand.Execute(null);
         SelectTab(RibbonTab.Home);
 
         _ribbonHideTimer.Tick += (_, _) => CompleteRibbonHide();
@@ -175,6 +179,7 @@ public partial class MainWindow : Window
     internal static readonly TimeSpan RibbonHideDelay = TimeSpan.FromMilliseconds(400);
 
     private const int RibbonSlideMs = 140;
+    private const int ZoomWheelStepPercent = 10;
     private const double RibbonHeight = 90;
 
     /// <summary>What decides whether the panel is up (tests read it; the window feeds it).</summary>
@@ -456,6 +461,12 @@ public partial class MainWindow : Window
         else if (modifiers.HasFlag(ModifierKeys.Shift))
         {
             _viewModel.FocusNoteBy(-_rowWheel.Add(e.Delta));
+            e.Handled = true;
+        }
+        else if (modifiers.HasFlag(ModifierKeys.Control))
+        {
+            int steps = _zoomWheel.Add(e.Delta);
+            if (steps != 0) Settings.ZoomPercent += steps * ZoomWheelStepPercent;
             e.Handled = true;
         }
 

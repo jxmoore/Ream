@@ -382,6 +382,10 @@ public sealed partial class AppViewModel : ObservableObject
     [RelayCommand]
     private void OpenReam() => Files?.OpenReam();
 
+    /// <summary>The File tab's Recent list: opens a specific ream by its full path.</summary>
+    [RelayCommand]
+    private void OpenRecentReam(string path) => Files?.OpenReam(path);
+
     [RelayCommand]
     private void SaveReam() => Files?.Save();
 
@@ -497,6 +501,10 @@ public sealed partial class AppViewModel : ObservableObject
 
     [RelayCommand]
     private void NewNote() => OpenDraft();
+
+    /// <summary>Jumps to the trailing empty edge workspace - the same thing Alt+Down past the last named one does - ready to type into.</summary>
+    [RelayCommand]
+    private void NewWorkspace() => SwitchWorkspace(Workspaces.Count - 1 - CurrentIndex);
 
     [RelayCommand]
     private void CloseNote()

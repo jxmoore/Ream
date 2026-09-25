@@ -49,9 +49,38 @@ Blur behind is separate (`canvasBlur`, and never asked for at 0% - a blurred des
 `SetWindowCompositionAttribute`; `BlurPlan` is unit-tested, the real effect is not visible off-screen.
 Help/About are still ordinary native windows.
 Ribbon: the tab row is File | Home | View (`MainWindow.SelectTab`, `RibbonTab`); each tab swaps the panel below it:
-`FileRibbonView` (New / Open / Save / Save As, the Auto-save switch, Clear, and Help/About raised as events; bound to the `AppViewModel` ream commands, tooltips show the live gestures; there is no workspace list - workspaces are switched by keys and the wheel), `RibbonView` (Home, the
-editor controls) and `ViewRibbonView` (a theme dropdown bound to `SettingsViewModel.SelectedTheme`, canvas and note opacity sliders stacked; DataContext is the
-`SettingsViewModel`). Home is laid out like Word's Home tab (flat buttons, icon rows, a label centered under each group; there is no
+`FileRibbonView` (New / Open / Save / Save As, Recent, the Auto-save switch, Clear, and Help/About raised as events; bound to the `AppViewModel` ream commands, tooltips show the live gestures; there is no workspace list - workspaces are switched by keys and the wheel). Recent (like Word's Backstage
+Open > Recent) is `AppConfig.RecentReams` - the last `RecentReamsLimit` reams opened, saved or created, newest first, deduplicated case-insensitively and maintained by `ReamManager.RecordLastReam`; its button lists everything there except whichever ream is open right now (reopening that would be a
+no-op) and disables itself, with an explanatory tooltip, when there is nothing else to show. Clicking an entry runs `AppViewModel.OpenRecentReamCommand`, which is `IReamFiles.OpenReam(path)` - the same open-a-specific-ream path `ReamLauncher`/`ReamManager.OpenReam()` already used, just reachable
+with a path in hand instead of a file-picker round trip. `RibbonView` (Home, the
+editor controls) and `ViewRibbonView` (DataContext is the `SettingsViewModel`), laid out group-for-group like Word's own
+View tab, down to which group has tiles versus checkboxes versus stacked text rows, not just which settings exist:
+Views, Page Movement, Show, Zoom, Window, in Word's own order (Word's Macros and SharePoint groups are dropped - nothing
+in Ream comes close), then Ream's own settings tacked on at the very end, in order: Layout, Theme, Opacity. Every Word
+control Ream has nothing behind is still placed, disabled (`IsEnabled="False"`, tooltip "Not available yet") - the same
+convention the Home tab uses for the Word controls it can't do - except where an already-real Ream command reasonably
+fills the slot instead of sitting idle: **Views**' Read Mode is real (`ReadModeButton`/`ReadModeRequested` - it's Ream's
+own note-fullscreen toggle, Alt+F11, `AppViewModel.ToggleFullscreenCommand`; Word itself called this "Full Screen
+Reading" before renaming it), Print Layout/Web Layout/Outline/Draft are disabled. **Page Movement** (Vertical, Side to
+Side) is entirely disabled - Ream's row is always horizontal and its workspace stack always vertical, nothing to
+toggle. **Show** is Ruler/Gridlines/Navigation Pane, all disabled. **Zoom** drops Word's page-view trio (One Page,
+Multiple Pages, Page Width - placed disabled) but `ZoomButton` (opens a themed menu of presets, 50/75/.../200) and
+`ZoomResetButton` (its big number *is* the current zoom, `SettingsViewModel.ZoomLabel`/`ZoomResetTooltip`; click resets
+to 100%) are real - deliberately no slider on the ribbon itself, matching Word (its live zoom control is in a status bar
+Ream doesn't have); `Ctrl+Scroll` also zooms (`MainWindow.OnPreviewMouseWheel`, its own `WheelAccumulator`).
+`SettingsViewModel.ZoomPercent` (`AppConfig.Zoom`, 50-200) scales a note's whole editor, not just its font: `ThemeService`
+publishes it as `NoteZoomScale` (a boxed double, config.zoom / 100) the same way it publishes theme brushes, and each
+`NoteColumnView`'s `RichTextBox` binds a `ScaleTransform` `LayoutTransform` to it with `{DynamicResource NoteZoomScale}` -
+a LayoutTransform, not a RenderTransform, so text actually re-wraps at the zoomed size instead of just stretching, and
+it is live and app-wide with no other plumbing, exactly like a theme change. **Window** keeps New Note and New Workspace
+real (`NewNoteRequested`/`NewWorkspaceRequested`; New Workspace jumps to the trailing empty edge workspace - the same
+thing Alt+Down past the last named one does, `AppViewModel.NewWorkspaceCommand`) standing in for Word's New Window /
+Arrange All, and places Split, View Side by Side, Synchronous Scrolling, Reset Window Position and Switch Windows
+disabled - Ream has no multi-window concept for the rest of the group. **Layout** is Ream's own (a gap-size slider, a
+"Center the focused note" checkbox) via `AppConfig.WithLayout`, saved under the file's nested `layout` object rather
+than a flat key - the same "patch only the given keys" contract as everything else in `AppConfigStore.Update`. The Show
+checkboxes and Layout's own checkbox share one themed `CheckBox` style (`Themes/Controls.xaml`): a small square with an
+accent checkmark, the app's only one, since nothing needed a real checkbox before this. Home is laid out like Word's Home tab (flat buttons, icon rows, a label centered under each group; there is no
 dialog-launcher corner and no Add-ins group - Ream doesn't have either): Clipboard, Font, Paragraph, Styles (a framed, horizontally
 scrollable gallery: Normal, Heading 1-4, Title, Subtitle, Quote, with working Previous/More arrows and an "All styles" menu -
 `RibbonView.Styles`, `ApplyStyle`), Editing (Find/Replace open a modeless `FindReplaceWindow` bound to `AppViewModel.FindCommand`/

@@ -8,6 +8,9 @@ internal interface IReamFiles
 {
     bool NewReam();
     bool OpenReam();
+
+    /// <summary>Opens a specific .ream (the File tab's Recent list). False if it no longer exists or won't open, or the open ream's unsaved changes were not dealt with.</summary>
+    bool OpenReam(string path);
     bool Save();
     bool SaveAs();
     bool ClearReam();

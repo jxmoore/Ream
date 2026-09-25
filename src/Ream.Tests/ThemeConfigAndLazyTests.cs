@@ -34,6 +34,8 @@ internal static class Themes
     }
 
     public static Color Brush(string key) => ((SolidColorBrush)Application.Current.Resources[key]).Color;
+
+    public static T Resource<T>(string key) => (T)Application.Current.Resources[key];
 }
 
 public class ThemeTests
@@ -385,6 +387,82 @@ public class ThemeTests
             theme.Apply("dark");
         }
     });
+
+    [Theory]
+    [InlineData(100, 1.0)]
+    [InlineData(150, 1.5)]
+    [InlineData(50, 0.5)]
+    public void Zoom_PublishesTheScaleAsAFractionOfAHundred(int zoomPercent, double expected) => Ui.Run(() =>
+    {
+        var theme = new ThemeService(Application.Current);
+        try
+        {
+            theme.Apply("dark", zoomPercent: zoomPercent);
+
+            Assert.Equal(expected, Themes.Resource<double>(ThemeService.NoteZoomScaleKey));
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void ZoomFromTheConfig_ReachesTheResource() => Ui.Run(() =>
+    {
+        var theme = new ThemeService(Application.Current);
+        try
+        {
+            theme.Apply(new AppConfig { Zoom = 120 });
+
+            Assert.Equal(1.2, Themes.Resource<double>(ThemeService.NoteZoomScaleKey));
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void ChangingOnlyTheZoom_StillRaisesChanged() => Ui.Run(() =>
+    {
+        var theme = new ThemeService(Application.Current, () => true);
+        try
+        {
+            theme.Apply("dark");
+            int changes = 0;
+            theme.Changed += () => changes++;
+
+            theme.Apply("dark", zoomPercent: 130);
+
+            Assert.Equal(1, changes);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void SettingTheSameZoomAgain_DoesNotRaiseChanged() => Ui.Run(() =>
+    {
+        var theme = new ThemeService(Application.Current, () => true);
+        try
+        {
+            theme.Apply("dark", zoomPercent: 130);
+            int changes = 0;
+            theme.Changed += () => changes++;
+
+            theme.Apply("dark", zoomPercent: 130);
+
+            Assert.Equal(0, changes);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
     [Fact]
     public void ChangingOnlyTheOpacity_StillRaisesChanged() => Ui.Run(() =>
     {

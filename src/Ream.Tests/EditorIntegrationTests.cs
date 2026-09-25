@@ -5,6 +5,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Ream.App.Services;
 using Ream.App.ViewModels;
 using Ream.App.Views;
 using Ream.Core.Models;
@@ -411,6 +412,28 @@ public class EditorIntegrationTests
         string saved = fx.Saved();
         Assert.Contains("i=\"1\"", saved);
         Assert.DoesNotContain("b=\"1\"", saved);
+    });
+
+    [Fact]
+    public void TheZoomResource_ScalesTheEditorsLayoutTransform() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        var theme = new ThemeService(Application.Current);
+        try
+        {
+            var transform = Assert.IsType<ScaleTransform>(fx.Editor.LayoutTransform);
+            Assert.Equal(1.0, transform.ScaleX);
+
+            theme.Apply("dark", zoomPercent: 150);
+            Ui.Settle();
+
+            Assert.Equal(1.5, transform.ScaleX);
+            Assert.Equal(1.5, transform.ScaleY);
+        }
+        finally
+        {
+            theme.Apply("dark"); // back to 100%, for whichever test shares the Application next
+        }
     });
 
     [Fact]
