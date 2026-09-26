@@ -443,11 +443,39 @@
         <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
         <Setter Property="HorizontalAlignment" Value="Center"/>
     </Style>
+    <!-- A ribbon tile: no frame until the pointer is on it, like Word's own ribbon buttons (RibbonView.xaml's Home tab
+         has its own copy of this same flat behaviour, applied to every button there via a local implicit style, since
+         it needs it everywhere; this one is for the tab-level ribbons, which only need it on the tiles that ask). -->
     <Style x:Key="RibbonTile" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
         <Setter Property="Focusable" Value="False"/>
         <Setter Property="MinWidth" Value="64"/>
         <Setter Property="Padding" Value="10,6"/>
         <Setter Property="Margin" Value="3,1"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Frame" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="1" CornerRadius="4">
+                        <ContentPresenter Margin="{TemplateBinding Padding}" RecognizesAccessKey="True"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Frame" Property="Background" Value="{DynamicResource ControlHoverBrush}"/>
+                            <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Frame" Property="Background" Value="{DynamicResource ControlPressedBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!-- Minimize / maximize / close. Close goes red on hover like every Windows app. -->

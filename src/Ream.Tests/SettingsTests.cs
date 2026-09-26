@@ -816,6 +816,32 @@ public class ViewRibbonTests
     });
 
     [Fact]
+    public void RibbonTiles_ShowNoFrame_UntilThePointerIsOnThem() => Ui.Run(() =>
+    {
+        // Word's own ribbon buttons are just a glyph and a caption at rest - no box, no border - until hovered.
+        var app = new AppViewModel(new AppConfig(), []);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+
+            foreach (var name in new[] { "ReadModeButton", "ZoomButton", "ZoomResetButton", "NewNoteButton", "OutlineButton" })
+            {
+                var button = (Button)view.FindName(name);
+                var frame = Ui.Descendants<Border>(button).First(b => b.Name == "Frame");
+                Assert.True(((SolidColorBrush)frame.Background).Color == Colors.Transparent, $"{name} has a background at rest");
+                Assert.True(((SolidColorBrush)frame.BorderBrush).Color == Colors.Transparent, $"{name} has a border at rest");
+            }
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
     public void TheReadModeButton_RaisesItsEvent() => Ui.Run(() =>
     {
         var app = new AppViewModel(new AppConfig(), []);
