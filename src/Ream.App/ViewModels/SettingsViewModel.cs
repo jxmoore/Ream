@@ -109,6 +109,22 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _navigationPaneOpen;
 
+    /// <summary>
+    /// Window group's Synchronous Scrolling: scrolling one note scrolls every other loaded note in the same row with
+    /// it. Session-only, not saved to config.json. Published as an Application resource (the same trick
+    /// NoteZoomScale uses) because NoteColumnView - not this view model - is what actually needs to read it, and its
+    /// DataContext is the note, not the settings.
+    /// </summary>
+    [ObservableProperty]
+    private bool _synchronousScrollingOn;
+
+    internal const string SynchronousScrollingKey = "SynchronousScrollingEnabled";
+
+    partial void OnSynchronousScrollingOnChanged(bool value) => Application.Current.Resources[SynchronousScrollingKey] = value;
+
+    /// <summary>The Window group's Switch Notes menu needs the current workspace's own notes, which only the app view model has.</summary>
+    internal AppViewModel App => _app;
+
     [ObservableProperty]
     private string _selectedThemeId = ThemeCatalog.DefaultId;
 

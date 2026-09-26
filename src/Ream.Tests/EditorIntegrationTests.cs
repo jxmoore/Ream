@@ -5,6 +5,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Ream.App.Controls;
 using Ream.App.Services;
 using Ream.App.ViewModels;
 using Ream.App.Views;
@@ -684,6 +685,88 @@ public class EditorIntegrationTests
         Ui.Settle();
 
         Assert.Equal(25, Canvas.GetLeft(fx.View.IndentMarker));
+    });
+
+    // ----- Window group's Synchronous Scrolling -----
+
+    private static string LongBody(int lines) =>
+        "<ReamNote schemaVersion=\"1\"><Doc>" + string.Concat(Enumerable.Range(0, lines).Select(i => $"<P><R>line {i}</R></P>")) + "</Doc></ReamNote>";
+
+    [Fact]
+    public void SynchronousScrolling_WhenOn_ScrollsOtherLoadedNotesInTheSameRowToMatch() => Ui.Run(() =>
+    {
+        using var dir = new TempDir();
+        var repo = TestReam.Repo(dir.Combine("Docs"));
+        var workspace = new WorkspaceViewModel("W", repo);
+        var noteA = new NoteViewModel { Title = "A", Body = LongBody(80) };
+        var noteB = new NoteViewModel { Title = "B", Body = LongBody(80) };
+        workspace.LoadNotes([noteA, noteB], noteA.Id);
+
+        var row = new NoteRowPanel { Width = 600, Height = 200 };
+        var viewA = new NoteColumnView { DataContext = noteA, Width = 280, Height = 200 };
+        var viewB = new NoteColumnView { DataContext = noteB, Width = 280, Height = 200 };
+        row.Children.Add(viewA);
+        row.Children.Add(viewB);
+
+        var window = Ui.Show(row);
+        try
+        {
+            viewA.EnsureLoaded();
+            viewB.EnsureLoaded();
+            Ui.Settle();
+
+            Application.Current.Resources[SettingsViewModel.SynchronousScrollingKey] = true;
+
+            viewA.Editor.ScrollToVerticalOffset(40);
+            Ui.Settle();
+
+            Assert.True(viewA.Editor.VerticalOffset > 0);
+            Assert.Equal(viewA.Editor.VerticalOffset, viewB.Editor.VerticalOffset, 1);
+        }
+        finally
+        {
+            Application.Current.Resources[SettingsViewModel.SynchronousScrollingKey] = false;
+            window.Close();
+        }
+    });
+
+    [Fact]
+    public void SynchronousScrolling_WhenOff_NotesScrollIndependently() => Ui.Run(() =>
+    {
+        using var dir = new TempDir();
+        var repo = TestReam.Repo(dir.Combine("Docs"));
+        var workspace = new WorkspaceViewModel("W", repo);
+        var noteA = new NoteViewModel { Title = "A", Body = LongBody(80) };
+        var noteB = new NoteViewModel { Title = "B", Body = LongBody(80) };
+        workspace.LoadNotes([noteA, noteB], noteA.Id);
+
+        var row = new NoteRowPanel { Width = 600, Height = 200 };
+        var viewA = new NoteColumnView { DataContext = noteA, Width = 280, Height = 200 };
+        var viewB = new NoteColumnView { DataContext = noteB, Width = 280, Height = 200 };
+        row.Children.Add(viewA);
+        row.Children.Add(viewB);
+
+        var window = Ui.Show(row);
+        try
+        {
+            viewA.EnsureLoaded();
+            viewB.EnsureLoaded();
+            Ui.Settle();
+
+            // Defensive, not just "default off": Application.Resources is shared by every UI test, so this test
+            // doesn't trust another one left it alone (see TheSynchronousScrollingCheckBox_IsATwoWayBinding's own note).
+            Application.Current.Resources[SettingsViewModel.SynchronousScrollingKey] = false;
+
+            viewA.Editor.ScrollToVerticalOffset(40);
+            Ui.Settle();
+
+            Assert.True(viewA.Editor.VerticalOffset > 0);
+            Assert.Equal(0, viewB.Editor.VerticalOffset);
+        }
+        finally
+        {
+            window.Close();
+        }
     });
 
     // ----- Whole pipeline -----

@@ -105,11 +105,28 @@ own `WheelAccumulator`).
 publishes it as `NoteZoomScale` (a boxed double, config.zoom / 100) the same way it publishes theme brushes, and each
 `NoteColumnView`'s `RichTextBox` binds a `ScaleTransform` `LayoutTransform` to it with `{DynamicResource NoteZoomScale}` -
 a LayoutTransform, not a RenderTransform, so text actually re-wraps at the zoomed size instead of just stretching, and
-it is live and app-wide with no other plumbing, exactly like a theme change. **Window** keeps New Note and New Workspace
-real (`NewNoteRequested`/`NewWorkspaceRequested`; New Workspace jumps to the trailing empty edge workspace - the same
-thing Alt+Down past the last named one does, `AppViewModel.NewWorkspaceCommand`) standing in for Word's New Window /
-Arrange All, and places Split, View Side by Side, Synchronous Scrolling, Reset Window Position and Switch Windows
-disabled - Ream has no multi-window concept for the rest of the group. **Layout** is Ream's own (a gap-size slider, a
+it is live and app-wide with no other plumbing, exactly like a theme change. **Window** keeps New Note and New
+Workspace real (`NewNoteRequested`/`NewWorkspaceRequested`; New Workspace jumps to the trailing empty edge workspace -
+the same thing Alt+Down past the last named one does, `AppViewModel.NewWorkspaceCommand`), standing in for Word's New
+Window / Arrange All (moving to File next). Word's Split, View Side by Side and Reset Window Position are dropped
+outright - no multi-window concept for any of them - and three real, stacked controls join New Note/New Workspace:
+**One Page** (`OnePageButton`/`OnePageRequested` -> `AppViewModel.ToggleOnePageCommand`, moved here from Zoom) hides
+every note but the focused one - built on the fullscreen every note already has (`NoteViewModel.IsFullscreen`), just
+kept following focus instead of tied to one note: `AppViewModel.OnePageMode` re-fullscreens whichever note becomes
+focused and clears whichever had it, both within a workspace (`OnWorkspaceChanged`, since `WorkspaceViewModel.SetFocus`
+already clears the note it moved off of - only the newly-focused one needs setting) and across a workspace switch
+(`OnCurrentIndexChanged`, which has to clear the old workspace's note explicitly since switching workspaces doesn't
+go through `SetFocus` at all). **Synchronous Scrolling** (`SynchronousScrollingCheckBox`, a real two-way `CheckBox` -
+`SettingsViewModel.SynchronousScrollingOn`, session-only) publishes to `Application.Resources` under
+`SettingsViewModel.SynchronousScrollingKey` (the same cross-DataContext trick `NoteZoomScale` uses, read
+imperatively here rather than bound); `NoteColumnView` hooks `Editor`'s `ScrollViewer.ScrollChangedEvent` and, when
+the flag reads true, walks its `NoteRowPanel` siblings (`SiblingColumns`, skipping any column that hasn't loaded its
+editor) and calls `ScrollToVerticalOffset` on each with a static reentrancy guard so the propagated scrolls don't
+bounce back and forth. **Switch Notes** (renamed from Word's Switch Windows - Ream has notes, not windows) is a themed
+menu of the current workspace's notes built directly in `ViewRibbonView.OnSwitchNotesClick` (the same
+build-the-menu-in-code-behind shape Zoom's old preset menu used, since a `CheckBox`/`Button` two-way binding can't
+carry a list); it reads the workspace through a small `internal SettingsViewModel.App` accessor, since only
+`AppViewModel` has the notes to list. **Layout** is Ream's own (a gap-size slider, a
 "Center the focused note" checkbox) via `AppConfig.WithLayout`, saved under the file's nested `layout` object rather
 than a flat key - the same "patch only the given keys" contract as everything else in `AppConfigStore.Update`. The Show
 checkboxes and Layout's own checkbox share one themed `CheckBox` style (`Themes/Controls.xaml`): a small square with an

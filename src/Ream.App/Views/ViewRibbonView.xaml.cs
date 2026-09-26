@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using Ream.App.ViewModels;
 
 namespace Ream.App.Views;
@@ -23,6 +24,9 @@ public partial class ViewRibbonView : UserControl
     /// <summary>The Ruler tile, for the same reason (it toggles the focused note's own ruler, not a session setting).</summary>
     public event Action? RulerRequested;
 
+    /// <summary>The One Page tile, for the same reason (it follows focus across the whole app, not this tab's job).</summary>
+    public event Action? OnePageRequested;
+
     /// <summary>The New Note tile, for the same reason.</summary>
     public event Action? NewNoteRequested;
 
@@ -38,6 +42,29 @@ public partial class ViewRibbonView : UserControl
     private void OnOutlineViewClick(object sender, RoutedEventArgs e) => OutlineViewRequested?.Invoke();
 
     private void OnRulerClick(object sender, RoutedEventArgs e) => RulerRequested?.Invoke();
+
+    private void OnOnePageClick(object sender, RoutedEventArgs e) => OnePageRequested?.Invoke();
+
+    /// <summary>Switch Notes: a themed menu of the current workspace's notes, like Word's own Switch Windows reduced to one window's worth of documents.</summary>
+    private void OnSwitchNotesClick(object sender, RoutedEventArgs e)
+    {
+        if (Settings is not { } settings) return;
+
+        var workspace = settings.App.CurrentWorkspace;
+        var menu = new ContextMenu { PlacementTarget = SwitchNotesButton, Placement = PlacementMode.Bottom };
+        foreach (var note in workspace.Notes)
+        {
+            var item = new MenuItem { Header = note.DisplayTitle, IsCheckable = true, IsChecked = note.IsFocused };
+            item.Click += (_, _) =>
+            {
+                workspace.SetFocus(workspace.Notes.IndexOf(note));
+                settings.App.RequestEditorFocus();
+            };
+            menu.Items.Add(item);
+        }
+        SwitchNotesButton.ContextMenu = menu; // so it can be found again (tests, and if the menu needs rebuilding later)
+        menu.IsOpen = true;
+    }
 
     private void OnNewNoteClick(object sender, RoutedEventArgs e) => NewNoteRequested?.Invoke();
 

@@ -249,6 +249,56 @@ public class ViewModeCommandTests
         Assert.False(note.IsOutlineView);
         Assert.False(note.EffectiveReadOnly);
     }
+
+    [Fact]
+    public void ToggleOnePage_FullscreensTheFocusedNote_AndClearsItOnASecondClick()
+    {
+        var (app, note) = Fixture();
+
+        app.ToggleOnePageCommand.Execute(null);
+        Assert.True(app.OnePageMode);
+        Assert.True(note.IsFullscreen);
+
+        app.ToggleOnePageCommand.Execute(null);
+        Assert.False(app.OnePageMode);
+        Assert.False(note.IsFullscreen);
+    }
+
+    [Fact]
+    public void OnePage_FollowsFocusToWhicheverNoteIsFocusedNext()
+    {
+        var workspace = new WorkspaceViewModel("W");
+        var first = new NoteViewModel();
+        var second = new NoteViewModel();
+        workspace.LoadNotes([first, second], first.Id);
+        var app = new AppViewModel(new AppConfig(), [workspace]);
+        app.ToggleOnePageCommand.Execute(null);
+        Assert.True(first.IsFullscreen);
+
+        app.FocusNoteBy(1);
+
+        Assert.False(first.IsFullscreen);
+        Assert.True(second.IsFullscreen);
+    }
+
+    [Fact]
+    public void OnePage_FollowsAWorkspaceSwitchToo()
+    {
+        var w1 = new WorkspaceViewModel("Alpha");
+        var noteA = new NoteViewModel();
+        w1.LoadNotes([noteA], null);
+        var w2 = new WorkspaceViewModel("Beta");
+        var noteB = new NoteViewModel();
+        w2.LoadNotes([noteB], null);
+        var app = new AppViewModel(new AppConfig(), [w1, w2], currentIndex: 0);
+        app.ToggleOnePageCommand.Execute(null);
+        Assert.True(noteA.IsFullscreen);
+
+        app.SwitchWorkspace(1);
+
+        Assert.False(noteA.IsFullscreen);
+        Assert.True(noteB.IsFullscreen);
+    }
 }
 
 public class FullscreenControllerTests

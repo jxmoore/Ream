@@ -752,14 +752,8 @@ public class ViewRibbonTests
         }
     });
 
-    /// <summary>Word controls Ream mirrors for the layout but has nothing behind yet - present, visible, and disabled, same convention as the Home tab's own placed-but-disabled controls.</summary>
-    private static readonly string[] PlacedButDisabled =
-    [
-        "SplitButton", "ViewSideBySideButton", "SynchronousScrollingButton", "ResetWindowPositionButton", "SwitchWindowsButton", // Window
-    ];
-
     [Fact]
-    public void WordControlsWithNothingBehindThemYet_ArePlaced_ButDisabled() => Ui.Run(() =>
+    public void TheOnePageButton_RaisesItsEvent() => Ui.Run(() =>
     {
         var app = new AppViewModel(new AppConfig(), []);
         var theme = new ThemeService(Application.Current, () => true);
@@ -768,13 +762,12 @@ public class ViewRibbonTests
         {
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
+            bool raised = false;
+            view.OnePageRequested += () => raised = true;
 
-            foreach (var name in PlacedButDisabled)
-            {
-                var control = (Control)view.FindName(name);
-                Assert.True(control.IsVisible, name);
-                Assert.False(control.IsEnabled, name);
-            }
+            RaiseClick((Button)view.FindName("OnePageButton"));
+
+            Assert.True(raised);
         }
         finally
         {
@@ -783,7 +776,71 @@ public class ViewRibbonTests
     });
 
     [Fact]
-    public void TheControlsThatWork_AreEnabled_EvenAmongTheDisabledOnes() => Ui.Run(() =>
+    public void TheSynchronousScrollingCheckBox_IsATwoWayBinding() => Ui.Run(() =>
+    {
+        var app = new AppViewModel(new AppConfig(), []);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            var box = (CheckBox)view.FindName("SynchronousScrollingCheckBox");
+            Assert.False(box.IsChecked);
+
+            box.IsChecked = true;
+            Ui.Settle();
+
+            Assert.True(settings.SynchronousScrollingOn);
+        }
+        finally
+        {
+            // It publishes to the shared Application.Resources (NoteColumnView reads it directly), which every
+            // UI test shares - leaving it on would leak into whichever test runs next.
+            settings.SynchronousScrollingOn = false;
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void TheSwitchNotesButton_ListsTheWorkspacesNotes_AndPickingOneFocusesIt() => Ui.Run(() =>
+    {
+        var workspace = new WorkspaceViewModel("W");
+        var first = new NoteViewModel { Title = "First" };
+        var second = new NoteViewModel { Title = "Second" };
+        workspace.LoadNotes([first, second], first.Id);
+        var app = new AppViewModel(new AppConfig(), [workspace]);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            var button = (Button)view.FindName("SwitchNotesButton");
+
+            RaiseClick(button);
+            Ui.Settle();
+
+            var menu = button.ContextMenu;
+            Assert.NotNull(menu);
+            var items = menu.Items.Cast<MenuItem>().ToList();
+            Assert.Equal(["First", "Second"], items.Select(i => (string)i.Header));
+            Assert.True(items[0].IsChecked);
+
+            items[1].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Ui.Settle();
+
+            Assert.Same(second, app.CurrentWorkspace.FocusedNote);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    /// <summary>Every control on the View tab is real now (Views, Show, Zoom and Window each got their own pass) - nothing left placed-but-disabled the way the Home tab still has a few Word controls with nothing behind them.</summary>
+    [Fact]
+    public void EveryControlOnTheViewTab_IsEnabled() => Ui.Run(() =>
     {
         var app = new AppViewModel(new AppConfig(), []);
         var theme = new ThemeService(Application.Current, () => true);
@@ -798,6 +855,7 @@ public class ViewRibbonTests
                 "ThemeBox", "OpacitySlider", "NoteOpacitySlider", "GapSlider", "CenterFocusedToggle",
                 "ReadModeButton", "DraftButton", "OutlineButton", "RulerButton", "GridlinesCheckBox", "NavigationPaneCheckBox",
                 "ZoomInButton", "ZoomOutButton", "ZoomResetButton", "NewNoteButton", "NewWorkspaceButton",
+                "OnePageButton", "SynchronousScrollingCheckBox", "SwitchNotesButton",
             ];
             foreach (var name in working) Assert.True(((Control)view.FindName(name)).IsEnabled, name);
         }

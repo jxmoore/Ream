@@ -61,6 +61,7 @@ public partial class MainWindow : Window
         ViewRibbon.DraftViewRequested += () => viewModel.ToggleDraftViewCommand.Execute(null);
         ViewRibbon.OutlineViewRequested += () => viewModel.ToggleOutlineViewCommand.Execute(null);
         ViewRibbon.RulerRequested += () => viewModel.ToggleRulerCommand.Execute(null);
+        ViewRibbon.OnePageRequested += () => viewModel.ToggleOnePageCommand.Execute(null);
         ViewRibbon.NewNoteRequested += () => viewModel.NewNoteCommand.Execute(null);
         ViewRibbon.NewWorkspaceRequested += () => viewModel.NewWorkspaceCommand.Execute(null);
         Settings.PropertyChanged += OnSettingsPropertyChanged;

@@ -145,6 +145,15 @@ public sealed partial class AppViewModel : ObservableObject
             left.DiscardBlankDrafts(keepFocused: false);
 
         RefreshWorkspaceState();
+
+        // One Page: the note shown hands off to whichever is focused in the workspace just arrived at - switching
+        // workspaces doesn't go through WorkspaceViewModel.SetFocus (which is what clears it within one workspace),
+        // so the one left behind needs clearing here explicitly.
+        if (OnePageMode && !ReferenceEquals(left, arrived))
+        {
+            if (left.FocusedNote is { IsFullscreen: true } leftNote) leftNote.IsFullscreen = false;
+            if (arrived.FocusedNote is { } note) note.IsFullscreen = true;
+        }
     }
 
     /// <summary>
@@ -168,7 +177,33 @@ public sealed partial class AppViewModel : ObservableObject
     {
         if (ReferenceEquals(sender, _visited) && e.PropertyName is nameof(WorkspaceViewModel.DisplayName))
             OnPropertyChanged(nameof(WorkspaceLabel));
+
+        // One Page: focus moving to a different note within the current workspace hands the "only one shown" spot
+        // to it too - WorkspaceViewModel.SetFocus already clears the note that had it (the same way it always clears
+        // a manually-fullscreened note when focus moves off it), so this only ever needs to turn the new one on.
+        if (OnePageMode && ReferenceEquals(sender, CurrentWorkspace) && e.PropertyName is nameof(WorkspaceViewModel.FocusedIndex)
+            && CurrentWorkspace.FocusedNote is { } note)
+            note.IsFullscreen = true;
     }
+
+    /// <summary>Window group's One Page: hides every note but the focused one - still navigate freely, just one at a time. Built on the same fullscreen every note already has, just kept following focus instead of tied to one note.</summary>
+    [ObservableProperty]
+    private bool _onePageMode;
+
+    partial void OnOnePageModeChanged(bool value)
+    {
+        if (value)
+        {
+            if (CurrentWorkspace.FocusedNote is { } note) note.IsFullscreen = true;
+        }
+        else if (CurrentWorkspace.FocusedNote is { IsFullscreen: true } note)
+        {
+            note.IsFullscreen = false;
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleOnePage() => OnePageMode = !OnePageMode;
 
     /// <summary>Raised when the focused note's editor should take keyboard focus (after focus or workspace moves).</summary>
     public event Action? FocusEditorRequested;

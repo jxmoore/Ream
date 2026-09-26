@@ -44,6 +44,7 @@ public partial class NoteColumnView : UserControl, INearAware
         Editor.GotKeyboardFocus += (_, _) => _note?.FocusCommand.Execute(null);
         Editor.PreviewMouseLeftButtonDown += OnEditorPreviewMouseDown;
         Editor.SelectionChanged += (_, _) => SyncIndentMarker();
+        Editor.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(OnEditorScrollChanged));
         DataObject.AddPastingHandler(Editor, OnPaste);
     }
 
@@ -297,6 +298,49 @@ public partial class NoteColumnView : UserControl, INearAware
     private void OnResizeCompleted(object sender, DragCompletedEventArgs e)
     {
         if (_note is not null) _note.IsResizing = false;
+    }
+
+    // ----- Window group's Synchronous Scrolling -----
+
+    // Guards against the propagated ScrollToVerticalOffset calls below bouncing back and forth between columns.
+    // One at a time only, which is fine: nothing else drives scrolling from a background thread.
+    private static bool _syncingScroll;
+
+    private void OnEditorScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (_syncingScroll || Math.Abs(e.VerticalChange) < 0.01) return;
+        if (Application.Current.Resources[SettingsViewModel.SynchronousScrollingKey] is not true) return;
+        if (FindRow() is not { } row) return;
+
+        _syncingScroll = true;
+        try
+        {
+            double offset = Editor.VerticalOffset;
+            foreach (var sibling in SiblingColumns(row))
+                if (!ReferenceEquals(sibling, this)) sibling.Editor.ScrollToVerticalOffset(offset);
+        }
+        finally
+        {
+            _syncingScroll = false;
+        }
+    }
+
+    /// <summary>Every other loaded note column in the same row - only ones near enough to have parsed their note have a real editor to scroll.</summary>
+    private static IEnumerable<NoteColumnView> SiblingColumns(NoteRowPanel row)
+    {
+        foreach (var child in row.Children)
+            if (child is DependencyObject d && FindColumn(d) is { IsContentLoaded: true } view)
+                yield return view;
+    }
+
+    private static NoteColumnView? FindColumn(DependencyObject root)
+    {
+        if (root is NoteColumnView view) return view;
+
+        int count = VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++)
+            if (FindColumn(VisualTreeHelper.GetChild(root, i)) is { } found) return found;
+        return null;
     }
 
     // ----- Images -----

@@ -134,10 +134,10 @@
 
         <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
 
-        <!-- Window: Word's own Window group (New Window, Arrange All, Split, View Side by Side, Synchronous Scrolling,
-             Reset Window Position, Switch Windows), adapted where Ream actually has something windows-worth-of: a new
-             note and a new workspace stand in for New Window / Arrange All, since Ream has no multi-window concept to
-             offer the rest of the group. -->
+        <!-- Window: Word's own New Window, Arrange All, Split, View Side by Side and Reset Window Position are all
+             dropped outright - Ream has no multi-window concept for any of them. New Note / New Workspace live here
+             too for now (moving to File next). Synchronous Scrolling and Switch Windows (renamed Switch Notes,
+             Ream has notes, not windows) are kept and made real, joined by One Page (moved from Zoom): three stacked. -->
         <StackPanel>
             <StackPanel Orientation="Horizontal" MinHeight="60" VerticalAlignment="Center">
                 <Button x:Name="NewNoteButton" Style="{StaticResource RibbonTile}" Click="OnNewNoteClick" ToolTip="New note (Alt+N)">
@@ -153,41 +153,26 @@
                         <TextBlock Text="New Workspace" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
                     </StackPanel>
                 </Button>
-                <Button x:Name="SplitButton" Style="{StaticResource RibbonTile}" IsEnabled="False" ToolTip="Not available yet">
-                    <StackPanel>
-                        <Path Style="{StaticResource ViewLineIcon}" Data="M2,2 H14 V14 H2 Z M8,2 V14"/>
-                        <TextBlock Text="Split" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
-                    </StackPanel>
-                </Button>
                 <StackPanel VerticalAlignment="Center" Margin="2,0,0,0">
-                    <Button x:Name="ViewSideBySideButton" Style="{StaticResource StackedRow}" IsEnabled="False" ToolTip="Not available yet">
+                    <Button x:Name="OnePageButton" Style="{StaticResource StackedRow}" Click="OnOnePageClick"
+                            ToolTip="Shows only the focused note - still navigate freely, but one at a time">
                         <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource ViewLineIcon}" Width="14" Height="14" Data="M1.5,2 H7 V13 H1.5 Z M9,2 H14.5 V13 H9 Z"/>
-                            <TextBlock Text="View Side by Side" FontSize="12" Margin="4,0,0,0"/>
+                            <Path Style="{StaticResource ViewLineIcon}" Width="14" Height="14" Data="M3,1.5 H11 V14.5 H3 Z"/>
+                            <TextBlock Text="One Page" FontSize="12" Margin="4,0,0,0"/>
                         </StackPanel>
                     </Button>
-                    <Button x:Name="SynchronousScrollingButton" Style="{StaticResource StackedRow}" IsEnabled="False" ToolTip="Not available yet">
+                    <CheckBox x:Name="SynchronousScrollingCheckBox" Content="Synchronous Scrolling" Margin="2,6,0,2"
+                              IsChecked="{Binding SynchronousScrollingOn, Mode=TwoWay}"
+                              ToolTip="Scrolling one note scrolls every other loaded note in the row with it"/>
+                    <Button x:Name="SwitchNotesButton" Style="{StaticResource StackedRow}" Click="OnSwitchNotesClick"
+                            ToolTip="Jump to another note in this workspace">
                         <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource ViewLineIcon}" Width="14" Height="14" Data="M4,2 V13 M11,2 V13 M2,5 L4,3 L6,5 M9,5 L11,3 L13,5"/>
-                            <TextBlock Text="Synchronous Scrolling" FontSize="12" Margin="4,0,0,0"/>
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="ResetWindowPositionButton" Style="{StaticResource StackedRow}" IsEnabled="False" ToolTip="Not available yet">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#x2194;" FontSize="13" Width="18" TextAlignment="Center"/>
-                            <TextBlock Text="Reset Window Position" FontSize="12" Margin="4,0,0,0"/>
+                            <Path Style="{StaticResource ViewLineIcon}" Width="14" Height="14" Data="M2,2 H10 V10 H2 Z M6,6 H14 V14 H6 Z"/>
+                            <TextBlock Text="Switch Notes" FontSize="12" Margin="4,0,4,0"/>
+                            <Path Style="{StaticResource ViewDropArrow}"/>
                         </StackPanel>
                     </Button>
                 </StackPanel>
-                <Button x:Name="SwitchWindowsButton" Style="{StaticResource RibbonTile}" IsEnabled="False" ToolTip="Not available yet">
-                    <StackPanel>
-                        <Path Style="{StaticResource ViewLineIcon}" Data="M2,2 H10 V10 H2 Z M6,6 H14 V14 H6 Z"/>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,3,0,0">
-                            <TextBlock Text="Switch Windows" FontSize="12" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="70"/>
-                            <Path Style="{StaticResource ViewDropArrow}"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Button>
             </StackPanel>
             <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Window"/>
         </StackPanel>
