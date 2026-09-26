@@ -141,7 +141,8 @@ public class CenteredLayoutTests
 
         var grid = Ui.Descendants<Grid>(view).First(g => g.RowDefinitions.Count > 0);
 
-        Assert.Equal(2, grid.RowDefinitions.Count);
+        // Header, the Ruler row (collapsed unless NoteViewModel.ShowRuler), and the editor - never a fixed-height strip.
+        Assert.Equal(3, grid.RowDefinitions.Count);
         Assert.DoesNotContain(grid.RowDefinitions, r => r.Height.IsAbsolute && r.Height.Value == 4);
     });
 }

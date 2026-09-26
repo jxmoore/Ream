@@ -643,6 +643,49 @@ public class EditorIntegrationTests
         Assert.Contains("No headings", TextOf(fx.Editor.Document));
     });
 
+    // ----- Ruler -----
+
+    [Fact]
+    public void Ruler_IsHidden_UntilShowRulerIsOn() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        var host = (FrameworkElement)fx.View.FindName("RulerHost");
+        Assert.Equal(Visibility.Collapsed, host.Visibility);
+
+        fx.Note.ShowRuler = true;
+        Ui.Settle();
+
+        Assert.Equal(Visibility.Visible, host.Visibility);
+    });
+
+    [Fact]
+    public void DraggingTheIndentMarker_SetsTheParagraphsLeftMargin() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Note.ShowRuler = true;
+        Ui.Settle();
+        fx.Editor.CaretPosition = fx.Editor.Document.ContentStart; // the paragraph the drag should touch
+
+        Canvas.SetLeft(fx.View.IndentMarker, 40);
+        fx.View.IndentMarker.RaiseEvent(new DragCompletedEventArgs(0, 0, false) { RoutedEvent = Thumb.DragCompletedEvent });
+
+        var paragraph = (Paragraph)fx.Editor.Document.Blocks.First();
+        Assert.Equal(40, paragraph.Margin.Left);
+    });
+
+    [Fact]
+    public void TurningRulerOn_PositionsTheMarkerAtTheCaretParagraphsOwnMargin() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        var paragraph = (Paragraph)fx.Editor.Document.Blocks.First();
+        paragraph.Margin = new Thickness(25, 0, 0, 6);
+
+        fx.Note.ShowRuler = true;
+        Ui.Settle();
+
+        Assert.Equal(25, Canvas.GetLeft(fx.View.IndentMarker));
+    });
+
     // ----- Whole pipeline -----
 
     [Fact]

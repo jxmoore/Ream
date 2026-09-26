@@ -8,6 +8,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using Ream.App.Controls;
 using Ream.App.Editing;
@@ -42,6 +43,7 @@ public partial class NoteColumnView : UserControl, INearAware
         Editor.SizeChanged += (_, _) => FitImages();
         Editor.GotKeyboardFocus += (_, _) => _note?.FocusCommand.Execute(null);
         Editor.PreviewMouseLeftButtonDown += OnEditorPreviewMouseDown;
+        Editor.SelectionChanged += (_, _) => SyncIndentMarker();
         DataObject.AddPastingHandler(Editor, OnPaste);
     }
 
@@ -121,6 +123,7 @@ public partial class NoteColumnView : UserControl, INearAware
         if (_note is null || _subscribed) return;
         _note.EditorFocusRequested += OnEditorFocusRequested;
         _note.SizeToastRequested += OnSizeToast;
+        _note.CaretMoveRequested += OnCaretMoveRequested;
         _note.PropertyChanged += OnNotePropertyChanged;
         _subscribed = true;
     }
@@ -130,6 +133,7 @@ public partial class NoteColumnView : UserControl, INearAware
         if (_note is null || !_subscribed) return;
         _note.EditorFocusRequested -= OnEditorFocusRequested;
         _note.SizeToastRequested -= OnSizeToast;
+        _note.CaretMoveRequested -= OnCaretMoveRequested;
         _note.PropertyChanged -= OnNotePropertyChanged;
         _subscribed = false;
     }
@@ -144,7 +148,21 @@ public partial class NoteColumnView : UserControl, INearAware
             case nameof(NoteViewModel.IsOutlineView):
                 ApplyOutlineView();
                 break;
+            case nameof(NoteViewModel.ShowRuler):
+                if (_note!.ShowRuler) SyncIndentMarker();
+                break;
         }
+    }
+
+    /// <summary>The Navigation Pane's heading list: lands the caret on the real paragraph and gives it focus, leaving Outline view first if it was showing.</summary>
+    private void OnCaretMoveRequested(Paragraph paragraph)
+    {
+        EnsureLoaded();
+        if (_note is { IsOutlineView: true }) _note.IsOutlineView = false;
+
+        Editor.CaretPosition = paragraph.ContentStart;
+        Editor.Focus();
+        paragraph.BringIntoView();
     }
 
     private static readonly TimeSpan ToastHold = TimeSpan.FromMilliseconds(900);
@@ -421,13 +439,7 @@ public partial class NoteColumnView : UserControl, INearAware
         if (_note is null || _outlineMap is null) return;
 
         var position = Editor.GetPositionFromPoint(e.GetPosition(Editor), true);
-        if (position is null) return;
-
-        DependencyObject? scope = position.Parent;
-        while (scope is TextElement element and not Paragraph)
-            scope = element.Parent;
-
-        if (scope is not Paragraph clicked || !_outlineMap.TryGetValue(clicked, out var real)) return;
+        if (position?.Paragraph is not { } clicked || !_outlineMap.TryGetValue(clicked, out var real)) return;
 
         e.Handled = true;
         _note.IsOutlineView = false; // synchronously restores Editor.Document via OnNotePropertyChanged -> ApplyOutlineView
@@ -435,6 +447,70 @@ public partial class NoteColumnView : UserControl, INearAware
         Editor.CaretPosition = real.ContentStart;
         Editor.Focus();
         real.BringIntoView();
+    }
+
+    // ----- Ruler -----
+
+    private void OnRulerSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        RedrawRulerTicks();
+        SyncIndentMarker();
+    }
+
+    /// <summary>A tick every 20px, a longer labeled one every 100px - Ream has no physical page to put real units on, so these are just plain pixel marks.</summary>
+    private void RedrawRulerTicks()
+    {
+        for (int i = RulerCanvas.Children.Count - 1; i >= 0; i--)
+        {
+            if (!ReferenceEquals(RulerCanvas.Children[i], IndentMarker))
+                RulerCanvas.Children.RemoveAt(i);
+        }
+
+        double width = RulerCanvas.ActualWidth;
+        for (double x = 0; x <= width; x += 20)
+        {
+            bool major = Math.Abs(x % 100) < 0.5;
+            var line = new Line { X1 = x, X2 = x, Y1 = major ? 0 : 9, Y2 = 20, StrokeThickness = 1 };
+            line.SetResourceReference(Shape.StrokeProperty, "MutedTextBrush");
+            RulerCanvas.Children.Insert(0, line);
+
+            if (major && x > 0)
+            {
+                var label = new TextBlock { Text = ((int)x).ToString(), FontSize = 9 };
+                label.SetResourceReference(TextBlock.ForegroundProperty, "MutedTextBrush");
+                Canvas.SetLeft(label, x + 2);
+                RulerCanvas.Children.Insert(0, label);
+            }
+        }
+    }
+
+    private void OnIndentMarkerDrag(object sender, DragDeltaEventArgs e)
+    {
+        double max = Math.Max(0, RulerCanvas.ActualWidth - IndentMarker.Width);
+        Canvas.SetLeft(IndentMarker, Math.Clamp(Canvas.GetLeft(IndentMarker) + e.HorizontalChange, 0, max));
+    }
+
+    /// <summary>Applies the marker's new position as the left margin of every paragraph the selection touches (the caret's own paragraph when nothing is selected).</summary>
+    private void OnIndentMarkerDragCompleted(object sender, DragCompletedEventArgs e)
+    {
+        double left = Canvas.GetLeft(IndentMarker);
+        foreach (var paragraph in SelectionParagraphs.Of(Editor))
+        {
+            var margin = paragraph.Margin;
+            paragraph.Margin = new Thickness(left, margin.Top, margin.Right, margin.Bottom);
+        }
+
+        _note?.NotifyContentChanged();
+    }
+
+    /// <summary>Moves the marker to reflect the current paragraph's own left margin - called when Ruler is turned on and whenever the selection moves.</summary>
+    private void SyncIndentMarker()
+    {
+        if (_note?.ShowRuler != true || !_hasContent) return;
+
+        double left = SelectionParagraphs.Of(Editor) is [{ } first, ..] ? first.Margin.Left : 0;
+        double max = Math.Max(0, RulerCanvas.ActualWidth - IndentMarker.Width);
+        Canvas.SetLeft(IndentMarker, Math.Clamp(left, 0, max));
     }
 
     /// <summary>Keeps pictures no wider than the column; the saved size is untouched.</summary>

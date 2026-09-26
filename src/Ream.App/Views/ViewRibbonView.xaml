@@ -77,14 +77,26 @@
 
         <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
 
-        <!-- Show: Word's own Ruler / Gridlines / Navigation Pane checkboxes. None of the three has anything behind it yet
-             (Ream has no page to rule, no grid to snap to, and no note/workspace outline to show), so they're placed to
-             match the layout and left disabled, the same way the Home tab places a few Word controls it can't do yet. -->
+        <!-- Show: all three real. Ruler acts on the focused note (like Draft/Outline, a Button relayed to a command -
+             DataContext here is SettingsViewModel, which has no path to "the focused note's own flag" to bind a
+             CheckBox's IsChecked to). Gridlines and Navigation Pane are session-only settings SettingsViewModel owns
+             outright, so they're ordinary two-way CheckBoxes. -->
         <StackPanel>
             <StackPanel MinHeight="60" VerticalAlignment="Center" Margin="6,0">
-                <CheckBox x:Name="RulerCheckBox" Content="Ruler" Margin="0,2" IsEnabled="False" ToolTip="Not available yet"/>
-                <CheckBox x:Name="GridlinesCheckBox" Content="Gridlines" Margin="0,2" IsEnabled="False" ToolTip="Not available yet"/>
-                <CheckBox x:Name="NavigationPaneCheckBox" Content="Navigation Pane" Margin="0,2" IsEnabled="False" ToolTip="Not available yet"/>
+                <Button x:Name="RulerButton" Style="{StaticResource StackedRow}" Click="OnRulerClick"
+                        ToolTip="Shows a draggable left-indent marker above the focused note">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource ViewLineIcon}" Width="14" Height="14"
+                              Data="M1,4 H15 M1,4 V13 H15 V4 M4,4 V7 M7,4 V7 M10,4 V7 M13,4 V7"/>
+                        <TextBlock Text="Ruler" FontSize="12" Margin="4,0,0,0"/>
+                    </StackPanel>
+                </Button>
+                <CheckBox x:Name="GridlinesCheckBox" Content="Gridlines" Margin="0,6,0,2"
+                          IsChecked="{Binding GridlinesOn, Mode=TwoWay}"
+                          ToolTip="A faint grid behind the notes"/>
+                <CheckBox x:Name="NavigationPaneCheckBox" Content="Navigation Pane" Margin="0,2"
+                          IsChecked="{Binding NavigationPaneOpen, Mode=TwoWay}"
+                          ToolTip="Headings, notes, workspaces and search, docked to the side"/>
             </StackPanel>
             <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Show"/>
         </StackPanel>

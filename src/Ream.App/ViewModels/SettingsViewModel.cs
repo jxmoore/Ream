@@ -101,6 +101,14 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _centerFocusedColumn = true;
 
+    /// <summary>Show group's Gridlines: a faint grid behind the notes. Session-only, not saved to config.json.</summary>
+    [ObservableProperty]
+    private bool _gridlinesOn;
+
+    /// <summary>Show group's Navigation Pane: docked to the side of the canvas. Session-only, not saved to config.json.</summary>
+    [ObservableProperty]
+    private bool _navigationPaneOpen;
+
     [ObservableProperty]
     private string _selectedThemeId = ThemeCatalog.DefaultId;
 

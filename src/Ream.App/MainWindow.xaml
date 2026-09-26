@@ -222,65 +222,95 @@
             </Border>
 
             <Grid x:Name="CanvasArea" Grid.Row="3" Background="{DynamicResource CanvasBrush}">
-                <ItemsControl ItemsSource="{Binding Workspaces}" Focusable="False">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <controls:WorkspaceStripPanel
-                                CurrentIndex="{Binding CurrentIndex}"
-                                SuppressAnimation="{Binding SuppressAnimation}"
-                                Config="{Binding Config}"
-                                SwitchCompletedCommand="{Binding PruneEmptyWorkspacesCommand}"/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <views:WorkspaceView/>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition x:Name="NavigationPaneColumn" Width="0"/>
+                </Grid.ColumnDefinitions>
 
-                <!--
-                    The current workspace's name, bottom right, in the gap under the notes. Double-click it (or Shift+F2)
-                    to rename in place. Plain text with no background of its own, so at 0% it floats over the desktop;
-                    it gets a backdrop while the pointer is on it.
-                -->
-                <Grid x:Name="WorkspaceLabelHost" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,6">
-                    <TextBlock x:Name="WorkspaceLabel" Padding="6,2" FontSize="12" TextTrimming="CharacterEllipsis"
-                               MaxWidth="320"
-                               Foreground="{DynamicResource MutedTextBrush}"
-                               Text="{Binding WorkspaceLabel}"
-                               ToolTip="Double-click to rename this workspace"
-                               MouseLeftButtonDown="OnWorkspaceLabelMouseDown">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Style.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource ChromeHoverBrush}"/>
-                                    </Trigger>
-                                    <DataTrigger Binding="{Binding CurrentWorkspace.IsRenaming}" Value="True">
-                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                    <TextBox x:Name="WorkspaceNameBox" MinWidth="180" MaxLength="40" FontSize="12" Padding="4,2"
-                             Text="{Binding CurrentWorkspace.EditName, UpdateSourceTrigger=PropertyChanged}"
-                             PreviewKeyDown="OnWorkspaceNameKeyDown" LostKeyboardFocus="OnWorkspaceNameLostFocus"
-                             IsVisibleChanged="OnWorkspaceNameVisibleChanged">
-                        <TextBox.Style>
-                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-                                <Setter Property="Visibility" Value="Collapsed"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding CurrentWorkspace.IsRenaming}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBox.Style>
-                    </TextBox>
+                <Grid Grid.Column="0">
+                    <!-- Show group's Gridlines: a faint grid behind the notes, nothing more - MainWindow toggles Visibility from Settings.GridlinesOn. -->
+                    <Rectangle x:Name="GridlinesOverlay" IsHitTestVisible="False" Visibility="Collapsed" Opacity="0.16">
+                        <Rectangle.Fill>
+                            <DrawingBrush TileMode="Tile" Viewport="0,0,24,24" ViewportUnits="Absolute">
+                                <DrawingBrush.Drawing>
+                                    <GeometryDrawing>
+                                        <GeometryDrawing.Pen>
+                                            <Pen Thickness="1" Brush="{DynamicResource MutedTextBrush}"/>
+                                        </GeometryDrawing.Pen>
+                                        <GeometryDrawing.Geometry>
+                                            <GeometryGroup>
+                                                <LineGeometry StartPoint="0,0" EndPoint="24,0"/>
+                                                <LineGeometry StartPoint="0,0" EndPoint="0,24"/>
+                                            </GeometryGroup>
+                                        </GeometryDrawing.Geometry>
+                                    </GeometryDrawing>
+                                </DrawingBrush.Drawing>
+                            </DrawingBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>
+
+                    <ItemsControl ItemsSource="{Binding Workspaces}" Focusable="False">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <controls:WorkspaceStripPanel
+                                    CurrentIndex="{Binding CurrentIndex}"
+                                    SuppressAnimation="{Binding SuppressAnimation}"
+                                    Config="{Binding Config}"
+                                    SwitchCompletedCommand="{Binding PruneEmptyWorkspacesCommand}"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <views:WorkspaceView/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!--
+                        The current workspace's name, bottom right, in the gap under the notes. Double-click it (or Shift+F2)
+                        to rename in place. Plain text with no background of its own, so at 0% it floats over the desktop;
+                        it gets a backdrop while the pointer is on it.
+                    -->
+                    <Grid x:Name="WorkspaceLabelHost" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,6">
+                        <TextBlock x:Name="WorkspaceLabel" Padding="6,2" FontSize="12" TextTrimming="CharacterEllipsis"
+                                   MaxWidth="320"
+                                   Foreground="{DynamicResource MutedTextBrush}"
+                                   Text="{Binding WorkspaceLabel}"
+                                   ToolTip="Double-click to rename this workspace"
+                                   MouseLeftButtonDown="OnWorkspaceLabelMouseDown">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="{DynamicResource ChromeHoverBrush}"/>
+                                        </Trigger>
+                                        <DataTrigger Binding="{Binding CurrentWorkspace.IsRenaming}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBox x:Name="WorkspaceNameBox" MinWidth="180" MaxLength="40" FontSize="12" Padding="4,2"
+                                 Text="{Binding CurrentWorkspace.EditName, UpdateSourceTrigger=PropertyChanged}"
+                                 PreviewKeyDown="OnWorkspaceNameKeyDown" LostKeyboardFocus="OnWorkspaceNameLostFocus"
+                                 IsVisibleChanged="OnWorkspaceNameVisibleChanged">
+                            <TextBox.Style>
+                                <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding CurrentWorkspace.IsRenaming}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBox.Style>
+                        </TextBox>
+                    </Grid>
                 </Grid>
+
+                <views:NavigationPaneView x:Name="NavigationPane" Grid.Column="1"/>
             </Grid>
         </Grid>
     </Border>

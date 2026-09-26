@@ -706,7 +706,7 @@ public class ViewRibbonTests
     });
 
     [Fact]
-    public void TheShowGroup_HasRulerGridlinesAndNavigationPane_PlacedButDisabled() => Ui.Run(() =>
+    public void TheShowGroup_GridlinesAndNavigationPane_AreRealTwoWayCheckBoxes() => Ui.Run(() =>
     {
         var app = new AppViewModel(new AppConfig(), []);
         var theme = new ThemeService(Application.Current, () => true);
@@ -716,15 +716,42 @@ public class ViewRibbonTests
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
 
-            foreach (var name in new[] { "RulerCheckBox", "GridlinesCheckBox", "NavigationPaneCheckBox" })
-            {
-                var box = (CheckBox)view.FindName(name);
-                Assert.True(box.IsVisible, name);
-                Assert.False(box.IsEnabled, name);
-            }
-            Assert.Equal("Ruler", ((CheckBox)view.FindName("RulerCheckBox")).Content);
-            Assert.Equal("Gridlines", ((CheckBox)view.FindName("GridlinesCheckBox")).Content);
-            Assert.Equal("Navigation Pane", ((CheckBox)view.FindName("NavigationPaneCheckBox")).Content);
+            var gridlines = (CheckBox)view.FindName("GridlinesCheckBox");
+            var navPane = (CheckBox)view.FindName("NavigationPaneCheckBox");
+            Assert.True(gridlines.IsEnabled);
+            Assert.True(navPane.IsEnabled);
+            Assert.False(gridlines.IsChecked);
+            Assert.False(navPane.IsChecked);
+
+            gridlines.IsChecked = true;
+            navPane.IsChecked = true;
+            Ui.Settle();
+
+            Assert.True(settings.GridlinesOn);
+            Assert.True(settings.NavigationPaneOpen);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void TheRulerButton_RaisesItsEvent() => Ui.Run(() =>
+    {
+        var app = new AppViewModel(new AppConfig(), []);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            bool raised = false;
+            view.RulerRequested += () => raised = true;
+
+            RaiseClick((Button)view.FindName("RulerButton"));
+
+            Assert.True(raised);
         }
         finally
         {
@@ -777,7 +804,8 @@ public class ViewRibbonTests
             string[] working =
             [
                 "ThemeBox", "OpacitySlider", "NoteOpacitySlider", "GapSlider", "CenterFocusedToggle",
-                "ReadModeButton", "DraftButton", "OutlineButton", "ZoomButton", "ZoomResetButton", "NewNoteButton", "NewWorkspaceButton",
+                "ReadModeButton", "DraftButton", "OutlineButton", "RulerButton", "GridlinesCheckBox", "NavigationPaneCheckBox",
+                "ZoomButton", "ZoomResetButton", "NewNoteButton", "NewWorkspaceButton",
             ];
             foreach (var name in working) Assert.True(((Control)view.FindName(name)).IsEnabled, name);
         }

@@ -1,0 +1,166 @@
+<UserControl x:Class="Ream.App.Views.NavigationPaneView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Ream.App.ViewModels"
+             Width="280" Visibility="Collapsed">
+    <!--
+        Docked to the right of the canvas (MainWindow's NavigationPaneColumn), shown while Settings.NavigationPaneOpen.
+        DataContext is a NavigationPaneViewModel (MainWindow.NavigationPane), not the AppViewModel or SettingsViewModel
+        the rest of the window uses. With no search text: three browsable sections (headings in the focused note,
+        notes in the current workspace, every workspace). With search text: a flat list of matches instead, scoped by
+        the radio buttons above it.
+    -->
+    <UserControl.Resources>
+        <Style x:Key="NavRow" TargetType="Button">
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Frame" Background="{TemplateBinding Background}" CornerRadius="4">
+                            <ContentPresenter Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Frame" Property="Background" Value="{DynamicResource ControlHoverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="NavSectionHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource ToolbarMutedBrush}"/>
+            <Setter Property="Margin" Value="4,10,0,4"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Border BorderThickness="1,0,0,0" BorderBrush="{DynamicResource WindowBorderBrush}" Background="{DynamicResource RibbonBrush}">
+        <DockPanel Margin="10,10,6,10">
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,4,4">
+                <TextBlock Text="Navigation" FontSize="13" FontWeight="SemiBold" Margin="4,0,0,8"
+                           Foreground="{DynamicResource TextBrush}"/>
+                <TextBox x:Name="SearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Search"/>
+                <StackPanel Orientation="Horizontal" Margin="2,6,0,0">
+                    <RadioButton x:Name="ScopeNote" Content="Note" GroupName="NavScope" IsChecked="True"
+                                 Tag="CurrentNote" Checked="OnScopeChecked" Margin="0,0,10,0" FontSize="11"/>
+                    <RadioButton x:Name="ScopeWorkspace" Content="Workspace" GroupName="NavScope"
+                                 Tag="CurrentWorkspace" Checked="OnScopeChecked" Margin="0,0,10,0" FontSize="11"/>
+                    <RadioButton x:Name="ScopeEverywhere" Content="Everywhere" GroupName="NavScope"
+                                 Tag="Everywhere" Checked="OnScopeChecked" FontSize="11"/>
+                </StackPanel>
+            </StackPanel>
+
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,0,-4,0" Padding="0,0,4,0">
+                <StackPanel>
+                    <!-- Browse: headings, notes, workspaces - hidden while there's a search query. -->
+                    <StackPanel x:Name="BrowseSections">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasQuery}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+
+                        <TextBlock Text="Headings" Style="{StaticResource NavSectionHeader}"/>
+                        <ItemsControl ItemsSource="{Binding Headings}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:HeadingEntry}">
+                                    <Button Style="{StaticResource NavRow}" Click="OnHeadingClick" ToolTip="Jump to this heading">
+                                        <TextBlock Text="{Binding Text}" Margin="{Binding Indent}" TextTrimming="CharacterEllipsis" FontSize="12"/>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="No headings in this note." FontSize="11" Margin="6,2" Foreground="{DynamicResource MutedTextBrush}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Headings.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+
+                        <TextBlock Text="Notes in this workspace" Style="{StaticResource NavSectionHeader}"/>
+                        <ItemsControl ItemsSource="{Binding NotesInWorkspace}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:NoteEntry}">
+                                    <Button Style="{StaticResource NavRow}" Click="OnNoteClick" ToolTip="Jump to this note">
+                                        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" FontSize="12"/>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Text="Workspaces" Style="{StaticResource NavSectionHeader}"/>
+                        <ItemsControl ItemsSource="{Binding WorkspaceList}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:WorkspaceEntry}">
+                                    <Button Style="{StaticResource NavRow}" Click="OnWorkspaceClick" ToolTip="Switch to this workspace">
+                                        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" FontSize="12"/>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <!-- Search results - shown only while there's a query. -->
+                    <ItemsControl x:Name="ResultsList" ItemsSource="{Binding SearchResults}">
+                        <ItemsControl.Style>
+                            <Style TargetType="ItemsControl">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasQuery}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ItemsControl.Style>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:SearchResult}">
+                                <Button Style="{StaticResource NavRow}" Click="OnResultClick" ToolTip="Jump to this note">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding Snippet}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"
+                                                   Foreground="{DynamicResource MutedTextBrush}"/>
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Text="No matches." FontSize="11" Margin="6,4" Foreground="{DynamicResource MutedTextBrush}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding HasQuery}" Value="True"/>
+                                            <Condition Binding="{Binding SearchResults.Count}" Value="0"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+    </Border>
+</UserControl>

@@ -54,13 +54,16 @@ public partial class MainWindow : Window
 
         Settings = settings ?? new SettingsViewModel(viewModel, new ThemeService(Application.Current));
         ViewRibbon.DataContext = Settings;
+        NavigationPane.DataContext = new NavigationPaneViewModel(viewModel);
         FileRibbon.HelpRequested += OpenHelp;
         FileRibbon.AboutRequested += OpenAbout;
         ViewRibbon.ReadModeRequested += () => viewModel.ToggleReadModeCommand.Execute(null);
         ViewRibbon.DraftViewRequested += () => viewModel.ToggleDraftViewCommand.Execute(null);
         ViewRibbon.OutlineViewRequested += () => viewModel.ToggleOutlineViewCommand.Execute(null);
+        ViewRibbon.RulerRequested += () => viewModel.ToggleRulerCommand.Execute(null);
         ViewRibbon.NewNoteRequested += () => viewModel.NewNoteCommand.Execute(null);
         ViewRibbon.NewWorkspaceRequested += () => viewModel.NewWorkspaceCommand.Execute(null);
+        Settings.PropertyChanged += OnSettingsPropertyChanged;
         SelectTab(RibbonTab.Home);
 
         _ribbonHideTimer.Tick += (_, _) => CompleteRibbonHide();
@@ -423,6 +426,25 @@ public partial class MainWindow : Window
 
         ApplyKeyBindings();
         if (_viewModel.Config.Ribbon.AutoHide != _ribbonState.AutoHide) ApplyRibbonMode(_viewModel.Config.Ribbon.AutoHide);
+    }
+
+    private static readonly GridLength NavigationPaneWidth = new(280);
+
+    /// <summary>Show group's Gridlines and Navigation Pane: both are session-only view state (SettingsViewModel), not config, so the window just reacts to them directly rather than through Config.</summary>
+    private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(SettingsViewModel.GridlinesOn):
+                GridlinesOverlay.Visibility = Settings.GridlinesOn ? Visibility.Visible : Visibility.Collapsed;
+                break;
+            case nameof(SettingsViewModel.NavigationPaneOpen):
+                bool open = Settings.NavigationPaneOpen;
+                NavigationPaneColumn.Width = open ? NavigationPaneWidth : new GridLength(0);
+                NavigationPane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+                if (open && NavigationPane.DataContext is NavigationPaneViewModel pane) pane.Refresh();
+                break;
+        }
     }
 
     /// <summary>Closing the window asks about unsaved changes (only ever when auto-save is off and something changed).</summary>

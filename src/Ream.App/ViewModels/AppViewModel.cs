@@ -524,6 +524,13 @@ public sealed partial class AppViewModel : ObservableObject
         if (CurrentWorkspace.FocusedNote is { } note) note.IsOutlineView = !note.IsOutlineView;
     }
 
+    /// <summary>Show group's Ruler: shows or hides the focused note's draggable left-indent marker.</summary>
+    [RelayCommand]
+    private void ToggleRuler()
+    {
+        if (CurrentWorkspace.FocusedNote is { } note) note.ShowRuler = !note.ShowRuler;
+    }
+
     [RelayCommand]
     private void NewNote() => OpenDraft();
 

@@ -21,6 +21,9 @@ public partial class ViewRibbonView : UserControl
     /// <summary>The Outline tile, for the same reason.</summary>
     public event Action? OutlineViewRequested;
 
+    /// <summary>The Ruler tile, for the same reason (it toggles the focused note's own ruler, not a session setting).</summary>
+    public event Action? RulerRequested;
+
     /// <summary>The New Note tile, for the same reason.</summary>
     public event Action? NewNoteRequested;
 
@@ -34,6 +37,8 @@ public partial class ViewRibbonView : UserControl
     private void OnDraftViewClick(object sender, RoutedEventArgs e) => DraftViewRequested?.Invoke();
 
     private void OnOutlineViewClick(object sender, RoutedEventArgs e) => OutlineViewRequested?.Invoke();
+
+    private void OnRulerClick(object sender, RoutedEventArgs e) => RulerRequested?.Invoke();
 
     private void OnNewNoteClick(object sender, RoutedEventArgs e) => NewNoteRequested?.Invoke();
 

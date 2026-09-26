@@ -104,6 +104,10 @@ public sealed partial class NoteViewModel : ObservableObject
     /// <summary>What the editor actually binds its own IsReadOnly to: Read Mode's lock, or Outline view's (which is always read-only, being a generated summary).</summary>
     public bool EffectiveReadOnly => IsReadOnly || IsOutlineView;
 
+    /// <summary>Show group's Ruler: a draggable left-indent marker shown above this note's editor.</summary>
+    [ObservableProperty]
+    private bool _showRuler;
+
     [ObservableProperty]
     private bool _isFocused;
 
@@ -121,6 +125,18 @@ public sealed partial class NoteViewModel : ObservableObject
     public event Action? EditorFocusRequested;
 
     public void RequestEditorFocus() => EditorFocusRequested?.Invoke();
+
+    /// <summary>Raised (with the real paragraph to land on) when the Navigation Pane's heading list is clicked.</summary>
+    public event Action<Paragraph>? CaretMoveRequested;
+
+    public void RequestCaretMove(Paragraph paragraph) => CaretMoveRequested?.Invoke(paragraph);
+
+    /// <summary>
+    /// The live FlowDocument an editor is showing for this note (the same object <see cref="OpenDocument"/> handed
+    /// back - editing happens in place, so this always reflects what's on screen), or null before that has ever
+    /// happened. The Navigation Pane's heading list reads this directly rather than going through the view.
+    /// </summary>
+    public FlowDocument? LiveDocument => _document;
 
     /// <summary>
     /// Builds the document an editor shows. Each editor gets its own document parsed from the saved

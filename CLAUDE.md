@@ -73,8 +73,28 @@ read-only paragraph per heading (`NoteStyles.HeadingLevelOf`), indented and styl
 note" placeholder if there are none - and clicking a line (`OnEditorPreviewMouseDown`, mapped back via
 `_outlineMap`) turns Outline off and puts the caret at the real paragraph it summarizes. Both `IsReadOnly` and
 `IsOutlineView` feed `NoteViewModel.EffectiveReadOnly`, which is what `Editor.IsReadOnly` actually binds to - neither
-is persisted (`NoteSnapshot`/`SnapshotMapper`), unlike `IsFullscreen` which is. **Show** is Ruler/Gridlines/Navigation
-Pane, all disabled. **Zoom** drops Word's page-view trio (One Page,
+is persisted (`NoteSnapshot`/`SnapshotMapper`), unlike `IsFullscreen` which is. **Show** is all three real too, mixing
+a Button with two CheckBoxes because they aren't the same kind of state: **Ruler** (`RulerButton`/`RulerRequested` ->
+`ToggleRulerCommand`) sets the focused note's own `NoteViewModel.ShowRuler` (same "no DataContext path from
+SettingsViewModel to the focused note" reason Draft/Outline are Buttons, not CheckBoxes) - `NoteColumnView` shows a
+tick-marked strip above the editor (redrawn to width in `RedrawRulerTicks`) with a draggable triangle `Thumb`
+(`IndentMarker`) that sets `Paragraph.Margin.Left` for whatever `SelectionParagraphs.Of(Editor)` returns, synced to
+the caret's own paragraph (`SyncIndentMarker`) whenever the selection moves or Ruler is turned on. **Gridlines**
+and **Navigation Pane** are session-only settings `SettingsViewModel` owns outright (`GridlinesOn`,
+`NavigationPaneOpen` - neither is saved to config.json), so they're ordinary two-way `CheckBox`es; `MainWindow`
+reacts to them directly (`OnSettingsPropertyChanged`) since they affect its own layout, not a note: Gridlines toggles
+a `DrawingBrush` tile overlay (`GridlinesOverlay`) behind the workspace strip, and Navigation Pane grows
+`CanvasArea`'s second column (`NavigationPaneColumn`, 0 <-> 280px) to show `NavigationPaneView`. That view's
+DataContext is a `NavigationPaneViewModel` (`MainWindow.NavigationPane`, one instance for the window, not per-note) -
+headings (from the focused note's `NoteViewModel.LiveDocument`, the same live `FlowDocument` the editor is showing,
+scanned with `NoteStyles.HeadingLevelOf` and re-scanned on `NoteViewModel.ContentChangedProperty`), the current
+workspace's notes, every named-or-occupied workspace, and a search (`RunSearch`, plain case-insensitive substring
+over title and `NoteContent.ToPlainText(note.Body)`, each note flushed first so live edits are found) scoped to
+`NavigationSearchScope.CurrentNote` / `CurrentWorkspace` / `Everywhere`. Clicking a heading raises
+`NoteViewModel.CaretMoveRequested` (a paragraph reference `NoteColumnView.OnCaretMoveRequested` lands the caret on,
+turning off Outline view first if it was showing); clicking a note or workspace entry reuses
+`WorkspaceViewModel.SetFocus`/`AppViewModel.SelectWorkspaceCommand`, the same paths the row and the File ribbon's
+workspace list already use. **Zoom** drops Word's page-view trio (One Page,
 Multiple Pages, Page Width - placed disabled) but `ZoomButton` (opens a themed menu of presets, 50/75/.../200) and
 `ZoomResetButton` (its big number *is* the current zoom, `SettingsViewModel.ZoomLabel`/`ZoomResetTooltip`; click resets
 to 100%) are real - deliberately no slider on the ribbon itself, matching Word (its live zoom control is in a status bar
