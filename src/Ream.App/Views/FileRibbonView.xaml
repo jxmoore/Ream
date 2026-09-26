@@ -60,6 +60,29 @@
 
         <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
 
+        <!-- New Note / New Workspace: moved here from the View tab's Window group - making things belongs with the
+             rest of File's new/open/save, not tucked into a settings tab. -->
+        <StackPanel>
+            <StackPanel Style="{StaticResource GroupBand}">
+                <Button x:Name="NewNoteButton" Style="{StaticResource RibbonTile}" Command="{Binding NewNoteCommand}" ToolTip="New note (Alt+N)">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8A5;" FontSize="20"/>
+                        <TextBlock Text="New Note" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                    </StackPanel>
+                </Button>
+                <Button x:Name="NewWorkspaceButton" Style="{StaticResource RibbonTile}" Command="{Binding NewWorkspaceCommand}"
+                        ToolTip="A fresh workspace, ready to type into">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8F4;" FontSize="20"/>
+                        <TextBlock Text="New Workspace" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+            <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Add"/>
+        </StackPanel>
+
+        <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
+
         <!-- Recent: the last few reams opened, saved or created, newest first, like Word's Backstage Open > Recent. -->
         <StackPanel>
             <StackPanel Style="{StaticResource GroupBand}">

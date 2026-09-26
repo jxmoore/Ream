@@ -854,36 +854,10 @@ public class ViewRibbonTests
             [
                 "ThemeBox", "OpacitySlider", "NoteOpacitySlider", "GapSlider", "CenterFocusedToggle",
                 "ReadModeButton", "DraftButton", "OutlineButton", "RulerButton", "GridlinesCheckBox", "NavigationPaneCheckBox",
-                "ZoomInButton", "ZoomOutButton", "ZoomResetButton", "NewNoteButton", "NewWorkspaceButton",
+                "ZoomInButton", "ZoomOutButton", "ZoomResetButton",
                 "OnePageButton", "SynchronousScrollingCheckBox", "SwitchNotesButton",
             ];
             foreach (var name in working) Assert.True(((Control)view.FindName(name)).IsEnabled, name);
-        }
-        finally
-        {
-            theme.Apply("dark");
-        }
-    });
-
-    [Fact]
-    public void TheNewNoteAndNewWorkspaceTiles_RaiseTheirEvents() => Ui.Run(() =>
-    {
-        var app = new AppViewModel(new AppConfig(), []);
-        var theme = new ThemeService(Application.Current, () => true);
-        var settings = Make(app, theme);
-        try
-        {
-            var view = new ViewRibbonView { DataContext = settings };
-            using var window = new WindowHolder(view);
-            bool note = false, workspace = false;
-            view.NewNoteRequested += () => note = true;
-            view.NewWorkspaceRequested += () => workspace = true;
-
-            RaiseClick((Button)view.FindName("NewNoteButton"));
-            RaiseClick((Button)view.FindName("NewWorkspaceButton"));
-
-            Assert.True(note);
-            Assert.True(workspace);
         }
         finally
         {
@@ -903,7 +877,7 @@ public class ViewRibbonTests
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
 
-            foreach (var name in new[] { "ReadModeButton", "ZoomInButton", "ZoomResetButton", "NewNoteButton", "OutlineButton" })
+            foreach (var name in new[] { "ReadModeButton", "ZoomInButton", "ZoomResetButton", "OnePageButton", "OutlineButton" })
             {
                 var button = (Button)view.FindName(name);
                 var frame = Ui.Descendants<Border>(button).First(b => b.Name == "Frame");

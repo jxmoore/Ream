@@ -102,6 +102,34 @@ public class FileRibbonTests
     });
 
     [Fact]
+    public void TheNewNoteButton_AddsADraftAfterTheFocusedNote() => Ui.Run(() =>
+    {
+        using var fx = Docked();
+        var view = FileRibbon(fx);
+        int before = fx.App.CurrentWorkspace.Notes.Count;
+
+        Invoke(Named<Button>(view, "NewNoteButton"));
+
+        Assert.Equal(before + 1, fx.App.CurrentWorkspace.Notes.Count);
+        Assert.True(fx.App.CurrentWorkspace.FocusedNote!.IsDraft);
+    });
+
+    [Fact]
+    public void TheNewWorkspaceButton_SwitchesToAFreshWorkspace_ReadyToTypeInto() => Ui.Run(() =>
+    {
+        using var fx = Docked();
+        var view = FileRibbon(fx);
+        var previous = fx.App.CurrentWorkspace;
+
+        Invoke(Named<Button>(view, "NewWorkspaceButton"));
+
+        // Arriving at the (previously empty) trailing edge opens a draft to type into, same as Alt+Down past the
+        // last named workspace - which is also why it's no longer literally "the last workspace" right afterward.
+        Assert.NotSame(previous, fx.App.CurrentWorkspace);
+        Assert.True(fx.App.CurrentWorkspace.FocusedNote?.IsDraft);
+    });
+
+    [Fact]
     public void TheAutoSaveSwitch_FollowsTheApp_BothWays() => Ui.Run(() =>
     {
         using var fx = Docked();
@@ -259,8 +287,8 @@ public class FileRibbonTests
             Assert.True(button.ActualHeight >= 50, $"{button.Name} is only {button.ActualHeight:0} px tall");
         }
 
-        var group = Ui.Descendants<TextBlock>(view).Where(t => t.Text is "Ream" or "Recent" or "Saving" or "Tidy up" or "Help").Where(t => Ui.Ancestor<ButtonBase>(t) is null).ToList();
-        Assert.Equal(5, group.Count);
+        var group = Ui.Descendants<TextBlock>(view).Where(t => t.Text is "Ream" or "Add" or "Recent" or "Saving" or "Tidy up" or "Help").Where(t => Ui.Ancestor<ButtonBase>(t) is null).ToList();
+        Assert.Equal(6, group.Count);
         Assert.All(group, label => Assert.True(label.TranslatePoint(new Point(0, label.ActualHeight), panel).Y <= panel.ActualHeight, label.Text));
     });
 

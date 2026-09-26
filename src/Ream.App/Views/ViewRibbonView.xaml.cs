@@ -27,12 +27,6 @@ public partial class ViewRibbonView : UserControl
     /// <summary>The One Page tile, for the same reason (it follows focus across the whole app, not this tab's job).</summary>
     public event Action? OnePageRequested;
 
-    /// <summary>The New Note tile, for the same reason.</summary>
-    public event Action? NewNoteRequested;
-
-    /// <summary>The New Workspace tile, for the same reason.</summary>
-    public event Action? NewWorkspaceRequested;
-
     private SettingsViewModel? Settings => DataContext as SettingsViewModel;
 
     private void OnReadModeClick(object sender, RoutedEventArgs e) => ReadModeRequested?.Invoke();
@@ -65,10 +59,6 @@ public partial class ViewRibbonView : UserControl
         SwitchNotesButton.ContextMenu = menu; // so it can be found again (tests, and if the menu needs rebuilding later)
         menu.IsOpen = true;
     }
-
-    private void OnNewNoteClick(object sender, RoutedEventArgs e) => NewNoteRequested?.Invoke();
-
-    private void OnNewWorkspaceClick(object sender, RoutedEventArgs e) => NewWorkspaceRequested?.Invoke();
 
     private void OnZoomReset(object sender, RoutedEventArgs e)
     {

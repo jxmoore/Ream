@@ -49,7 +49,11 @@ Blur behind is separate (`canvasBlur`, and never asked for at 0% - a blurred des
 `SetWindowCompositionAttribute`; `BlurPlan` is unit-tested, the real effect is not visible off-screen.
 Help/About are still ordinary native windows.
 Ribbon: the tab row is File | Home | View (`MainWindow.SelectTab`, `RibbonTab`); each tab swaps the panel below it:
-`FileRibbonView` (New / Open / Save / Save As, Recent, the Auto-save switch, Clear, and Help/About raised as events; bound to the `AppViewModel` ream commands, tooltips show the live gestures; there is no workspace list - workspaces are switched by keys and the wheel). Recent (like Word's Backstage
+`FileRibbonView` (New / Open / Save / Save As, an Add group with New Note / New Workspace (moved here from the View
+tab's Window group - bound straight to `AppViewModel.NewNoteCommand`/`NewWorkspaceCommand`, no event-relay needed
+since this tab's DataContext already is the `AppViewModel`), Recent, the Auto-save switch, Clear, and Help/About
+raised as events; tooltips show the live gestures; there is no workspace list - workspaces are switched by keys and
+the wheel). Recent (like Word's Backstage
 Open > Recent) is `AppConfig.RecentReams` - the last `RecentReamsLimit` reams opened, saved or created, newest first, deduplicated case-insensitively and maintained by `ReamManager.RecordLastReam`; its button lists everything there except whichever ream is open right now (reopening that would be a
 no-op) and disables itself, with an explanatory tooltip, when there is nothing else to show. Clicking an entry runs `AppViewModel.OpenRecentReamCommand`, which is `IReamFiles.OpenReam(path)` - the same open-a-specific-ream path `ReamLauncher`/`ReamManager.OpenReam()` already used, just reachable
 with a path in hand instead of a file-picker round trip. `RibbonView` (Home, the
@@ -105,12 +109,11 @@ own `WheelAccumulator`).
 publishes it as `NoteZoomScale` (a boxed double, config.zoom / 100) the same way it publishes theme brushes, and each
 `NoteColumnView`'s `RichTextBox` binds a `ScaleTransform` `LayoutTransform` to it with `{DynamicResource NoteZoomScale}` -
 a LayoutTransform, not a RenderTransform, so text actually re-wraps at the zoomed size instead of just stretching, and
-it is live and app-wide with no other plumbing, exactly like a theme change. **Window** keeps New Note and New
-Workspace real (`NewNoteRequested`/`NewWorkspaceRequested`; New Workspace jumps to the trailing empty edge workspace -
-the same thing Alt+Down past the last named one does, `AppViewModel.NewWorkspaceCommand`), standing in for Word's New
-Window / Arrange All (moving to File next). Word's Split, View Side by Side and Reset Window Position are dropped
-outright - no multi-window concept for any of them - and three real, stacked controls join New Note/New Workspace:
-**One Page** (`OnePageButton`/`OnePageRequested` -> `AppViewModel.ToggleOnePageCommand`, moved here from Zoom) hides
+it is live and app-wide with no other plumbing, exactly like a theme change. **Window** drops Word's New Window,
+Arrange All, Split, View Side by Side and Reset Window Position outright - Ream has no multi-window concept for any
+of them (New Note / New Workspace, which used to stand in for New Window / Arrange All here, moved to File's own Add
+group). Three real, stacked controls remain: **One Page** (`OnePageButton`/`OnePageRequested` ->
+`AppViewModel.ToggleOnePageCommand`, moved here from Zoom) hides
 every note but the focused one - built on the fullscreen every note already has (`NoteViewModel.IsFullscreen`), just
 kept following focus instead of tied to one note: `AppViewModel.OnePageMode` re-fullscreens whichever note becomes
 focused and clears whichever had it, both within a workspace (`OnWorkspaceChanged`, since `WorkspaceViewModel.SetFocus`
