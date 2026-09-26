@@ -56,7 +56,9 @@ public partial class MainWindow : Window
         ViewRibbon.DataContext = Settings;
         FileRibbon.HelpRequested += OpenHelp;
         FileRibbon.AboutRequested += OpenAbout;
-        ViewRibbon.ReadModeRequested += () => viewModel.ToggleFullscreenCommand.Execute(null);
+        ViewRibbon.ReadModeRequested += () => viewModel.ToggleReadModeCommand.Execute(null);
+        ViewRibbon.DraftViewRequested += () => viewModel.ToggleDraftViewCommand.Execute(null);
+        ViewRibbon.OutlineViewRequested += () => viewModel.ToggleOutlineViewCommand.Execute(null);
         ViewRibbon.NewNoteRequested += () => viewModel.NewNoteCommand.Execute(null);
         ViewRibbon.NewWorkspaceRequested += () => viewModel.NewWorkspaceCommand.Execute(null);
         SelectTab(RibbonTab.Home);

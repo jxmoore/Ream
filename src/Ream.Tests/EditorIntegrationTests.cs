@@ -561,6 +561,88 @@ public class EditorIntegrationTests
         Assert.Empty(ImagesOf(view.Editor.Document));
     });
 
+    // ----- View modes: Draft (hide images) and Outline (heading summary) -----
+
+    [Fact]
+    public void DraftView_HidesImages_WithoutRemovingThem() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.View.InsertImage(Png(20, 20));
+        Ui.Settle();
+        var image = Assert.Single(ImagesOf(fx.Editor.Document));
+
+        fx.Note.HideImages = true;
+        Ui.Settle();
+        Assert.Equal(Visibility.Collapsed, image.Visibility);
+
+        fx.Note.HideImages = false;
+        Ui.Settle();
+        Assert.Equal(Visibility.Visible, image.Visibility);
+        Assert.Single(ImagesOf(fx.Editor.Document)); // never removed, just hidden
+    });
+
+    [Fact]
+    public void PastingWhileInDraftView_TheNewImageStartsHiddenToo() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Note.HideImages = true;
+
+        fx.View.InsertImage(Png(20, 20));
+        Ui.Settle();
+
+        Assert.Equal(Visibility.Collapsed, Assert.Single(ImagesOf(fx.Editor.Document)).Visibility);
+    });
+
+    private const string HeadingsBody = """
+        <ReamNote schemaVersion="1"><Doc>
+        <P size="28" b="1"><R>Heading One</R></P>
+        <P><R>Some body text under it.</R></P>
+        <P size="22" b="1"><R>Heading Two</R></P>
+        <P><R>More body text.</R></P>
+        </Doc></ReamNote>
+        """;
+
+    [Fact]
+    public void OutlineView_ShowsOnlyTheHeadings_AndLocksEditing() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(HeadingsBody);
+
+        fx.Note.IsOutlineView = true;
+        Ui.Settle();
+
+        string text = TextOf(fx.Editor.Document);
+        Assert.Contains("Heading One", text);
+        Assert.Contains("Heading Two", text);
+        Assert.DoesNotContain("Some body text", text);
+        Assert.DoesNotContain("More body text", text);
+        Assert.True(fx.Editor.IsReadOnly);
+    });
+
+    [Fact]
+    public void OutlineView_TurnedOff_RestoresTheRealDocument_StillEditable() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(HeadingsBody);
+        fx.Note.IsOutlineView = true;
+        Ui.Settle();
+
+        fx.Note.IsOutlineView = false;
+        Ui.Settle();
+
+        Assert.Contains("Some body text under it", TextOf(fx.Editor.Document));
+        Assert.False(fx.Editor.IsReadOnly);
+    });
+
+    [Fact]
+    public void OutlineView_OnANoteWithNoHeadings_ShowsAPlaceholder_InsteadOfNothing() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+
+        fx.Note.IsOutlineView = true;
+        Ui.Settle();
+
+        Assert.Contains("No headings", TextOf(fx.Editor.Document));
+    });
+
     // ----- Whole pipeline -----
 
     [Fact]

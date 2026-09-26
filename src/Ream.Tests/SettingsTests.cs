@@ -735,8 +735,6 @@ public class ViewRibbonTests
     /// <summary>Word controls Ream mirrors for the layout but has nothing behind yet - present, visible, and disabled, same convention as the Home tab's own placed-but-disabled controls.</summary>
     private static readonly string[] PlacedButDisabled =
     [
-        "PrintLayoutButton", "WebLayoutButton", "OutlineButton", "DraftButton", // Views (Read Mode is real, the rest aren't)
-        "VerticalButton", "SideToSideButton", // Page Movement
         "OnePageButton", "MultiplePagesButton", "PageWidthButton", // Zoom's page-view trio
         "SplitButton", "ViewSideBySideButton", "SynchronousScrollingButton", "ResetWindowPositionButton", "SwitchWindowsButton", // Window
     ];
@@ -779,7 +777,7 @@ public class ViewRibbonTests
             string[] working =
             [
                 "ThemeBox", "OpacitySlider", "NoteOpacitySlider", "GapSlider", "CenterFocusedToggle",
-                "ReadModeButton", "ZoomButton", "ZoomResetButton", "NewNoteButton", "NewWorkspaceButton",
+                "ReadModeButton", "DraftButton", "OutlineButton", "ZoomButton", "ZoomResetButton", "NewNoteButton", "NewWorkspaceButton",
             ];
             foreach (var name in working) Assert.True(((Control)view.FindName(name)).IsEnabled, name);
         }
@@ -857,6 +855,32 @@ public class ViewRibbonTests
             RaiseClick((Button)view.FindName("ReadModeButton"));
 
             Assert.True(raised);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void TheDraftAndOutlineButtons_RaiseTheirEvents() => Ui.Run(() =>
+    {
+        var app = new AppViewModel(new AppConfig(), []);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            bool draft = false, outline = false;
+            view.DraftViewRequested += () => draft = true;
+            view.OutlineViewRequested += () => outline = true;
+
+            RaiseClick((Button)view.FindName("DraftButton"));
+            RaiseClick((Button)view.FindName("OutlineButton"));
+
+            Assert.True(draft);
+            Assert.True(outline);
         }
         finally
         {

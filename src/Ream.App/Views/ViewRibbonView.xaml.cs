@@ -12,8 +12,14 @@ public partial class ViewRibbonView : UserControl
 
     public ViewRibbonView() => InitializeComponent();
 
-    /// <summary>The Read Mode tile: toggling the focused note's fullscreen is the app view model's job, not this tab's.</summary>
+    /// <summary>The Read Mode tile: toggling the focused note's fullscreen + read-only lock is the app view model's job, not this tab's.</summary>
     public event Action? ReadModeRequested;
+
+    /// <summary>The Draft tile, for the same reason.</summary>
+    public event Action? DraftViewRequested;
+
+    /// <summary>The Outline tile, for the same reason.</summary>
+    public event Action? OutlineViewRequested;
 
     /// <summary>The New Note tile, for the same reason.</summary>
     public event Action? NewNoteRequested;
@@ -24,6 +30,10 @@ public partial class ViewRibbonView : UserControl
     private SettingsViewModel? Settings => DataContext as SettingsViewModel;
 
     private void OnReadModeClick(object sender, RoutedEventArgs e) => ReadModeRequested?.Invoke();
+
+    private void OnDraftViewClick(object sender, RoutedEventArgs e) => DraftViewRequested?.Invoke();
+
+    private void OnOutlineViewClick(object sender, RoutedEventArgs e) => OutlineViewRequested?.Invoke();
 
     private void OnNewNoteClick(object sender, RoutedEventArgs e) => NewNoteRequested?.Invoke();
 

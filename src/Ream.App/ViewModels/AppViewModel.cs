@@ -499,6 +499,31 @@ public sealed partial class AppViewModel : ObservableObject
             note.IsFullscreen = !note.IsFullscreen;
     }
 
+    /// <summary>Read Mode: a full view of the focused note with no ability to edit it - fullscreen, plus locked.</summary>
+    [RelayCommand]
+    private void ToggleReadMode()
+    {
+        if (CurrentWorkspace.FocusedNote is not { } note) return;
+
+        bool entering = !note.IsReadOnly;
+        note.IsFullscreen = entering;
+        note.IsReadOnly = entering;
+    }
+
+    /// <summary>Draft view: hides the focused note's images (still there, still saved - just out of the way while writing).</summary>
+    [RelayCommand]
+    private void ToggleDraftView()
+    {
+        if (CurrentWorkspace.FocusedNote is { } note) note.HideImages = !note.HideImages;
+    }
+
+    /// <summary>Outline view: the focused note's editor shows just its heading structure, read-only, until turned off again.</summary>
+    [RelayCommand]
+    private void ToggleOutlineView()
+    {
+        if (CurrentWorkspace.FocusedNote is { } note) note.IsOutlineView = !note.IsOutlineView;
+    }
+
     [RelayCommand]
     private void NewNote() => OpenDraft();
 

@@ -81,6 +81,29 @@ public sealed partial class NoteViewModel : ObservableObject
     [ObservableProperty]
     private bool _isFullscreen;
 
+    partial void OnIsFullscreenChanged(bool value)
+    {
+        // Read Mode's read-only lock never outlives its fullscreen - whatever cleared one clears both.
+        if (!value) IsReadOnly = false;
+    }
+
+    /// <summary>Read Mode's "no editing" half - Read Mode always sets this alongside <see cref="IsFullscreen"/>; Alt+F11's plain fullscreen never does.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EffectiveReadOnly))]
+    private bool _isReadOnly;
+
+    /// <summary>Draft view: images are hidden in the editor (not removed - still saved, still there when this is off).</summary>
+    [ObservableProperty]
+    private bool _hideImages;
+
+    /// <summary>Outline view: the editor shows a generated, read-only summary of just the heading paragraphs.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EffectiveReadOnly))]
+    private bool _isOutlineView;
+
+    /// <summary>What the editor actually binds its own IsReadOnly to: Read Mode's lock, or Outline view's (which is always read-only, being a generated summary).</summary>
+    public bool EffectiveReadOnly => IsReadOnly || IsOutlineView;
+
     [ObservableProperty]
     private bool _isFocused;
 

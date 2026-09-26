@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Media;
 using System.Windows;
@@ -9,6 +10,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Ream.App.Controls;
+using Ream.App.Editing;
 using Ream.App.ViewModels;
 using Ream.Core.Layout;
 using Ream.Core.Models;
@@ -24,6 +26,10 @@ public partial class NoteColumnView : UserControl, INearAware
     private bool _hasContent;
     private bool _loadQueued;
 
+    // Outline view: the real document, stashed away while Editor.Document shows a generated summary instead.
+    private FlowDocument? _liveDocument;
+    private Dictionary<Paragraph, Paragraph>? _outlineMap;
+
     public NoteColumnView()
     {
         InitializeComponent();
@@ -35,6 +41,7 @@ public partial class NoteColumnView : UserControl, INearAware
         Editor.TextChanged += OnTextChanged;
         Editor.SizeChanged += (_, _) => FitImages();
         Editor.GotKeyboardFocus += (_, _) => _note?.FocusCommand.Execute(null);
+        Editor.PreviewMouseLeftButtonDown += OnEditorPreviewMouseDown;
         DataObject.AddPastingHandler(Editor, OnPaste);
     }
 
@@ -52,6 +59,9 @@ public partial class NoteColumnView : UserControl, INearAware
         _loadingDocument = true;
         try { Editor.Document = new FlowDocument(); }
         finally { _loadingDocument = false; }
+
+        _liveDocument = null;
+        _outlineMap = null;
 
         if (!IsLoaded) return;
         Subscribe();
@@ -102,6 +112,8 @@ public partial class NoteColumnView : UserControl, INearAware
         }
 
         FitImages();
+        ApplyImageVisibility();
+        if (_note.IsOutlineView) ApplyOutlineView();
     }
 
     private void Subscribe()
@@ -109,6 +121,7 @@ public partial class NoteColumnView : UserControl, INearAware
         if (_note is null || _subscribed) return;
         _note.EditorFocusRequested += OnEditorFocusRequested;
         _note.SizeToastRequested += OnSizeToast;
+        _note.PropertyChanged += OnNotePropertyChanged;
         _subscribed = true;
     }
 
@@ -117,7 +130,21 @@ public partial class NoteColumnView : UserControl, INearAware
         if (_note is null || !_subscribed) return;
         _note.EditorFocusRequested -= OnEditorFocusRequested;
         _note.SizeToastRequested -= OnSizeToast;
+        _note.PropertyChanged -= OnNotePropertyChanged;
         _subscribed = false;
+    }
+
+    private void OnNotePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(NoteViewModel.HideImages):
+                ApplyImageVisibility();
+                break;
+            case nameof(NoteViewModel.IsOutlineView):
+                ApplyOutlineView();
+                break;
+        }
     }
 
     private static readonly TimeSpan ToastHold = TimeSpan.FromMilliseconds(900);
@@ -300,6 +327,114 @@ public partial class NoteColumnView : UserControl, INearAware
         }
 
         FitImages();
+        ApplyImageVisibility();
+    }
+
+    /// <summary>Draft view: shows or hides every picture in the real document (nothing is removed - still saved, still there when Draft is off). A no-op while Outline view is showing its generated summary instead.</summary>
+    private void ApplyImageVisibility()
+    {
+        if (_note is null || _liveDocument is not null) return;
+        if (Editor.Document is not { } document) return;
+
+        var visibility = _note.HideImages ? Visibility.Collapsed : Visibility.Visible;
+        for (var p = document.ContentStart;
+             p is not null && p.CompareTo(document.ContentEnd) < 0;
+             p = p.GetNextContextPosition(LogicalDirection.Forward))
+        {
+            if (p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Child: Image image })
+                image.Visibility = visibility;
+        }
+    }
+
+    // ----- Outline view -----
+
+    /// <summary>Swaps <see cref="Editor"/>'s document to (or back from) a generated, read-only summary of just the heading paragraphs.</summary>
+    private void ApplyOutlineView()
+    {
+        if (_note is null || !_hasContent) return;
+
+        if (_note.IsOutlineView)
+        {
+            if (_liveDocument is not null || Editor.Document is not { } real) return;
+
+            _liveDocument = real;
+            _loadingDocument = true;
+            try { Editor.Document = BuildOutlineDocument(real); }
+            finally { _loadingDocument = false; }
+        }
+        else
+        {
+            if (_liveDocument is not { } real) return;
+
+            _liveDocument = null;
+            _outlineMap = null;
+            _loadingDocument = true;
+            try { Editor.Document = real; }
+            finally { _loadingDocument = false; }
+
+            ApplyImageVisibility();
+        }
+    }
+
+    /// <summary>One line per heading paragraph (<see cref="NoteStyles.HeadingLevelOf"/>), styled and indented to match, click-mapped back to the real paragraph via <see cref="_outlineMap"/>.</summary>
+    private FlowDocument BuildOutlineDocument(FlowDocument real)
+    {
+        var outline = new FlowDocument { FontFamily = real.FontFamily, FontSize = real.FontSize };
+        outline.SetResourceReference(FlowDocument.ForegroundProperty, "TextBrush");
+
+        _outlineMap = [];
+
+        foreach (var block in real.Blocks)
+        {
+            if (block is not Paragraph realParagraph) continue;
+            if (NoteStyles.HeadingLevelOf(realParagraph, real) is not { } level) continue;
+
+            string text = new TextRange(realParagraph.ContentStart, realParagraph.ContentEnd).Text.Trim();
+            if (text.Length == 0) continue;
+
+            var (_, size, weight, style) = NoteStyles.All[level];
+            var line = new Paragraph(new Run(text))
+            {
+                FontSize = size ?? real.FontSize,
+                FontWeight = weight,
+                FontStyle = style,
+                Margin = new Thickness((level - 1) * 20, 0, 0, 6),
+                Cursor = Cursors.Hand,
+            };
+            outline.Blocks.Add(line);
+            _outlineMap[line] = realParagraph;
+        }
+
+        if (outline.Blocks.Count == 0)
+        {
+            var empty = new Paragraph(new Run("No headings in this note.")) { FontStyle = FontStyles.Italic };
+            empty.SetResourceReference(TextElement.ForegroundProperty, "MutedTextBrush");
+            outline.Blocks.Add(empty);
+        }
+
+        return outline;
+    }
+
+    /// <summary>Clicking a line in the outline turns Outline view off and puts the caret at the real paragraph it summarizes.</summary>
+    private void OnEditorPreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_note is null || _outlineMap is null) return;
+
+        var position = Editor.GetPositionFromPoint(e.GetPosition(Editor), true);
+        if (position is null) return;
+
+        DependencyObject? scope = position.Parent;
+        while (scope is TextElement element and not Paragraph)
+            scope = element.Parent;
+
+        if (scope is not Paragraph clicked || !_outlineMap.TryGetValue(clicked, out var real)) return;
+
+        e.Handled = true;
+        _note.IsOutlineView = false; // synchronously restores Editor.Document via OnNotePropertyChanged -> ApplyOutlineView
+
+        Editor.CaretPosition = real.ContentStart;
+        Editor.Focus();
+        real.BringIntoView();
     }
 
     /// <summary>Keeps pictures no wider than the column; the saved size is untouched.</summary>

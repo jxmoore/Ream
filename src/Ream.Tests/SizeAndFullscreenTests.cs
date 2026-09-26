@@ -187,6 +187,70 @@ public class AppFullscreenCommandTests
     });
 }
 
+public class ViewModeCommandTests
+{
+    private static (AppViewModel App, NoteViewModel Note) Fixture()
+    {
+        var workspace = new WorkspaceViewModel("W");
+        var note = new NoteViewModel();
+        workspace.LoadNotes([note], null);
+        var app = new AppViewModel(new AppConfig(), [workspace]);
+        return (app, note);
+    }
+
+    [Fact]
+    public void ToggleReadMode_SetsFullscreenAndReadOnlyTogether_AndClearsBothOnASecondClick()
+    {
+        var (app, note) = Fixture();
+
+        app.ToggleReadModeCommand.Execute(null);
+        Assert.True(note.IsFullscreen);
+        Assert.True(note.IsReadOnly);
+        Assert.True(note.EffectiveReadOnly);
+
+        app.ToggleReadModeCommand.Execute(null);
+        Assert.False(note.IsFullscreen);
+        Assert.False(note.IsReadOnly);
+    }
+
+    [Fact]
+    public void ClearingFullscreen_AlwaysClearsReadOnlyToo()
+    {
+        var (app, note) = Fixture();
+        app.ToggleReadModeCommand.Execute(null);
+
+        note.IsFullscreen = false;
+
+        Assert.False(note.IsReadOnly);
+    }
+
+    [Fact]
+    public void ToggleDraftView_TogglesHideImagesOnTheFocusedNote()
+    {
+        var (app, note) = Fixture();
+
+        app.ToggleDraftViewCommand.Execute(null);
+        Assert.True(note.HideImages);
+
+        app.ToggleDraftViewCommand.Execute(null);
+        Assert.False(note.HideImages);
+    }
+
+    [Fact]
+    public void ToggleOutlineView_TogglesIsOutlineView_WhichIsAlwaysReadOnly()
+    {
+        var (app, note) = Fixture();
+
+        app.ToggleOutlineViewCommand.Execute(null);
+        Assert.True(note.IsOutlineView);
+        Assert.True(note.EffectiveReadOnly);
+
+        app.ToggleOutlineViewCommand.Execute(null);
+        Assert.False(note.IsOutlineView);
+        Assert.False(note.EffectiveReadOnly);
+    }
+}
+
 public class FullscreenControllerTests
 {
     private sealed class FakeFrame : IWindowFrame

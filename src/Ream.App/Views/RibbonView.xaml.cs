@@ -23,18 +23,8 @@ public partial class RibbonView : UserControl
     // the selection happens to be a heading - it was missing all three, which is exactly what it looked like.
     private static readonly double[] Sizes = [8, 9, 10, 11, 12, 14, 15, 16, 18, 20, 22, 24, 28, 32, 34, 36, 48, 72];
 
-    /// <summary>The styles gallery, in tile order. Size null means "the editor's own default".</summary>
-    private static readonly (string Label, double? Size, FontWeight Weight, FontStyle Style)[] Styles =
-    [
-        ("Normal", null, FontWeights.Normal, FontStyles.Normal),
-        ("Heading 1", 28, FontWeights.Bold, FontStyles.Normal),
-        ("Heading 2", 22, FontWeights.Bold, FontStyles.Normal),
-        ("Heading 3", 18, FontWeights.Bold, FontStyles.Normal),
-        ("Heading 4", 15, FontWeights.Bold, FontStyles.Normal),
-        ("Title", 34, FontWeights.Bold, FontStyles.Normal),
-        ("Subtitle", 18, FontWeights.Normal, FontStyles.Italic),
-        ("Quote", 14, FontWeights.Normal, FontStyles.Italic),
-    ];
+    /// <summary>The styles gallery, in tile order. Size null means "the editor's own default". Shared with Outline view and the Navigation Pane's heading list.</summary>
+    private static readonly (string Label, double? Size, FontWeight Weight, FontStyle Style)[] Styles = NoteStyles.All;
 
     /// <summary>How far one click of the gallery's Previous/More arrows scrolls (one tile's width).</summary>
     private const double StyleTileWidth = 56;

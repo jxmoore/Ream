@@ -2,12 +2,12 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!--
-        The View tab, laid out to mirror Word's own View tab group for group: Views, Page Movement, Show, Zoom, Window
-        (Word's Macros and SharePoint groups are dropped - nothing in Ream comes close). Word controls Ream has no
-        behaviour for yet are placed anyway, disabled, the same convention the Home tab already uses (see its own
-        top-of-file note) - the two exceptions are Read Mode and the Window group's New Note / New Workspace, which
-        reuse real, already-working Ream commands rather than sit idle. Ream's own settings (nothing in Word's View tab
-        to mirror) are tacked on at the very end: Theme, then Opacity.
+        The View tab. Loosely mirrors Word's own View tab groups (Views, Show, Zoom, Window), reworked to what Ream
+        actually has: Word's Page Movement group is dropped outright (Ream's row is always horizontal, its workspace
+        stack always vertical - no equivalent toggle), and Print Layout / Web Layout go with it (no page to offer a
+        page-layout mode for). Word controls Ream has no behaviour for yet are placed anyway, disabled, the same
+        convention the Home tab already uses (see its own top-of-file note). Ream's own settings (nothing in Word's
+        View tab to mirror) are tacked on at the very end: Layout, Theme, then Opacity.
     -->
     <UserControl.Resources>
         <!-- A small icon+text row: three of these stack beside a group's main tile(s), Word's own rhythm
@@ -19,10 +19,6 @@
             <Setter Property="Margin" Value="2,0.5"/>
             <Setter Property="Padding" Value="6,0"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
-        </Style>
-        <!-- Page Movement's pair: Word draws these noticeably smaller than a Views/Window tile. -->
-        <Style x:Key="SmallTile" TargetType="Button" BasedOn="{StaticResource RibbonTile}">
-            <Setter Property="MinWidth" Value="52"/>
         </Style>
         <!-- Icons drawn as paths take the button's own foreground, so they follow the theme and dim when disabled
              (matches RibbonView's own LineIcon, which isn't shared - this tab needs the same trick independently). -->
@@ -48,68 +44,35 @@
 
     <StackPanel Orientation="Horizontal" Margin="12,6,12,2">
 
-        <!-- Views: Read Mode is real (it's Ream's own note-fullscreen toggle, Alt+F11 - the same idea Word's Read Mode
-             was called "Full Screen Reading" for, before it got its current name). Print Layout, Web Layout, Outline
-             and Draft have nothing behind them - Ream has no page, so no page-based view modes to switch between. -->
+        <!-- Views: Read Mode, Draft and Outline are all real, in a vertical column as asked. Word's own Print Layout /
+             Web Layout are dropped outright - Ream has no page to offer page-layout modes for. -->
         <StackPanel>
-            <StackPanel Orientation="Horizontal" MinHeight="60" VerticalAlignment="Center">
-                <Button x:Name="ReadModeButton" Style="{StaticResource RibbonTile}" Click="OnReadModeClick"
-                        ToolTip="The focused note fills the canvas (Alt+F11)">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE1D9;" FontSize="20"/>
-                        <TextBlock Text="Read Mode" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+            <StackPanel MinHeight="60" VerticalAlignment="Center" Margin="2,0">
+                <Button x:Name="ReadModeButton" Style="{StaticResource StackedRow}" Click="OnReadModeClick"
+                        ToolTip="A full view of the focused note with no ability to edit it (Alt+F11)">
+                    <StackPanel Orientation="Horizontal">
+                        <!-- An open book, drawn by hand - no icon-font glyph reads as "book" reliably enough to risk guessing one. -->
+                        <Path Style="{StaticResource ViewLineIcon}" Width="16" Height="14"
+                              Data="M1,3 L7,2 V13 L1,12 Z M15,3 L9,2 V13 L15,12 Z M8,2.5 V13"/>
+                        <TextBlock Text="Read Mode" FontSize="12" Margin="4,0,0,0"/>
                     </StackPanel>
                 </Button>
-                <Button x:Name="PrintLayoutButton" Style="{StaticResource RibbonTile}" IsEnabled="False" ToolTip="Not available yet">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE749;" FontSize="20"/>
-                        <TextBlock Text="Print Layout" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                <Button x:Name="DraftButton" Style="{StaticResource StackedRow}" Click="OnDraftViewClick"
+                        ToolTip="A simplified layout: hides images while you write (nothing is deleted - turn it off to see them again)">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE70F;" FontSize="13" Width="18"/>
+                        <TextBlock Text="Draft" FontSize="12" Margin="4,0,0,0"/>
                     </StackPanel>
                 </Button>
-                <Button x:Name="WebLayoutButton" Style="{StaticResource RibbonTile}" IsEnabled="False" ToolTip="Not available yet">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE774;" FontSize="20"/>
-                        <TextBlock Text="Web Layout" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
-                    </StackPanel>
-                </Button>
-                <StackPanel VerticalAlignment="Center" Margin="2,0,0,0">
-                    <Button x:Name="OutlineButton" Style="{StaticResource StackedRow}" IsEnabled="False" ToolTip="Not available yet">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8FD;" FontSize="13" Width="18"/>
-                            <TextBlock Text="Outline" FontSize="12" Margin="4,0,0,0"/>
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="DraftButton" Style="{StaticResource StackedRow}" IsEnabled="False" ToolTip="Not available yet">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE70F;" FontSize="13" Width="18"/>
-                            <TextBlock Text="Draft" FontSize="12" Margin="4,0,0,0"/>
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </StackPanel>
-            <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Views"/>
-        </StackPanel>
-
-        <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
-
-        <!-- Page Movement: how Word scrolls through pages (a continuous column vs. side by side). Ream's row is always
-             horizontal and its workspace stack always vertical - there's no equivalent toggle - so both are disabled. -->
-        <StackPanel>
-            <StackPanel Orientation="Horizontal" MinHeight="60" VerticalAlignment="Center">
-                <Button x:Name="VerticalButton" Style="{StaticResource SmallTile}" IsEnabled="False" ToolTip="Not available yet">
-                    <StackPanel>
-                        <Path Style="{StaticResource ViewLineIcon}" Data="M8,1 V15 M4,4 L8,1 L12,4 M4,12 L8,15 L12,12"/>
-                        <TextBlock Text="Vertical" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
-                    </StackPanel>
-                </Button>
-                <Button x:Name="SideToSideButton" Style="{StaticResource SmallTile}" IsEnabled="False" ToolTip="Not available yet">
-                    <StackPanel>
-                        <Path Style="{StaticResource ViewLineIcon}" Data="M1,8 H15 M4,4 L1,8 L4,12 M12,4 L15,8 L12,12"/>
-                        <TextBlock Text="Side to Side" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                <Button x:Name="OutlineButton" Style="{StaticResource StackedRow}" Click="OnOutlineViewClick"
+                        ToolTip="Shows just the note's heading structure - click a heading to jump to it">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8FD;" FontSize="13" Width="18"/>
+                        <TextBlock Text="Outline" FontSize="12" Margin="4,0,0,0"/>
                     </StackPanel>
                 </Button>
             </StackPanel>
-            <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Page Movement"/>
+            <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Views"/>
         </StackPanel>
 
         <Rectangle Style="{StaticResource RibbonGroupDivider}"/>

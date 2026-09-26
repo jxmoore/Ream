@@ -54,16 +54,27 @@ Open > Recent) is `AppConfig.RecentReams` - the last `RecentReamsLimit` reams op
 no-op) and disables itself, with an explanatory tooltip, when there is nothing else to show. Clicking an entry runs `AppViewModel.OpenRecentReamCommand`, which is `IReamFiles.OpenReam(path)` - the same open-a-specific-ream path `ReamLauncher`/`ReamManager.OpenReam()` already used, just reachable
 with a path in hand instead of a file-picker round trip. `RibbonView` (Home, the
 editor controls) and `ViewRibbonView` (DataContext is the `SettingsViewModel`), laid out group-for-group like Word's own
-View tab, down to which group has tiles versus checkboxes versus stacked text rows, not just which settings exist:
-Views, Page Movement, Show, Zoom, Window, in Word's own order (Word's Macros and SharePoint groups are dropped - nothing
-in Ream comes close), then Ream's own settings tacked on at the very end, in order: Layout, Theme, Opacity. Every Word
-control Ream has nothing behind is still placed, disabled (`IsEnabled="False"`, tooltip "Not available yet") - the same
-convention the Home tab uses for the Word controls it can't do - except where an already-real Ream command reasonably
-fills the slot instead of sitting idle: **Views**' Read Mode is real (`ReadModeButton`/`ReadModeRequested` - it's Ream's
-own note-fullscreen toggle, Alt+F11, `AppViewModel.ToggleFullscreenCommand`; Word itself called this "Full Screen
-Reading" before renaming it), Print Layout/Web Layout/Outline/Draft are disabled. **Page Movement** (Vertical, Side to
-Side) is entirely disabled - Ream's row is always horizontal and its workspace stack always vertical, nothing to
-toggle. **Show** is Ruler/Gridlines/Navigation Pane, all disabled. **Zoom** drops Word's page-view trio (One Page,
+View tab where it still applies, reworked where Ream actually differs, in Word's own group order minus two groups
+dropped outright: **Page Movement** (Ream's row is always horizontal, its workspace stack always vertical - no
+equivalent toggle) and, inside Views, Print Layout/Web Layout (no page to offer a page-layout mode for). After Views,
+Show, Zoom, Window come Ream's own settings, tacked on at the end, in order: Layout, Theme, Opacity. Every Word control
+Ream has nothing behind yet is still placed, disabled (`IsEnabled="False"`, tooltip "Not available yet") - the same
+convention the Home tab uses for the Word controls it can't do. **Views** is a vertical column of three real, working
+toggles, not tiles: **Read Mode** (`ReadModeButton`/`ReadModeRequested` -> `AppViewModel.ToggleReadModeCommand`; Word
+itself called this "Full Screen Reading" before renaming it) sets both `NoteViewModel.IsFullscreen` and `IsReadOnly`
+together (a hand-drawn open-book `Path`, not an icon-font glyph - none reads as "book" reliably enough to risk
+guessing one); clearing `IsFullscreen` by any path always clears `IsReadOnly` too (`NoteViewModel.OnIsFullscreenChanged`).
+**Draft** (`DraftButton`/`DraftViewRequested` -> `ToggleDraftViewCommand`) sets `HideImages`, which
+`NoteColumnView.ApplyImageVisibility` turns into `Visibility.Collapsed` on every pasted image in the live document
+(nothing is removed - turning it off restores them); applied on load and right after a paste too, so it can't be
+bypassed by timing. **Outline** (`OutlineButton`/`OutlineViewRequested` -> `ToggleOutlineViewCommand`) sets
+`IsOutlineView`; `NoteColumnView.ApplyOutlineView` stashes the real `FlowDocument` and swaps in a generated one - one
+read-only paragraph per heading (`NoteStyles.HeadingLevelOf`), indented and styled to match, a "No headings in this
+note" placeholder if there are none - and clicking a line (`OnEditorPreviewMouseDown`, mapped back via
+`_outlineMap`) turns Outline off and puts the caret at the real paragraph it summarizes. Both `IsReadOnly` and
+`IsOutlineView` feed `NoteViewModel.EffectiveReadOnly`, which is what `Editor.IsReadOnly` actually binds to - neither
+is persisted (`NoteSnapshot`/`SnapshotMapper`), unlike `IsFullscreen` which is. **Show** is Ruler/Gridlines/Navigation
+Pane, all disabled. **Zoom** drops Word's page-view trio (One Page,
 Multiple Pages, Page Width - placed disabled) but `ZoomButton` (opens a themed menu of presets, 50/75/.../200) and
 `ZoomResetButton` (its big number *is* the current zoom, `SettingsViewModel.ZoomLabel`/`ZoomResetTooltip`; click resets
 to 100%) are real - deliberately no slider on the ribbon itself, matching Word (its live zoom control is in a status bar
