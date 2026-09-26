@@ -193,6 +193,30 @@ public class RibbonTabTests
         Assert.Equal(1, requests);
     });
 
+    // ----- The View ribbon's Theme button -----
+
+    private static ViewRibbonView ViewRibbon(WindowFixture fx)
+    {
+        fx.Window.SelectTab(RibbonTab.View);
+        Ui.Settle();
+        return (ViewRibbonView)fx.Window.FindName("ViewRibbon");
+    }
+
+    [Fact]
+    public void Theme_OpensAModal_WithTheSettingsAsDataContext() => Ui.Run(() =>
+    {
+        using var fx = Docked(("W", 1));
+        var view = ViewRibbon(fx);
+        var shown = new List<Window>();
+        fx.Window.ShowModal = shown.Add;
+
+        Click((Button)view.FindName("ThemeButton"));
+
+        var modal = Assert.IsType<ThemeModal>(Assert.Single(shown));
+        Assert.Same(fx.Window, modal.Owner);
+        Assert.Same(fx.Window.Settings, modal.DataContext);
+    });
+
     // ----- Scrolling -----
 
     [Fact]

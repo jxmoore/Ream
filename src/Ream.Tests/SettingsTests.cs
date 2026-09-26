@@ -480,141 +480,6 @@ public class ViewRibbonTests
 
     private static void RaiseClick(Button button) => button.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
 
-    private static Slider SliderNamed(ViewRibbonView view, string name) => (Slider)view.FindName(name);
-
-    [Fact]
-    public void ThemesAreADropdown_OneEntryPerTheme_AndPickingOnePicksIt() => Ui.Run(() =>
-    {
-        var app = new AppViewModel(new AppConfig(), []);
-        var theme = new ThemeService(Application.Current, () => true);
-        var settings = Make(app, theme);
-        try
-        {
-            var view = new ViewRibbonView { DataContext = settings };
-            using var window = new WindowHolder(view);
-            var box = (ComboBox)view.FindName("ThemeBox");
-
-            Assert.Equal(ThemeCatalog.All.Select(t => t.Name), box.Items.Cast<ThemeOption>().Select(o => o.Name));
-            Assert.Equal("dark", ((ThemeOption)box.SelectedItem).Id);
-
-            box.SelectedIndex = 2;
-            Ui.Settle();
-
-            Assert.Equal("dracula", app.Config.Theme);
-            Assert.Equal("dracula", ((ThemeOption)box.SelectedItem).Id);
-        }
-        finally
-        {
-            theme.Apply("dark");
-        }
-    });
-
-    [Fact]
-    public void TheDropdown_FollowsTheConfigWhenItChangesElsewhere() => Ui.Run(() =>
-    {
-        var app = new AppViewModel(new AppConfig(), []);
-        var theme = new ThemeService(Application.Current, () => true);
-        var settings = Make(app, theme);
-        try
-        {
-            var view = new ViewRibbonView { DataContext = settings };
-            using var window = new WindowHolder(view);
-            var box = (ComboBox)view.FindName("ThemeBox");
-
-            app.Config = app.Config.With(theme: "nord");
-            Ui.Settle();
-
-            Assert.Equal("nord", ((ThemeOption)box.SelectedItem).Id);
-        }
-        finally
-        {
-            theme.Apply("dark");
-        }
-    });
-
-    [Fact]
-    public void TheDropdownShowsTheSelectedThemesSwatchAndName() => Ui.Run(() =>
-    {
-        var app = new AppViewModel(new AppConfig { Theme = "gruvbox" }, []);
-        var theme = new ThemeService(Application.Current, () => true);
-        var settings = Make(app, theme);
-        try
-        {
-            var view = new ViewRibbonView { DataContext = settings };
-            using var window = new WindowHolder(view);
-            var box = (ComboBox)view.FindName("ThemeBox");
-            Ui.Settle();
-
-            Assert.Contains(Ui.Descendants<TextBlock>(box), t => t.Text == "Gruvbox");
-        }
-        finally
-        {
-            theme.Apply("dark");
-        }
-    });
-
-    [Fact]
-    public void TheTwoSliders_AreStackedAndShort() => Ui.Run(() =>
-    {
-        var app = new AppViewModel(new AppConfig(), []);
-        var theme = new ThemeService(Application.Current, () => true);
-        var settings = Make(app, theme);
-        try
-        {
-            var view = new ViewRibbonView { DataContext = settings };
-            using var window = new WindowHolder(view);
-            var canvas = SliderNamed(view, "OpacitySlider");
-            var notes = SliderNamed(view, "NoteOpacitySlider");
-
-            var canvasAt = canvas.TranslatePoint(new Point(0, 0), view);
-            var notesAt = notes.TranslatePoint(new Point(0, 0), view);
-
-            Assert.Equal(canvasAt.X, notesAt.X);
-            Assert.True(notesAt.Y - canvasAt.Y >= 24, "the Notes slider sits under the Canvas one");
-            Assert.True(canvas.ActualWidth <= 130 && notes.ActualWidth <= 130);
-        }
-        finally
-        {
-            theme.Apply("dark");
-        }
-    });
-
-    [Fact]
-    public void TheSliders_DriveTheTwoOpacities_AndTheirLabels() => Ui.Run(() =>
-    {
-        var app = new AppViewModel(new AppConfig(), []);
-        var theme = new ThemeService(Application.Current, () => true);
-        var settings = Make(app, theme);
-        try
-        {
-            var view = new ViewRibbonView { DataContext = settings };
-            using var window = new WindowHolder(view);
-            var canvas = SliderNamed(view, "OpacitySlider");
-            var notes = SliderNamed(view, "NoteOpacitySlider");
-            Assert.Equal(100, canvas.Value);
-            Assert.Equal(100, notes.Value);
-            Assert.True(canvas.IsEnabled && notes.IsEnabled);
-
-            canvas.Value = 30;
-            notes.Value = 60;
-            Ui.Settle();
-
-            Assert.Equal(30, app.Config.CanvasOpacity);
-            Assert.Equal(60, app.Config.NoteOpacity);
-            Assert.Equal("30%", ((TextBlock)view.FindName("CanvasOpacityLabel")).Text);
-            Assert.Equal("60%", ((TextBlock)view.FindName("NoteOpacityLabel")).Text);
-
-            app.Config = app.Config.With(canvasOpacity: 75, noteOpacity: 10);
-            Ui.Settle();
-            Assert.Equal(75, canvas.Value);
-            Assert.Equal(10, notes.Value);
-        }
-        finally
-        {
-            theme.Apply("dark");
-        }
-    });
-
     [Fact]
     public void TheZoomResetTile_LabelsAndTooltipFollowTheZoom_AndAClickResetsIt() => Ui.Run(() =>
     {
@@ -670,33 +535,6 @@ public class ViewRibbonTests
         }
     });
 
-    [Fact]
-    public void TheGapSlider_AndTheCenterCheckbox_ChangeTheLayout() => Ui.Run(() =>
-    {
-        var app = new AppViewModel(new AppConfig(), []);
-        var theme = new ThemeService(Application.Current, () => true);
-        var settings = Make(app, theme);
-        try
-        {
-            var view = new ViewRibbonView { DataContext = settings };
-            using var window = new WindowHolder(view);
-            var gap = SliderNamed(view, "GapSlider");
-            var center = (CheckBox)view.FindName("CenterFocusedToggle");
-            Assert.Equal(28, gap.Value);
-            Assert.True(center.IsChecked);
-
-            gap.Value = 16;
-            center.IsChecked = false;
-            Ui.Settle();
-
-            Assert.Equal(16, app.Config.Layout.GapPx);
-            Assert.False(app.Config.Layout.CenterFocusedColumn);
-        }
-        finally
-        {
-            theme.Apply("dark");
-        }
-    });
 
     [Fact]
     public void TheShowGroup_GridlinesAndNavigationPane_AreRealTwoWayCheckBoxes() => Ui.Run(() =>
@@ -766,6 +604,29 @@ public class ViewRibbonTests
             view.OnePageRequested += () => raised = true;
 
             RaiseClick((Button)view.FindName("OnePageButton"));
+
+            Assert.True(raised);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void TheThemeButton_RaisesItsEvent() => Ui.Run(() =>
+    {
+        var app = new AppViewModel(new AppConfig(), []);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            bool raised = false;
+            view.ThemeRequested += () => raised = true;
+
+            RaiseClick((Button)view.FindName("ThemeButton"));
 
             Assert.True(raised);
         }
@@ -852,7 +713,7 @@ public class ViewRibbonTests
 
             string[] working =
             [
-                "ThemeBox", "OpacitySlider", "NoteOpacitySlider", "GapSlider", "CenterFocusedToggle",
+                "ThemeButton",
                 "ReadModeButton", "DraftButton", "OutlineButton", "RulerButton", "GridlinesCheckBox", "NavigationPaneCheckBox",
                 "ZoomInButton", "ZoomOutButton", "ZoomResetButton",
                 "OnePageButton", "SynchronousScrollingCheckBox", "SwitchNotesButton",
@@ -933,27 +794,6 @@ public class ViewRibbonTests
 
             Assert.True(draft);
             Assert.True(outline);
-        }
-        finally
-        {
-            theme.Apply("dark");
-        }
-    });
-
-    [Fact]
-    public void OnWindowsWithoutBlur_TheSlidersStillWork_AndTheTooltipSaysWhatIsMissing() => Ui.Run(() =>
-    {
-        var app = new AppViewModel(new AppConfig(), []);
-        var theme = new ThemeService(Application.Current, () => false);
-        var settings = Make(app, theme, supported: false);
-        try
-        {
-            var view = new ViewRibbonView { DataContext = settings };
-            using var window = new WindowHolder(view);
-
-            var canvas = SliderNamed(view, "OpacitySlider");
-            Assert.True(canvas.IsEnabled);
-            Assert.Contains("Windows 10", (string)canvas.ToolTip);
         }
         finally
         {

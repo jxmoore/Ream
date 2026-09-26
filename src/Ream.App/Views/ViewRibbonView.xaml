@@ -165,97 +165,27 @@
 
         <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
 
-        <!-- Layout: Ream's own - space between notes, and whether the one you're in stays centered as you move.
-             Nothing in Word's View tab to mirror, so it sits with Theme and Opacity at the very end. -->
+        <!-- Theme: what used to be three separate groups (Layout, Theme, Opacity) is now a single button that opens
+             a modal (ThemeModal) with all three as sections, editing the exact same SettingsViewModel properties
+             those groups did - this tile is just a different door to them. -->
         <StackPanel>
-            <Grid MinHeight="60" VerticalAlignment="Center" Margin="4,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="28"/>
-                    <RowDefinition Height="28"/>
-                </Grid.RowDefinitions>
-
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Gap" FontSize="12" VerticalAlignment="Center" Margin="6,0,10,0"
-                           Foreground="{DynamicResource ToolbarMutedBrush}"/>
-                <Slider x:Name="GapSlider" Grid.Row="0" Grid.Column="1" Width="90" VerticalAlignment="Center" Focusable="False"
-                        Minimum="8" Maximum="60" SmallChange="2" LargeChange="8" IsSnapToTickEnabled="True" TickFrequency="2"
-                        Value="{Binding GapPx, Mode=TwoWay}" ToolTip="Space between notes, and around the row"/>
-                <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding GapPx, StringFormat={}{0:0}px}" MinWidth="34" Margin="8,0,6,0"
-                           TextAlignment="Right" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}"/>
-
-                <CheckBox x:Name="CenterFocusedToggle" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
-                          Content="Center the focused note" Margin="2,6,0,0" HorizontalAlignment="Left"
-                          IsChecked="{Binding CenterFocusedColumn, Mode=TwoWay}"
-                          ToolTip="Keep the note you're working in centered in the row as you move between notes"/>
-            </Grid>
-            <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Layout"/>
-        </StackPanel>
-
-        <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
-
-        <!-- Theme: one dropdown; each entry shows a little swatch of the theme's colors -->
-        <StackPanel>
-            <StackPanel MinHeight="60" Orientation="Horizontal">
-                <ComboBox x:Name="ThemeBox" Width="200" Height="30" VerticalAlignment="Center" Margin="4,0"
-                          ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme, Mode=TwoWay}"
-                          Focusable="False" ToolTip="Color theme">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate>
-                            <DockPanel LastChildFill="True">
-                                <Border DockPanel.Dock="Left" Width="40" Height="20" CornerRadius="4" Margin="0,0,10,0"
-                                        BorderThickness="1" BorderBrush="{DynamicResource ControlBorderBrush}"
-                                        Background="{Binding Canvas}">
-                                    <Grid>
-                                        <Border Margin="5,4,0,4" Width="18" HorizontalAlignment="Left" CornerRadius="3" Background="{Binding Card}"/>
-                                        <Ellipse Width="7" Height="7" Margin="0,0,6,0" HorizontalAlignment="Right" Fill="{Binding Accent}"/>
-                                    </Grid>
-                                </Border>
-                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
-                            </DockPanel>
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
+            <StackPanel Orientation="Horizontal" MinHeight="60" VerticalAlignment="Center">
+                <Button x:Name="ThemeButton" Style="{StaticResource RibbonTile}" Click="OnThemeClick"
+                        ToolTip="Layout, theme and opacity">
+                    <StackPanel>
+                        <!-- A half-filled circle (a plain light/dark "theme" mark) - no icon-font glyph reads as
+                             "appearance" reliably enough to risk guessing one. -->
+                        <Grid Width="18" Height="18" HorizontalAlignment="Center">
+                            <Ellipse Width="18" Height="18" StrokeThickness="1.4"
+                                     Stroke="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}"/>
+                            <Path Data="M9,0.7 A7.3,7.3 0 0 1 9,15.3 Z"
+                                  Fill="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}"/>
+                        </Grid>
+                        <TextBlock Text="Theme" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                    </StackPanel>
+                </Button>
             </StackPanel>
             <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Theme"/>
-        </StackPanel>
-
-        <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
-
-        <!-- Opacity: two short sliders, stacked -->
-        <StackPanel>
-            <Grid MinHeight="60" VerticalAlignment="Center" Margin="4,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="28"/>
-                    <RowDefinition Height="28"/>
-                </Grid.RowDefinitions>
-
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Canvas" FontSize="12" VerticalAlignment="Center" Margin="6,0,10,0"
-                           Foreground="{DynamicResource ToolbarMutedBrush}"/>
-                <Slider x:Name="OpacitySlider" Grid.Row="0" Grid.Column="1" Width="110" VerticalAlignment="Center"
-                        Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="1" Focusable="False"
-                        Value="{Binding OpacityPercent, Mode=TwoWay}" ToolTip="{Binding OpacityHint}"/>
-                <TextBlock x:Name="CanvasOpacityLabel" Grid.Row="0" Grid.Column="2" Text="{Binding OpacityLabel}" MinWidth="38" Margin="8,0,6,0"
-                           TextAlignment="Right" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}"/>
-
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Notes" FontSize="12" VerticalAlignment="Center" Margin="6,0,10,0"
-                           Foreground="{DynamicResource ToolbarMutedBrush}"/>
-                <Slider x:Name="NoteOpacitySlider" Grid.Row="1" Grid.Column="1" Width="110" VerticalAlignment="Center"
-                        Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="1" Focusable="False"
-                        Value="{Binding NoteOpacityPercent, Mode=TwoWay}"
-                        ToolTip="How solid each note's background is. The text always stays solid."/>
-                <TextBlock x:Name="NoteOpacityLabel" Grid.Row="1" Grid.Column="2" Text="{Binding NoteOpacityLabel}" MinWidth="38" Margin="8,0,6,0"
-                           TextAlignment="Right" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}"/>
-            </Grid>
-            <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Opacity"/>
         </StackPanel>
     </StackPanel>
 </UserControl>

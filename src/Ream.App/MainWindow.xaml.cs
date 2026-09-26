@@ -62,6 +62,7 @@ public partial class MainWindow : Window
         ViewRibbon.OutlineViewRequested += () => viewModel.ToggleOutlineViewCommand.Execute(null);
         ViewRibbon.RulerRequested += () => viewModel.ToggleRulerCommand.Execute(null);
         ViewRibbon.OnePageRequested += () => viewModel.ToggleOnePageCommand.Execute(null);
+        ViewRibbon.ThemeRequested += OpenThemeModal;
         Settings.PropertyChanged += OnSettingsPropertyChanged;
         SelectTab(RibbonTab.Home);
 
@@ -363,6 +364,9 @@ public partial class MainWindow : Window
     internal void OpenHelp() => Present(new HelpWindow(HelpContent.Build(_viewModel.Config.Keybindings), _viewModel.Config.Keybindings));
 
     internal void OpenAbout() => Present(new AboutWindow(About with { DocumentsFolder = _viewModel.ReamPath ?? About.DocumentsFolder }));
+
+    /// <summary>The View tab's Theme button: Layout, Theme and Opacity in one modal, replacing the three separate ribbon groups they used to be.</summary>
+    internal void OpenThemeModal() => Present(new ThemeModal(Settings));
 
     /// <summary>Opens Find (or Find and Replace) on whichever editor last had focus; modeless, so it re-shows an already-open window rather than stacking another.</summary>
     internal void OnFindRequested(bool withReplace)

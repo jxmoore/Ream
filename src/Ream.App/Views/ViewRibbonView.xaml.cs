@@ -27,6 +27,9 @@ public partial class ViewRibbonView : UserControl
     /// <summary>The One Page tile, for the same reason (it follows focus across the whole app, not this tab's job).</summary>
     public event Action? OnePageRequested;
 
+    /// <summary>The Theme tile: opening a window (ownership, the test-interceptable ShowModal hook) is MainWindow's job, not this tab's - same reason Help/About are raised as events too.</summary>
+    public event Action? ThemeRequested;
+
     private SettingsViewModel? Settings => DataContext as SettingsViewModel;
 
     private void OnReadModeClick(object sender, RoutedEventArgs e) => ReadModeRequested?.Invoke();
@@ -74,4 +77,6 @@ public partial class ViewRibbonView : UserControl
     {
         if (Settings is { } settings) settings.ZoomPercent -= ZoomStep;
     }
+
+    private void OnThemeClick(object sender, RoutedEventArgs e) => ThemeRequested?.Invoke();
 }

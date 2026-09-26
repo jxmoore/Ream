@@ -58,12 +58,14 @@ Open > Recent) is `AppConfig.RecentReams` - the last `RecentReamsLimit` reams op
 no-op) and disables itself, with an explanatory tooltip, when there is nothing else to show. Clicking an entry runs `AppViewModel.OpenRecentReamCommand`, which is `IReamFiles.OpenReam(path)` - the same open-a-specific-ream path `ReamLauncher`/`ReamManager.OpenReam()` already used, just reachable
 with a path in hand instead of a file-picker round trip. `RibbonView` (Home, the
 editor controls) and `ViewRibbonView` (DataContext is the `SettingsViewModel`), laid out group-for-group like Word's own
-View tab where it still applies, reworked where Ream actually differs, in Word's own group order minus two groups
-dropped outright: **Page Movement** (Ream's row is always horizontal, its workspace stack always vertical - no
-equivalent toggle) and, inside Views, Print Layout/Web Layout (no page to offer a page-layout mode for). After Views,
-Show, Zoom, Window come Ream's own settings, tacked on at the end, in order: Layout, Theme, Opacity. Every Word control
-Ream has nothing behind yet is still placed, disabled (`IsEnabled="False"`, tooltip "Not available yet") - the same
-convention the Home tab uses for the Word controls it can't do. **Views** is a vertical column of three real, working
+View tab where it still applies, reworked where Ream actually differs, in Word's own group order minus what has no
+equivalent: **Page Movement** (Ream's row is always horizontal, its workspace stack always vertical) and, inside
+Views, Print Layout/Web Layout (no page to offer a page-layout mode for) are dropped outright, and Word's page-view
+controls (One Page, Multiple Pages, Page Width) go the same way except One Page, which survives as a real command
+moved into Window. Every control on this tab is real now - Views, Show, Zoom and Window each got their own pass, so
+none of the Home tab's "placed but disabled, `IsEnabled="False"`, tooltip 'Not available yet'" convention survives
+here. After Views, Show, Zoom, Window comes Ream's own settings - a single Theme button, not the three separate
+groups (Layout, Theme, Opacity) it used to be (see further down). **Views** is a vertical column of three real, working
 toggles, not tiles: **Read Mode** (`ReadModeButton`/`ReadModeRequested` -> `AppViewModel.ToggleReadModeCommand`; Word
 itself called this "Full Screen Reading" before renaming it) sets both `NoteViewModel.IsFullscreen` and `IsReadOnly`
 together (a hand-drawn open-book `Path`, not an icon-font glyph - none reads as "book" reliably enough to risk
@@ -129,11 +131,25 @@ bounce back and forth. **Switch Notes** (renamed from Word's Switch Windows - Re
 menu of the current workspace's notes built directly in `ViewRibbonView.OnSwitchNotesClick` (the same
 build-the-menu-in-code-behind shape Zoom's old preset menu used, since a `CheckBox`/`Button` two-way binding can't
 carry a list); it reads the workspace through a small `internal SettingsViewModel.App` accessor, since only
-`AppViewModel` has the notes to list. **Layout** is Ream's own (a gap-size slider, a
-"Center the focused note" checkbox) via `AppConfig.WithLayout`, saved under the file's nested `layout` object rather
-than a flat key - the same "patch only the given keys" contract as everything else in `AppConfigStore.Update`. The Show
-checkboxes and Layout's own checkbox share one themed `CheckBox` style (`Themes/Controls.xaml`): a small square with an
-accent checkmark, the app's only one, since nothing needed a real checkbox before this. Home is laid out like Word's Home tab (flat buttons, icon rows, a label centered under each group; there is no
+`AppViewModel` has the notes to list. **Theme** (`ThemeButton`/`ThemeRequested`, raised as an event and presented by
+`MainWindow.OpenThemeModal` the same way Help/About are - opening a window is MainWindow's job, ownership and the
+test-interceptable `ShowModal` hook live there) replaces what used to be three separate ribbon groups (Layout, Theme,
+Opacity) with one button that opens `ThemeModal` (`Views/ThemeModal.xaml`, styled like Help/About with
+`ModalWindowStyle`), holding all three as sections on the exact same `SettingsViewModel` those groups already edited
+- moving them didn't change what they bind to, only where they live. **Layout** is a Gap `ComboBox` (presets 8-60,
+`AppConfig.WithLayout`'s nested `layout` object, the same "patch only the given keys" contract as everything else in
+`AppConfigStore.Update`) plus the "Center the focused note" checkbox. **Theme** is a `RadioButton` per
+`SettingsViewModel.Themes` entry (its own swatch, same template the old dropdown used), `Checked` calling
+`SelectThemeCommand` straight away - no separate "apply" step. **Opacity** is two more `ComboBox`es (Canvas / Notes,
+presets 0-100). Gap and both opacities are genuinely editable - pick a preset or type any in-range number - which
+needed `Themes/Controls.xaml`'s `ComboBox` style to grow a `PART_EditableTextBox` part (`IsEditable="True"` did
+nothing before this; WPF's own `ComboBox` wires that named part up automatically once the template has one, no extra
+code needed) - every other `ComboBox` in the app keeps `IsEditable` unset and is unaffected. Each box binds `Text`
+(not `SelectedItem`) `TwoWay` with `UpdateSourceTrigger=LostFocus` (so typing doesn't fight the box mid-keystroke;
+Enter commits early via `GetBindingExpression(...).UpdateSource()`) straight to `GapPx`/`OpacityPercent`/
+`NoteOpacityPercent`, which already clamp out-of-range values themselves. The Show checkboxes, `CenterFocusedCheckBox`
+and `SynchronousScrollingCheckBox` all share one themed `CheckBox` style (`Themes/Controls.xaml`): a small square with
+an accent checkmark, the app's only one, since nothing needed a real checkbox before View tab work started. Home is laid out like Word's Home tab (flat buttons, icon rows, a label centered under each group; there is no
 dialog-launcher corner and no Add-ins group - Ream doesn't have either): Clipboard, Font, Paragraph, Styles (a framed, horizontally
 scrollable gallery: Normal, Heading 1-4, Title, Subtitle, Quote, with working Previous/More arrows and an "All styles" menu -
 `RibbonView.Styles`, `ApplyStyle`), Editing (Find/Replace open a modeless `FindReplaceWindow` bound to `AppViewModel.FindCommand`/

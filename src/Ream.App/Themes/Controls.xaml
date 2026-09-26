@@ -150,11 +150,20 @@
                         <ToggleButton x:Name="Toggle" Template="{StaticResource ComboToggleTemplate}" Focusable="False"
                                       ClickMode="Press"
                                       IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"/>
-                        <ContentPresenter IsHitTestVisible="False" Margin="8,2,26,2"
+                        <ContentPresenter x:Name="ContentSite" IsHitTestVisible="False" Margin="8,2,26,2"
                                           VerticalAlignment="Center" HorizontalAlignment="Left"
                                           Content="{TemplateBinding SelectionBoxItem}"
                                           ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                                           ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"/>
+                        <!-- Only shown when IsEditable - lets Gap/Opacity offer presets and a typed custom amount, the
+                             same box either way (the Toggle underneath still owns the drop-arrow's 26px on the right,
+                             since this stops short of it). -->
+                        <TextBox x:Name="PART_EditableTextBox" Visibility="Collapsed"
+                                 Margin="8,2,26,2" VerticalAlignment="Center" Padding="0"
+                                 Background="Transparent" BorderThickness="0"
+                                 Foreground="{TemplateBinding Foreground}"
+                                 CaretBrush="{DynamicResource ControlTextBrush}"
+                                 IsReadOnly="{TemplateBinding IsReadOnly}"/>
                         <Popup x:Name="PART_Popup" Placement="Bottom" Focusable="False" AllowsTransparency="True"
                                IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="Fade">
                             <Border MinWidth="{Binding ActualWidth, ElementName=Toggle}"
@@ -174,6 +183,10 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.5"/>
+                        </Trigger>
+                        <Trigger Property="IsEditable" Value="True">
+                            <Setter TargetName="ContentSite" Property="Visibility" Value="Collapsed"/>
+                            <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
