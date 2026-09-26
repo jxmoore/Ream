@@ -645,31 +645,24 @@ public class ViewRibbonTests
     });
 
     [Fact]
-    public void TheZoomTile_OffersEveryPreset_AndPickingOneSetsTheZoom_WithTheCurrentOneChecked() => Ui.Run(() =>
+    public void TheZoomInAndOutButtons_StepTheZoomByTen_Clamped() => Ui.Run(() =>
     {
-        var app = new AppViewModel(new AppConfig { Zoom = 125 }, []);
+        var app = new AppViewModel(new AppConfig { Zoom = 195 }, []);
         var theme = new ThemeService(Application.Current, () => true);
         var settings = Make(app, theme);
         try
         {
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
-            var button = (Button)view.FindName("ZoomButton");
 
-            RaiseClick(button);
+            RaiseClick((Button)view.FindName("ZoomInButton"));
             Ui.Settle();
+            Assert.Equal(200, settings.ZoomPercent); // clamped at the top, not 205
 
-            var menu = button.ContextMenu;
-            Assert.NotNull(menu);
-            var items = menu.Items.Cast<MenuItem>().ToList();
-            Assert.Equal(["50%", "75%", "100%", "125%", "150%", "175%", "200%"], items.Select(i => (string)i.Header));
-            Assert.True(items.Single(i => (string)i.Header == "125%").IsChecked);
-            Assert.False(items.Single(i => (string)i.Header == "100%").IsChecked);
-
-            items.Single(i => (string)i.Header == "150%").RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            RaiseClick((Button)view.FindName("ZoomOutButton"));
+            RaiseClick((Button)view.FindName("ZoomOutButton"));
             Ui.Settle();
-
-            Assert.Equal(150, app.Config.Zoom);
+            Assert.Equal(180, settings.ZoomPercent);
         }
         finally
         {
@@ -762,7 +755,6 @@ public class ViewRibbonTests
     /// <summary>Word controls Ream mirrors for the layout but has nothing behind yet - present, visible, and disabled, same convention as the Home tab's own placed-but-disabled controls.</summary>
     private static readonly string[] PlacedButDisabled =
     [
-        "OnePageButton", "MultiplePagesButton", "PageWidthButton", // Zoom's page-view trio
         "SplitButton", "ViewSideBySideButton", "SynchronousScrollingButton", "ResetWindowPositionButton", "SwitchWindowsButton", // Window
     ];
 
@@ -805,7 +797,7 @@ public class ViewRibbonTests
             [
                 "ThemeBox", "OpacitySlider", "NoteOpacitySlider", "GapSlider", "CenterFocusedToggle",
                 "ReadModeButton", "DraftButton", "OutlineButton", "RulerButton", "GridlinesCheckBox", "NavigationPaneCheckBox",
-                "ZoomButton", "ZoomResetButton", "NewNoteButton", "NewWorkspaceButton",
+                "ZoomInButton", "ZoomOutButton", "ZoomResetButton", "NewNoteButton", "NewWorkspaceButton",
             ];
             foreach (var name in working) Assert.True(((Control)view.FindName(name)).IsEnabled, name);
         }
@@ -853,7 +845,7 @@ public class ViewRibbonTests
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
 
-            foreach (var name in new[] { "ReadModeButton", "ZoomButton", "ZoomResetButton", "NewNoteButton", "OutlineButton" })
+            foreach (var name in new[] { "ReadModeButton", "ZoomInButton", "ZoomResetButton", "NewNoteButton", "OutlineButton" })
             {
                 var button = (Button)view.FindName(name);
                 var frame = Ui.Descendants<Border>(button).First(b => b.Name == "Frame");

@@ -94,11 +94,13 @@ over title and `NoteContent.ToPlainText(note.Body)`, each note flushed first so 
 `NoteViewModel.CaretMoveRequested` (a paragraph reference `NoteColumnView.OnCaretMoveRequested` lands the caret on,
 turning off Outline view first if it was showing); clicking a note or workspace entry reuses
 `WorkspaceViewModel.SetFocus`/`AppViewModel.SelectWorkspaceCommand`, the same paths the row and the File ribbon's
-workspace list already use. **Zoom** drops Word's page-view trio (One Page,
-Multiple Pages, Page Width - placed disabled) but `ZoomButton` (opens a themed menu of presets, 50/75/.../200) and
-`ZoomResetButton` (its big number *is* the current zoom, `SettingsViewModel.ZoomLabel`/`ZoomResetTooltip`; click resets
-to 100%) are real - deliberately no slider on the ribbon itself, matching Word (its live zoom control is in a status bar
-Ream doesn't have); `Ctrl+Scroll` also zooms (`MainWindow.OnPreviewMouseWheel`, its own `WheelAccumulator`).
+workspace list already use. **Zoom** is three stacked buttons, each its own magnifying-glass glyph from Segoe Fluent
+Icons (`ZoomInButton`/`ZoomOutButton`, +-10 a click, clamped 50-200; `ZoomResetButton`, back to 100%, its label still
+showing the live percentage - `SettingsViewModel.ZoomLabel`/`ZoomResetTooltip`) rather than a menu of presets; Word's
+page-view trio (One Page, Multiple Pages, Page Width) is dropped - One Page moves to the Window group below as a real
+command, Ream has no pages for the other two. Deliberately no slider on the ribbon itself, matching Word (its live
+zoom control is in a status bar Ream doesn't have); `Ctrl+Scroll` also zooms (`MainWindow.OnPreviewMouseWheel`, its
+own `WheelAccumulator`).
 `SettingsViewModel.ZoomPercent` (`AppConfig.Zoom`, 50-200) scales a note's whole editor, not just its font: `ThemeService`
 publishes it as `NoteZoomScale` (a boxed double, config.zoom / 100) the same way it publishes theme brushes, and each
 `NoteColumnView`'s `RichTextBox` binds a `ScaleTransform` `LayoutTransform` to it with `{DynamicResource NoteZoomScale}` -

@@ -103,44 +103,31 @@
 
         <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
 
-        <!-- Zoom: Word's own Zoom group, minus the page-view buttons (One Page, Multiple Pages, Page Width) Ream has no
-             page to offer - placed anyway, disabled. Zoom and the number tile are both real: a click on Zoom picks a
-             level, the number tile shows the current one and resets it. Ctrl+Scroll also zooms. -->
+        <!-- Zoom: three stacked buttons, each its own magnifying-glass glyph (Segoe Fluent Icons' own ZoomIn/ZoomOut/Zoom -
+             MUI isn't a font available on Windows/WPF, so an icon font already on the system stands in for it), all
+             real. Word's page-view trio (One Page, Multiple Pages, Page Width) is dropped: One Page moves to the
+             Window group below (a Ream command, not a placeholder), and Ream has no pages for the other two. -->
         <StackPanel>
-            <StackPanel Orientation="Horizontal" MinHeight="60" VerticalAlignment="Center">
-                <Button x:Name="ZoomButton" Style="{StaticResource RibbonTile}" Click="OnZoomClick" ToolTip="Choose a zoom level (or Ctrl+Scroll to nudge it)">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE721;" FontSize="20"/>
-                        <TextBlock Text="Zoom" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+            <StackPanel MinHeight="60" VerticalAlignment="Center" Margin="2,0">
+                <Button x:Name="ZoomInButton" Style="{StaticResource StackedRow}" Click="OnZoomIn" ToolTip="Zoom in (or Ctrl+Scroll up)">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE71E;" FontSize="13" Width="18"/>
+                        <TextBlock Text="Zoom In" FontSize="12" Margin="4,0,0,0"/>
                     </StackPanel>
                 </Button>
-                <Button x:Name="ZoomResetButton" Style="{StaticResource RibbonTile}" Click="OnZoomReset" ToolTip="{Binding ZoomResetTooltip}">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE721;" FontSize="20"/>
-                        <TextBlock x:Name="ZoomLabel" Text="{Binding ZoomLabel}" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                <Button x:Name="ZoomOutButton" Style="{StaticResource StackedRow}" Click="OnZoomOut" ToolTip="Zoom out (or Ctrl+Scroll down)">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE71F;" FontSize="13" Width="18"/>
+                        <TextBlock Text="Zoom Out" FontSize="12" Margin="4,0,0,0"/>
                     </StackPanel>
                 </Button>
-                <StackPanel VerticalAlignment="Center" Margin="2,0,0,0">
-                    <Button x:Name="OnePageButton" Style="{StaticResource StackedRow}" IsEnabled="False" ToolTip="Not available yet">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource ViewLineIcon}" Width="14" Height="14" Data="M3,1.5 H11 V14.5 H3 Z"/>
-                            <TextBlock Text="One Page" FontSize="12" Margin="4,0,0,0"/>
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="MultiplePagesButton" Style="{StaticResource StackedRow}" IsEnabled="False" ToolTip="Not available yet">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource ViewLineIcon}" Width="14" Height="14" Data="M1.5,2 H7 V13 H1.5 Z M9,2 H14.5 V13 H9 Z"/>
-                            <TextBlock Text="Multiple Pages" FontSize="12" Margin="4,0,0,0"/>
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="PageWidthButton" Style="{StaticResource StackedRow}" IsEnabled="False" ToolTip="Not available yet">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource ViewLineIcon}" Width="14" Height="14"
-                                  Data="M2,3.5 H14 M2,8 H14 M2,12.5 H14 M1,1 L3,3.5 L1,6 M15,1 L13,3.5 L15,6"/>
-                            <TextBlock Text="Page Width" FontSize="12" Margin="4,0,0,0"/>
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
+                <Button x:Name="ZoomResetButton" Style="{StaticResource StackedRow}" Click="OnZoomReset" ToolTip="{Binding ZoomResetTooltip}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE721;" FontSize="13" Width="18"/>
+                        <TextBlock Text="Reset" FontSize="12" Margin="4,0,4,0"/>
+                        <TextBlock x:Name="ZoomLabel" Text="{Binding ZoomLabel}" FontSize="12" Foreground="{DynamicResource ToolbarMutedBrush}"/>
+                    </StackPanel>
+                </Button>
             </StackPanel>
             <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Zoom"/>
         </StackPanel>
