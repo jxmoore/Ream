@@ -19,7 +19,9 @@ public partial class RibbonView : UserControl
     private static readonly string[] PreferredFonts =
         ["Segoe UI", "Arial", "Calibri", "Cambria", "Consolas", "Courier New", "Georgia", "Times New Roman", "Trebuchet MS", "Verdana"];
 
-    private static readonly double[] Sizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72];
+    // Includes every size the Styles gallery applies (15, 22, 34), so the box never goes blank just because
+    // the selection happens to be a heading - it was missing all three, which is exactly what it looked like.
+    private static readonly double[] Sizes = [8, 9, 10, 11, 12, 14, 15, 16, 18, 20, 22, 24, 28, 32, 34, 36, 48, 72];
 
     /// <summary>The styles gallery, in tile order. Size null means "the editor's own default".</summary>
     private static readonly (string Label, double? Size, FontWeight Weight, FontStyle Style)[] Styles =

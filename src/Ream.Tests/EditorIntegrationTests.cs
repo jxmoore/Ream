@@ -414,6 +414,22 @@ public class EditorIntegrationTests
         Assert.DoesNotContain("b=\"1\"", saved);
     });
 
+    [Theory]
+    [InlineData(1, 28)] // Heading 1
+    [InlineData(2, 22)] // Heading 2 - was missing from the size box's own preset list
+    [InlineData(3, 18)] // Heading 3
+    [InlineData(4, 15)] // Heading 4 - likewise
+    [InlineData(5, 34)] // Title - likewise
+    public void TheSizeBox_ShowsTheRealSize_OnEveryHeadingStyle_NotJustSome(int styleIndex, double expectedSize) => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Editor.SelectAll();
+
+        fx.Toolbar.ApplyStyle(styleIndex);
+
+        Assert.Equal(expectedSize, fx.Toolbar.SizeBox.SelectedItem);
+    });
+
     [Fact]
     public void TheZoomResource_ScalesTheEditorsLayoutTransform() => Ui.Run(() =>
     {
