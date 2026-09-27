@@ -126,13 +126,31 @@ internal sealed partial class ReamManager : IReamFiles
     /// <summary>Remembers this ream in config.json so the next launch reopens it.</summary>
     public void RecordLastReam(string reamPath)
     {
-        if (string.Equals(_app.Config.LastReam, reamPath, StringComparison.OrdinalIgnoreCase)) return;
+        var recent = WithRecent(_app.Config.RecentReams, reamPath);
+        bool sameLast = string.Equals(_app.Config.LastReam, reamPath, StringComparison.OrdinalIgnoreCase);
+        bool sameRecent = _app.Config.RecentReams.SequenceEqual(recent, StringComparer.OrdinalIgnoreCase);
+        if (sameLast && sameRecent) return;
 
-        _app.Config = _app.Config.WithLastReam(reamPath);
+        _app.Config = _app.Config.WithLastReam(reamPath).WithRecentReams(recent);
         if (_store is null) return;
 
-        if (!_store.Update(root => root["lastReam"] = reamPath, out string? error))
+        if (!_store.Update(root =>
+        {
+            root["lastReam"] = reamPath;
+            var array = new System.Text.Json.Nodes.JsonArray();
+            foreach (string path in recent) array.Add(path);
+            root["recentReams"] = array;
+        }, out string? error))
             _app.ConfigError = $"Couldn't remember the last ream: {error}";
+    }
+
+    /// <summary>The File tab's Recent list: <paramref name="path"/> moves to the front (no duplicate), capped at <see cref="AppConfig.RecentReamsLimit"/>.</summary>
+    private static IReadOnlyList<string> WithRecent(IReadOnlyList<string> existing, string path)
+    {
+        var updated = new List<string>(existing.Count + 1) { path };
+        updated.AddRange(existing.Where(p => !string.Equals(p, path, StringComparison.OrdinalIgnoreCase)));
+        if (updated.Count > AppConfig.RecentReamsLimit) updated.RemoveRange(AppConfig.RecentReamsLimit, updated.Count - AppConfig.RecentReamsLimit);
+        return updated;
     }
 
     /// <summary>

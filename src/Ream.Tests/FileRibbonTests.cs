@@ -21,6 +21,7 @@ public class FileRibbonTests
 
         public bool NewReam() => Record("new");
         public bool OpenReam() => Record("open");
+        public bool OpenReam(string path) => Record($"openRecent:{path}");
         public bool Save() => Record("save");
         public bool SaveAs() => Record("saveAs");
         public bool ClearReam() => Record("clear");
@@ -98,6 +99,34 @@ public class FileRibbonTests
             Invoke(Named<Button>(view, name));
 
         Assert.True(fx.App.AutoSave);
+    });
+
+    [Fact]
+    public void TheNewNoteButton_AddsADraftAfterTheFocusedNote() => Ui.Run(() =>
+    {
+        using var fx = Docked();
+        var view = FileRibbon(fx);
+        int before = fx.App.CurrentWorkspace.Notes.Count;
+
+        Invoke(Named<Button>(view, "NewNoteButton"));
+
+        Assert.Equal(before + 1, fx.App.CurrentWorkspace.Notes.Count);
+        Assert.True(fx.App.CurrentWorkspace.FocusedNote!.IsDraft);
+    });
+
+    [Fact]
+    public void TheNewWorkspaceButton_SwitchesToAFreshWorkspace_ReadyToTypeInto() => Ui.Run(() =>
+    {
+        using var fx = Docked();
+        var view = FileRibbon(fx);
+        var previous = fx.App.CurrentWorkspace;
+
+        Invoke(Named<Button>(view, "NewWorkspaceButton"));
+
+        // Arriving at the (previously empty) trailing edge opens a draft to type into, same as Alt+Down past the
+        // last named workspace - which is also why it's no longer literally "the last workspace" right afterward.
+        Assert.NotSame(previous, fx.App.CurrentWorkspace);
+        Assert.True(fx.App.CurrentWorkspace.FocusedNote?.IsDraft);
     });
 
     [Fact]
@@ -241,6 +270,11 @@ public class FileRibbonTests
         Assert.Contains("Ctrl + Alt + J", (string)Named<Button>(view, "SaveButton").ToolTip);
     });
 
+    // Open/Save/Save As, Auto-save, and New Note/New Workspace/Clear are all small stacked rows/tiles now, not
+    // full-size tiles - excluded from the >=50px check below, which is about the big tiles (New, Help, About).
+    private static readonly string[] SmallStackedControls =
+        ["OpenButton", "SaveButton", "SaveAsButton", "AutoSaveToggle", "NewNoteButton", "NewWorkspaceButton", "ClearButton"];
+
     [Fact]
     public void ThePanel_FitsEveryTile_WithoutScrolling_AndWithoutClipping() => Ui.Run(() =>
     {
@@ -251,15 +285,15 @@ public class FileRibbonTests
         Assert.True(view.ActualWidth <= 1150, $"the File ribbon is {view.ActualWidth:0} px wide");
         Assert.True(view.ActualHeight <= panel.ActualHeight, $"{view.ActualHeight:0} px of ribbon in a {panel.ActualHeight:0} px panel");
 
-        foreach (var button in Ui.Descendants<ButtonBase>(view))
+        foreach (var button in Ui.Descendants<ButtonBase>(view).Where(b => !SmallStackedControls.Contains(b.Name)))
         {
             var bottom = button.TranslatePoint(new Point(0, button.ActualHeight), panel).Y;
             Assert.True(bottom <= panel.ActualHeight, $"{button.Name} ends at {bottom:0} in a {panel.ActualHeight:0} px panel");
             Assert.True(button.ActualHeight >= 50, $"{button.Name} is only {button.ActualHeight:0} px tall");
         }
 
-        var group = Ui.Descendants<TextBlock>(view).Where(t => t.Text is "Ream" or "Saving" or "Tidy up" or "Help").Where(t => Ui.Ancestor<ButtonBase>(t) is null).ToList();
-        Assert.Equal(4, group.Count);
+        var group = Ui.Descendants<TextBlock>(view).Where(t => t.Text is "Ream" or "Add" or "Help").Where(t => Ui.Ancestor<ButtonBase>(t) is null).ToList();
+        Assert.Equal(3, group.Count);
         Assert.All(group, label => Assert.True(label.TranslatePoint(new Point(0, label.ActualHeight), panel).Y <= panel.ActualHeight, label.Text));
     });
 
@@ -275,6 +309,20 @@ public class FileRibbonTests
 
         Assert.True(view.ActualWidth <= 1150, $"the File ribbon is {view.ActualWidth:0} px wide");
         if (fx.Window.ActualWidth >= 1200) Assert.Equal(0, scroll.ScrollableWidth);
+    });
+
+    /// <summary>The Recent button is gone from the ribbon (its purpose wasn't clear at a glance), but the command
+    /// and the config's own recent-reams list underneath it are untouched.</summary>
+    [Fact]
+    public void OpenRecentReamCommand_AsksTheManagerToOpenThatPath() => Ui.Run(() =>
+    {
+        using var fx = Docked();
+        var files = new RecordingReamFiles(fx.App);
+        fx.App.Files = files;
+
+        fx.App.OpenRecentReamCommand.Execute(@"C:\Reams\Older.ream");
+
+        Assert.Equal([$"openRecent:C:\\Reams\\Older.ream"], files.Calls);
     });
 
     [Fact]

@@ -26,6 +26,7 @@ public partial class MainWindow : Window
     private readonly WheelAccumulator _workspaceWheel = new();
     private readonly WheelAccumulator _rowWheel = new();
     private readonly WheelAccumulator _tiltWheel = new();
+    private readonly WheelAccumulator _zoomWheel = new();
     private readonly List<InputBinding> _configuredBindings = [];
     private readonly FullscreenController _fullscreen;
     private readonly IWindowBackdrop _backdrop;
@@ -35,6 +36,7 @@ public partial class MainWindow : Window
     private bool _overTabRow;
     private bool _overRibbonPanel;
     private bool _ribbonShown = true;
+    private FindReplaceWindow? _findReplaceWindow;
 
     /// <param name="settings">What the View tab edits; when omitted the panel works on this run only (tests).</param>
     internal MainWindow(AppViewModel viewModel, SettingsViewModel? settings, IWindowBackdrop? backdrop)
@@ -52,16 +54,18 @@ public partial class MainWindow : Window
 
         Settings = settings ?? new SettingsViewModel(viewModel, new ThemeService(Application.Current));
         ViewRibbon.DataContext = Settings;
+        NavigationPane.DataContext = new NavigationPaneViewModel(viewModel);
         FileRibbon.HelpRequested += OpenHelp;
         FileRibbon.AboutRequested += OpenAbout;
+        // Read Mode / Draft / Outline / Ruler / One Page are CheckBoxes/a ToggleButton bound straight to SettingsViewModel
+        // passthrough properties now (FocusedNoteIsReadOnly etc., OnePageMode) - no event-relay needed.
+        ViewRibbon.ThemeRequested += OpenThemeModal;
+        Settings.PropertyChanged += OnSettingsPropertyChanged;
         SelectTab(RibbonTab.Home);
 
         _ribbonHideTimer.Tick += (_, _) => CompleteRibbonHide();
-        Ribbon.MenuOpenChanged += () =>
-        {
-            _ribbonState.MenuOpen = Ribbon.IsMenuOpen;
-            UpdateRibbon();
-        };
+        Ribbon.MenuOpenChanged += UpdateMenuOpenState;
+        ViewRibbon.MenuOpenChanged += UpdateMenuOpenState;
         ApplyRibbonMode(viewModel.Config.Ribbon.AutoHide);
 
         _fullscreen = new FullscreenController(new WindowFrame(this));
@@ -73,6 +77,7 @@ public partial class MainWindow : Window
 
         ApplyKeyBindings();
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        viewModel.FindRequested += OnFindRequested;
 
         // The new note's view may not exist yet when focus is requested, so wait until layout has caught up.
         viewModel.FocusEditorRequested += () => Dispatcher.BeginInvoke(
@@ -173,6 +178,7 @@ public partial class MainWindow : Window
     internal static readonly TimeSpan RibbonHideDelay = TimeSpan.FromMilliseconds(400);
 
     private const int RibbonSlideMs = 140;
+    private const int ZoomWheelStepPercent = 10;
     private const double RibbonHeight = 90;
 
     /// <summary>What decides whether the panel is up (tests read it; the window feeds it).</summary>
@@ -188,6 +194,7 @@ public partial class MainWindow : Window
     {
         _ribbonState.TogglePin();
         PinButton.IsChecked = _ribbonState.Pinned;
+        Settings.SetRibbonPinned(_ribbonState.Pinned);
         UpdateRibbon();
     }
 
@@ -243,15 +250,28 @@ public partial class MainWindow : Window
         UpdateRibbon();
     }
 
-    /// <summary>Puts the panel away until it is wanted (auto-hide on) or leaves it up for good (off).</summary>
+    /// <summary>Puts the panel away until it is wanted (auto-hide on) or leaves it up for good (off). Also restores
+    /// the pin from config (startup, and any later reload) - AutoHide is set first, since a restored pin is no more
+    /// meaningful than a clicked one with auto-hide off.</summary>
     internal void ApplyRibbonMode(bool autoHide)
     {
         _ribbonState.AutoHide = autoHide;
+        _ribbonState.RestorePinned(_viewModel.Config.Ribbon.Pinned);
         PinButton.IsChecked = _ribbonState.Pinned;
         PinButton.Visibility = autoHide ? Visibility.Visible : Visibility.Collapsed;
 
         _ribbonHideTimer.Stop();
         ShowRibbon(_ribbonState.WantsOpen, animate: false);
+    }
+
+    /// <summary>Either ribbon's drop-down/menu (Home's font & size boxes and color menus; View's Switch Notes / Switch
+    /// Workspaces menus) keeps the panel up regardless of the pin, so a menu never outlives the ribbon it opened
+    /// from - previously only Home's own menus were watched, so an unpinned ribbon could vanish out from under an
+    /// open View-tab menu the moment the pointer left it.</summary>
+    private void UpdateMenuOpenState()
+    {
+        _ribbonState.MenuOpen = Ribbon.IsMenuOpen || ViewRibbon.IsMenuOpen;
+        UpdateRibbon();
     }
 
     /// <summary>Brings the panel up at once if it should be, or starts the countdown to tucking it away.</summary>
@@ -353,6 +373,26 @@ public partial class MainWindow : Window
 
     internal void OpenAbout() => Present(new AboutWindow(About with { DocumentsFolder = _viewModel.ReamPath ?? About.DocumentsFolder }));
 
+    /// <summary>The View tab's Theme button: Layout, Theme and Opacity in one modal, replacing the three separate ribbon groups they used to be.</summary>
+    internal void OpenThemeModal() => Present(new ThemeModal(Settings));
+
+    /// <summary>Opens Find (or Find and Replace) on whichever editor last had focus; modeless, so it re-shows an already-open window rather than stacking another.</summary>
+    internal void OnFindRequested(bool withReplace)
+    {
+        if (Ribbon.CurrentEditor is not { } editor) return;
+
+        if (_findReplaceWindow is { IsVisible: true } open)
+        {
+            open.SetMode(withReplace);
+            open.Activate();
+            return;
+        }
+
+        _findReplaceWindow = new FindReplaceWindow(editor, withReplace) { Owner = this };
+        _findReplaceWindow.Closed += (_, _) => _findReplaceWindow = null;
+        _findReplaceWindow.Show();
+    }
+
     private void Present(Window window)
     {
         window.Owner = this;
@@ -399,6 +439,19 @@ public partial class MainWindow : Window
         if (_viewModel.Config.Ribbon.AutoHide != _ribbonState.AutoHide) ApplyRibbonMode(_viewModel.Config.Ribbon.AutoHide);
     }
 
+    private static readonly GridLength NavigationPaneWidth = new(280);
+
+    /// <summary>Show group's Gridlines and Navigation Pane: both are session-only view state (SettingsViewModel), not config, so the window just reacts to them directly rather than through Config.</summary>
+    private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(SettingsViewModel.NavigationPaneOpen)) return;
+
+        bool open = Settings.NavigationPaneOpen;
+        NavigationPaneColumn.Width = open ? NavigationPaneWidth : new GridLength(0);
+        NavigationPane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        if (open && NavigationPane.DataContext is NavigationPaneViewModel pane) pane.Refresh();
+    }
+
     /// <summary>Closing the window asks about unsaved changes (only ever when auto-save is off and something changed).</summary>
     protected override void OnClosing(CancelEventArgs e)
     {
@@ -437,6 +490,12 @@ public partial class MainWindow : Window
         else if (modifiers.HasFlag(ModifierKeys.Shift))
         {
             _viewModel.FocusNoteBy(-_rowWheel.Add(e.Delta));
+            e.Handled = true;
+        }
+        else if (modifiers.HasFlag(ModifierKeys.Control))
+        {
+            int steps = _zoomWheel.Add(e.Delta);
+            if (steps != 0) Settings.ZoomPercent += steps * ZoomWheelStepPercent;
             e.Handled = true;
         }
 

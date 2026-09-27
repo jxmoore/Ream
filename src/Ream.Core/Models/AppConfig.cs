@@ -28,6 +28,14 @@ public sealed class AppConfig
     /// <summary>How opaque each note's background is, as a percentage (100 = solid). The text stays solid at any value.</summary>
     public int NoteOpacity { get; init; } = 100;
 
+    /// <summary>How large a note's content looks, as a percentage (100 = actual size). Scales everything in the editor, not just the font.</summary>
+    public int Zoom { get; init; } = 100;
+
+    /// <summary>Full paths of recently opened/saved reams, most recent first, for the File tab's Recent list. Capped at <see cref="RecentReamsLimit"/>.</summary>
+    public IReadOnlyList<string> RecentReams { get; init; } = [];
+
+    public const int RecentReamsLimit = 8;
+
     /// <summary>Blurs what shows through when the canvas is see-through. Off shows the desktop crisp. Turn off if it misbehaves on your GPU.</summary>
     public bool CanvasBlur { get; init; } = true;
 
@@ -37,7 +45,7 @@ public sealed class AppConfig
     public Dictionary<string, string> Keybindings { get; init; } = DefaultKeybindings();
 
     /// <summary>A copy with the settings the Settings panel edits changed; everything else is carried over.</summary>
-    public AppConfig With(string? theme = null, int? canvasOpacity = null, int? noteOpacity = null, bool? autoSave = null) => new()
+    public AppConfig With(string? theme = null, int? canvasOpacity = null, int? noteOpacity = null, bool? autoSave = null, int? zoom = null) => new()
     {
         SchemaVersion = SchemaVersion,
         DocumentsRoot = DocumentsRoot,
@@ -47,6 +55,8 @@ public sealed class AppConfig
         Theme = theme ?? Theme,
         CanvasOpacity = canvasOpacity ?? CanvasOpacity,
         NoteOpacity = noteOpacity ?? NoteOpacity,
+        Zoom = zoom ?? Zoom,
+        RecentReams = RecentReams,
         CanvasBlur = CanvasBlur,
         Layout = Layout,
         Ribbon = Ribbon,
@@ -65,9 +75,83 @@ public sealed class AppConfig
         Theme = Theme,
         CanvasOpacity = CanvasOpacity,
         NoteOpacity = NoteOpacity,
+        Zoom = Zoom,
+        RecentReams = RecentReams,
         CanvasBlur = CanvasBlur,
         Layout = Layout,
         Ribbon = Ribbon,
+        Animations = Animations,
+        Keybindings = Keybindings,
+    };
+
+    /// <summary>A copy with the Recent list (File tab) replaced; everything else is carried over.</summary>
+    public AppConfig WithRecentReams(IReadOnlyList<string> recentReams) => new()
+    {
+        SchemaVersion = SchemaVersion,
+        DocumentsRoot = DocumentsRoot,
+        AutoSave = AutoSave,
+        TutorialOnNew = TutorialOnNew,
+        LastReam = LastReam,
+        Theme = Theme,
+        CanvasOpacity = CanvasOpacity,
+        NoteOpacity = NoteOpacity,
+        Zoom = Zoom,
+        RecentReams = recentReams,
+        CanvasBlur = CanvasBlur,
+        Layout = Layout,
+        Ribbon = Ribbon,
+        Animations = Animations,
+        Keybindings = Keybindings,
+    };
+
+    /// <summary>A copy with a Layout field changed (only <paramref name="gapPx"/> and <paramref name="centerFocusedColumn"/> are settable from the View tab); everything else is carried over.</summary>
+    public AppConfig WithLayout(double? gapPx = null, bool? centerFocusedColumn = null) => new()
+    {
+        SchemaVersion = SchemaVersion,
+        DocumentsRoot = DocumentsRoot,
+        AutoSave = AutoSave,
+        TutorialOnNew = TutorialOnNew,
+        LastReam = LastReam,
+        Theme = Theme,
+        CanvasOpacity = CanvasOpacity,
+        NoteOpacity = NoteOpacity,
+        Zoom = Zoom,
+        RecentReams = RecentReams,
+        CanvasBlur = CanvasBlur,
+        Layout = new LayoutConfig
+        {
+            GapPx = gapPx ?? Layout.GapPx,
+            CenterFocusedColumn = centerFocusedColumn ?? Layout.CenterFocusedColumn,
+            FocusFirstNoteOnSwitch = Layout.FocusFirstNoteOnSwitch,
+            FocusBorderColor = Layout.FocusBorderColor,
+        },
+        Ribbon = Ribbon,
+        Animations = Animations,
+        Keybindings = Keybindings,
+    };
+
+    /// <summary>A copy with a Ribbon field changed (only <paramref name="pinned"/> is settable live right now, by the
+    /// pin button; <paramref name="autoHide"/> exists for completeness but nothing writes it - it's still a
+    /// hand-edit-config.json-only setting); everything else is carried over.</summary>
+    public AppConfig WithRibbon(bool? autoHide = null, bool? pinned = null) => new()
+    {
+        SchemaVersion = SchemaVersion,
+        DocumentsRoot = DocumentsRoot,
+        AutoSave = AutoSave,
+        TutorialOnNew = TutorialOnNew,
+        LastReam = LastReam,
+        Theme = Theme,
+        CanvasOpacity = CanvasOpacity,
+        NoteOpacity = NoteOpacity,
+        Zoom = Zoom,
+        RecentReams = RecentReams,
+        CanvasBlur = CanvasBlur,
+        Layout = Layout,
+        Ribbon = new RibbonConfig
+        {
+            AutoHide = autoHide ?? Ribbon.AutoHide,
+            Pinned = pinned ?? Ribbon.Pinned,
+        },
         Animations = Animations,
         Keybindings = Keybindings,
     };
@@ -99,6 +183,8 @@ public sealed class AppConfig
         ["save"] = "Ctrl+S",
         ["saveAs"] = "Ctrl+Shift+S",
         ["clearReam"] = "Alt+Shift+Q",
+        ["find"] = "Ctrl+F",
+        ["replace"] = "Ctrl+H",
     };
 }
 
@@ -122,6 +208,10 @@ public sealed class RibbonConfig
     /// clicked (which pins it open). Off keeps the panel docked above the notes.
     /// </summary>
     public bool AutoHide { get; init; } = true;
+
+    /// <summary>Whether the pin button was on last time - restored at launch so a pinned ribbon stays pinned.
+    /// Meaningless with <see cref="AutoHide"/> off; <c>Ream.Core.Layout.RibbonVisibility</c> keeps that invariant.</summary>
+    public bool Pinned { get; init; }
 }
 
 public sealed class AnimationConfig

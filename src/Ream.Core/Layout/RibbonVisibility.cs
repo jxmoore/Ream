@@ -52,6 +52,14 @@ public sealed class RibbonVisibility
         if (AutoHide) Pinned = !Pinned;
     }
 
+    /// <summary>Applies a previously saved pin (config.json's own <c>ribbon.pinned</c>, at launch or a live reload) -
+    /// the same <see cref="AutoHide"/> gate as <see cref="TogglePin"/>, since a restored pin is no more meaningful
+    /// than a clicked one with auto-hide off.</summary>
+    public void RestorePinned(bool pinned)
+    {
+        if (AutoHide) Pinned = pinned;
+    }
+
     /// <summary>A click elsewhere or Escape: forget the tab click and the pointer. The pin is the user's to undo.</summary>
     public void Dismiss()
     {

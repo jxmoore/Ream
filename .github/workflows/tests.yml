@@ -1,12 +1,12 @@
 name: Tests
 
+# Every branch is tested when it is pushed, not when a pull request is opened: a ruleset on main and develop requires
+# the "test" check to pass on the tip of a PR's source branch before it can merge.
 on:
   push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main]
+    branches: ['**']
 
-# A newer push to the same branch or PR makes the older run pointless - except on main, where a run
+# A newer push to the same branch makes the older run pointless - except on main, where a run
 # may be publishing a release and must be left to finish.
 concurrency:
   group: tests-${{ github.ref }}
@@ -21,6 +21,9 @@ env:
 
 jobs:
   test:
+    # A push to main is a merge whose code already passed on its source branch (the ruleset insists), so main does not
+    # test again; it only releases (below).
+    if: github.ref != 'refs/heads/main'
     # Ream is a WPF app and its tests host real WPF views, so this needs Windows.
     runs-on: windows-latest
     timeout-minutes: 20
@@ -54,10 +57,9 @@ jobs:
           path: TestResults/*.trx
           if-no-files-found: ignore
 
-  # Only a push to main makes a release; pull requests and develop just run the tests above.
+  # Only a push to main makes a release; every other branch just runs the tests above.
   release:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: test
+    if: github.ref == 'refs/heads/main'
     runs-on: windows-latest
     timeout-minutes: 20
     permissions:

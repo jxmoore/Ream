@@ -9,9 +9,10 @@ using Ream.Core.Models;
 namespace Ream.App.Views;
 
 /// <summary>
-/// The File tab of the ribbon: New / Open / Save / Save As, the auto-save switch, Clear, and Help / About. The ream buttons are
-/// bound to the app's commands; their tooltips carry the gesture bound right now and follow a config reload. Help and About are
-/// raised as events because opening a window is the main window's job.
+/// The File tab of the ribbon: New / Open / Save / Save As / Auto-save (all in the Ream group), New Note / New
+/// Workspace / Clear (Add), and Help / About. The ream buttons are bound to the app's commands; their tooltips carry
+/// the gesture bound right now and follow a config reload. Help and About are raised as events because opening a
+/// window is the main window's job.
 /// </summary>
 public partial class FileRibbonView : UserControl
 {

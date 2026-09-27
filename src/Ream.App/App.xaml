@@ -1,6 +1,7 @@
 <Application x:Class="Ream.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib">
     <Application.Resources>
         <ResourceDictionary>
             <!-- ThemeService replaces these whenever the theme or the settings behind them change. -->
@@ -11,6 +12,7 @@
             <SolidColorBrush x:Key="NoteBrush" Color="#23232b"/>
             <SolidColorBrush x:Key="ChromeHoverBrush" Color="#15151a"/>
             <SolidColorBrush x:Key="RibbonHoverBrush" Color="#1d1d24"/>
+            <sys:Double x:Key="NoteZoomScale">1.0</sys:Double>
             <ResourceDictionary.MergedDictionaries>
                 <!-- Index 0 is the active palette; ThemeService swaps it for the chosen theme's file. -->
                 <ResourceDictionary Source="Themes/Dark.xaml"/>

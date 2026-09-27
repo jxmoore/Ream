@@ -18,6 +18,15 @@
                     <Setter Property="controls:NoteRowPanel.WidthFraction" Value="{Binding WidthFraction}"/>
                     <Setter Property="controls:NoteRowPanel.IsFullscreen" Value="{Binding IsFullscreen}"/>
                     <Setter Property="controls:NoteRowPanel.IsResizing" Value="{Binding IsResizing}"/>
+                    <Style.Triggers>
+                        <!-- Window group's One Page: unlike IsFullscreen (which NoteRowPanel itself animates), this
+                             is a plain Visibility switch - the hidden notes keep their own WidthFraction, they just
+                             don't render (NoteRowPanel still reserves their slot in the row; only the layout math in
+                             RowLayout.cs decides column positions, which this doesn't touch). -->
+                        <DataTrigger Binding="{Binding IsHiddenByOnePage}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                    </Style.Triggers>
                 </Style>
             </ItemsControl.ItemContainerStyle>
             <ItemsControl.ItemTemplate>

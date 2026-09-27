@@ -24,6 +24,8 @@ public static class ActionCatalog
         new("focusNextNote", "Next note (past the last: a new note)", Notes),
         new("moveNoteLeft", "Move the note left", Notes),
         new("moveNoteRight", "Move the note right", Notes),
+        new("find", "Find text in the note", Notes),
+        new("replace", "Find and replace text in the note", Notes),
 
         new("switchWorkspaceUp", "Workspace above", Workspaces),
         new("switchWorkspaceDown", "Workspace below", Workspaces),

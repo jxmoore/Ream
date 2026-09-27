@@ -183,6 +183,9 @@ public sealed class AppConfigStore
         if (config.NoteOpacity is < 0 or > 100)
             return "noteOpacity must be between 0 and 100";
 
+        if (config.Zoom is < 50 or > 200)
+            return "zoom must be between 50 and 200";
+
         if (!string.IsNullOrEmpty(config.LastReam) && !IsReamFilePath(config.LastReam))
             return "lastReam must be the full path of a .ream file";
 

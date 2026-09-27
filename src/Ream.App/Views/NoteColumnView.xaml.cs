@@ -1,3 +1,5 @@
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Media;
 using System.Windows;
@@ -7,8 +9,10 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using Ream.App.Controls;
+using Ream.App.Editing;
 using Ream.App.ViewModels;
 using Ream.Core.Layout;
 using Ream.Core.Models;
@@ -23,6 +27,11 @@ public partial class NoteColumnView : UserControl, INearAware
     private bool _loadingDocument;
     private bool _hasContent;
     private bool _loadQueued;
+    private WorkspaceViewModel? _trackedWorkspace;
+
+    // Outline view: the real document, stashed away while Editor.Document shows a generated summary instead.
+    private FlowDocument? _liveDocument;
+    private Dictionary<Paragraph, Paragraph>? _outlineMap;
 
     public NoteColumnView()
     {
@@ -35,6 +44,8 @@ public partial class NoteColumnView : UserControl, INearAware
         Editor.TextChanged += OnTextChanged;
         Editor.SizeChanged += (_, _) => FitImages();
         Editor.GotKeyboardFocus += (_, _) => _note?.FocusCommand.Execute(null);
+        Editor.PreviewMouseLeftButtonDown += OnEditorPreviewMouseDown;
+        Editor.SelectionChanged += (_, _) => SyncIndentMarker();
         DataObject.AddPastingHandler(Editor, OnPaste);
     }
 
@@ -53,6 +64,10 @@ public partial class NoteColumnView : UserControl, INearAware
         try { Editor.Document = new FlowDocument(); }
         finally { _loadingDocument = false; }
 
+        _liveDocument = null;
+        _outlineMap = null;
+        UpdateVerticalRulerSide();
+
         if (!IsLoaded) return;
         Subscribe();
         if (NoteRowPanel.GetIsNear(this)) EnsureLoaded();
@@ -61,6 +76,7 @@ public partial class NoteColumnView : UserControl, INearAware
     private void OnLoaded()
     {
         Subscribe();
+        UpdateVerticalRulerSide();
         if (NoteRowPanel.GetIsNear(this)) EnsureLoaded();
     }
 
@@ -102,6 +118,8 @@ public partial class NoteColumnView : UserControl, INearAware
         }
 
         FitImages();
+        ApplyImageVisibility();
+        if (_note.IsOutlineView) ApplyOutlineView();
     }
 
     private void Subscribe()
@@ -109,15 +127,56 @@ public partial class NoteColumnView : UserControl, INearAware
         if (_note is null || _subscribed) return;
         _note.EditorFocusRequested += OnEditorFocusRequested;
         _note.SizeToastRequested += OnSizeToast;
+        _note.CaretMoveRequested += OnCaretMoveRequested;
+        _note.PropertyChanged += OnNotePropertyChanged;
         _subscribed = true;
+
+        // The vertical ruler's side depends on this note's position among its siblings, so a note added, removed
+        // or reordered anywhere in the row can change it.
+        _trackedWorkspace = _note.Owner;
+        if (_trackedWorkspace is not null) _trackedWorkspace.Notes.CollectionChanged += OnWorkspaceNotesChanged;
     }
 
     private void Unsubscribe()
     {
+        if (_trackedWorkspace is not null) _trackedWorkspace.Notes.CollectionChanged -= OnWorkspaceNotesChanged;
+        _trackedWorkspace = null;
+
         if (_note is null || !_subscribed) return;
         _note.EditorFocusRequested -= OnEditorFocusRequested;
         _note.SizeToastRequested -= OnSizeToast;
+        _note.CaretMoveRequested -= OnCaretMoveRequested;
+        _note.PropertyChanged -= OnNotePropertyChanged;
         _subscribed = false;
+    }
+
+    private void OnWorkspaceNotesChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdateVerticalRulerSide();
+
+    private void OnNotePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(NoteViewModel.HideImages):
+                ApplyImageVisibility();
+                break;
+            case nameof(NoteViewModel.IsOutlineView):
+                ApplyOutlineView();
+                break;
+            case nameof(NoteViewModel.ShowRuler):
+                if (_note!.ShowRuler) SyncIndentMarker();
+                break;
+        }
+    }
+
+    /// <summary>The Navigation Pane's heading list: lands the caret on the real paragraph and gives it focus, leaving Outline view first if it was showing.</summary>
+    private void OnCaretMoveRequested(Paragraph paragraph)
+    {
+        EnsureLoaded();
+        if (_note is { IsOutlineView: true }) _note.IsOutlineView = false;
+
+        Editor.CaretPosition = paragraph.ContentStart;
+        Editor.Focus();
+        paragraph.BringIntoView();
     }
 
     private static readonly TimeSpan ToastHold = TimeSpan.FromMilliseconds(900);
@@ -300,6 +359,198 @@ public partial class NoteColumnView : UserControl, INearAware
         }
 
         FitImages();
+        ApplyImageVisibility();
+    }
+
+    /// <summary>Draft view: shows or hides every picture in the real document (nothing is removed - still saved, still there when Draft is off). A no-op while Outline view is showing its generated summary instead.</summary>
+    private void ApplyImageVisibility()
+    {
+        if (_note is null || _liveDocument is not null) return;
+        if (Editor.Document is not { } document) return;
+
+        var visibility = _note.HideImages ? Visibility.Collapsed : Visibility.Visible;
+        for (var p = document.ContentStart;
+             p is not null && p.CompareTo(document.ContentEnd) < 0;
+             p = p.GetNextContextPosition(LogicalDirection.Forward))
+        {
+            if (p.GetAdjacentElement(LogicalDirection.Forward) is InlineUIContainer { Child: Image image })
+                image.Visibility = visibility;
+        }
+    }
+
+    // ----- Outline view -----
+
+    /// <summary>Swaps <see cref="Editor"/>'s document to (or back from) a generated, read-only summary of just the heading paragraphs.</summary>
+    private void ApplyOutlineView()
+    {
+        if (_note is null || !_hasContent) return;
+
+        if (_note.IsOutlineView)
+        {
+            if (_liveDocument is not null || Editor.Document is not { } real) return;
+
+            _liveDocument = real;
+            _loadingDocument = true;
+            try { Editor.Document = BuildOutlineDocument(real); }
+            finally { _loadingDocument = false; }
+        }
+        else
+        {
+            if (_liveDocument is not { } real) return;
+
+            _liveDocument = null;
+            _outlineMap = null;
+            _loadingDocument = true;
+            try { Editor.Document = real; }
+            finally { _loadingDocument = false; }
+
+            ApplyImageVisibility();
+        }
+    }
+
+    /// <summary>One line per heading paragraph (<see cref="NoteStyles.HeadingLevelOf"/>), styled and indented to match, click-mapped back to the real paragraph via <see cref="_outlineMap"/>.</summary>
+    private FlowDocument BuildOutlineDocument(FlowDocument real)
+    {
+        var outline = new FlowDocument { FontFamily = real.FontFamily, FontSize = real.FontSize };
+        outline.SetResourceReference(FlowDocument.ForegroundProperty, "TextBrush");
+
+        _outlineMap = [];
+
+        foreach (var block in real.Blocks)
+        {
+            if (block is not Paragraph realParagraph) continue;
+            if (NoteStyles.HeadingLevelOf(realParagraph, real) is not { } level) continue;
+
+            string text = new TextRange(realParagraph.ContentStart, realParagraph.ContentEnd).Text.Trim();
+            if (text.Length == 0) continue;
+
+            var (_, size, weight, style) = NoteStyles.All[level];
+            var line = new Paragraph(new Run(text))
+            {
+                FontSize = size ?? real.FontSize,
+                FontWeight = weight,
+                FontStyle = style,
+                Margin = new Thickness((level - 1) * 20, 0, 0, 6),
+                Cursor = Cursors.Hand,
+            };
+            outline.Blocks.Add(line);
+            _outlineMap[line] = realParagraph;
+        }
+
+        if (outline.Blocks.Count == 0)
+        {
+            var empty = new Paragraph(new Run("No headings in this note.")) { FontStyle = FontStyles.Italic };
+            empty.SetResourceReference(TextElement.ForegroundProperty, "MutedTextBrush");
+            outline.Blocks.Add(empty);
+        }
+
+        return outline;
+    }
+
+    /// <summary>Clicking a line in the outline turns Outline view off and puts the caret at the real paragraph it summarizes.</summary>
+    private void OnEditorPreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_note is null || _outlineMap is null) return;
+
+        var position = Editor.GetPositionFromPoint(e.GetPosition(Editor), true);
+        if (position?.Paragraph is not { } clicked || !_outlineMap.TryGetValue(clicked, out var real)) return;
+
+        e.Handled = true;
+        _note.IsOutlineView = false; // synchronously restores Editor.Document via OnNotePropertyChanged -> ApplyOutlineView
+
+        Editor.CaretPosition = real.ContentStart;
+        Editor.Focus();
+        real.BringIntoView();
+    }
+
+    // ----- Ruler: horizontal above the card, vertical along whichever side has no neighbouring note -----
+
+    private void OnHorizontalRulerSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        RedrawTicks(HorizontalRulerCanvas, horizontal: true);
+        SyncIndentMarker();
+    }
+
+    private void OnVerticalRulerSizeChanged(object sender, SizeChangedEventArgs e) => RedrawTicks(VerticalRulerCanvas, horizontal: false);
+
+    /// <summary>A tick every 20px, a longer one every 100px - Ream has no physical page to put real units on, so these are just plain pixel marks. Only the (much wider) horizontal ruler has room to label its major ticks.</summary>
+    private void RedrawTicks(Canvas canvas, bool horizontal)
+    {
+        object? keep = horizontal ? IndentMarker : null;
+        for (int i = canvas.Children.Count - 1; i >= 0; i--)
+        {
+            if (!ReferenceEquals(canvas.Children[i], keep))
+                canvas.Children.RemoveAt(i);
+        }
+
+        double length = horizontal ? canvas.ActualWidth : canvas.ActualHeight;
+        for (double d = 0; d <= length; d += 20)
+        {
+            bool major = Math.Abs(d % 100) < 0.5;
+            var line = new Line { StrokeThickness = 1 };
+            if (horizontal)
+            {
+                line.X1 = d; line.X2 = d;
+                line.Y1 = major ? 0 : 9; line.Y2 = 20;
+            }
+            else
+            {
+                line.Y1 = d; line.Y2 = d;
+                line.X1 = major ? 0 : 9; line.X2 = 20;
+            }
+            line.SetResourceReference(Shape.StrokeProperty, "MutedTextBrush");
+            canvas.Children.Insert(0, line);
+
+            if (horizontal && major && d > 0)
+            {
+                var label = new TextBlock { Text = ((int)d).ToString(), FontSize = 9 };
+                label.SetResourceReference(TextBlock.ForegroundProperty, "MutedTextBrush");
+                Canvas.SetLeft(label, d + 2);
+                canvas.Children.Insert(0, label);
+            }
+        }
+    }
+
+    private void OnIndentMarkerDrag(object sender, DragDeltaEventArgs e)
+    {
+        double max = Math.Max(0, HorizontalRulerCanvas.ActualWidth - IndentMarker.Width);
+        Canvas.SetLeft(IndentMarker, Math.Clamp(Canvas.GetLeft(IndentMarker) + e.HorizontalChange, 0, max));
+    }
+
+    /// <summary>Applies the marker's new position as the left margin of every paragraph the selection touches (the caret's own paragraph when nothing is selected).</summary>
+    private void OnIndentMarkerDragCompleted(object sender, DragCompletedEventArgs e)
+    {
+        double left = Canvas.GetLeft(IndentMarker);
+        foreach (var paragraph in SelectionParagraphs.Of(Editor))
+        {
+            var margin = paragraph.Margin;
+            paragraph.Margin = new Thickness(left, margin.Top, margin.Right, margin.Bottom);
+        }
+
+        _note?.NotifyContentChanged();
+    }
+
+    /// <summary>Moves the marker to reflect the current paragraph's own left margin - called when Ruler is turned on and whenever the selection moves.</summary>
+    private void SyncIndentMarker()
+    {
+        if (_note?.ShowRuler != true || !_hasContent) return;
+
+        double left = SelectionParagraphs.Of(Editor) is [{ } first, ..] ? first.Margin.Left : 0;
+        double max = Math.Max(0, HorizontalRulerCanvas.ActualWidth - IndentMarker.Width);
+        Canvas.SetLeft(IndentMarker, Math.Clamp(left, 0, max));
+    }
+
+    /// <summary>
+    /// The vertical ruler goes on whichever side has no neighbouring note - the first note in the row takes the
+    /// left (nothing to its left), the last takes the right, and a middle note (or the only note) defaults left.
+    /// </summary>
+    private void UpdateVerticalRulerSide()
+    {
+        bool onRight = _note?.Owner is { } workspace && workspace.Notes.IndexOf(_note) is var index && index >= 0
+            && index == workspace.Notes.Count - 1 && index != 0;
+
+        Grid.SetColumn(VerticalRulerHost, onRight ? 2 : 0);
+        VerticalRulerHost.Margin = onRight ? new Thickness(4, 0, 0, 0) : new Thickness(0, 0, 4, 0);
     }
 
     /// <summary>Keeps pictures no wider than the column; the saved size is untouched.</summary>

@@ -70,6 +70,8 @@ public sealed partial class AppViewModel : ObservableObject
             ["save"] = SaveReamCommand,
             ["saveAs"] = SaveReamAsCommand,
             ["clearReam"] = ClearReamCommand,
+            ["find"] = FindCommand,
+            ["replace"] = ReplaceCommand,
         };
     }
 
@@ -143,6 +145,15 @@ public sealed partial class AppViewModel : ObservableObject
             left.DiscardBlankDrafts(keepFocused: false);
 
         RefreshWorkspaceState();
+
+        // One Page: only the workspace actually on screen shows the effect - the one left behind gets everything
+        // shown again (it isn't visible either way, but arriving back at it later shouldn't find it still narrowed
+        // down to one note if nobody asked for that there).
+        if (OnePageMode && !ReferenceEquals(left, arrived))
+        {
+            foreach (var note in left.Notes) note.IsHiddenByOnePage = false;
+            ApplyOnePageVisibility(arrived);
+        }
     }
 
     /// <summary>
@@ -166,12 +177,42 @@ public sealed partial class AppViewModel : ObservableObject
     {
         if (ReferenceEquals(sender, _visited) && e.PropertyName is nameof(WorkspaceViewModel.DisplayName))
             OnPropertyChanged(nameof(WorkspaceLabel));
+
+        // One Page: focus moving to a different note within the current workspace hands the "only one shown" spot to it too.
+        if (OnePageMode && ReferenceEquals(sender, CurrentWorkspace) && e.PropertyName is nameof(WorkspaceViewModel.FocusedIndex))
+            ApplyOnePageVisibility(CurrentWorkspace);
     }
+
+    /// <summary>
+    /// Window group's One Page: hides every note but the focused one - still navigate freely, just one at a time.
+    /// Unlike Read Mode, the note that stays doesn't grow to fill the row; it keeps its own width, the others just
+    /// disappear (<see cref="NoteViewModel.IsHiddenByOnePage"/>).
+    /// </summary>
+    [ObservableProperty]
+    private bool _onePageMode;
+
+    partial void OnOnePageModeChanged(bool value) => ApplyOnePageVisibility(CurrentWorkspace);
+
+    private void ApplyOnePageVisibility(WorkspaceViewModel workspace)
+    {
+        var focused = workspace.FocusedNote;
+        foreach (var note in workspace.Notes)
+            note.IsHiddenByOnePage = OnePageMode && !ReferenceEquals(note, focused);
+    }
+
+    [RelayCommand]
+    private void ToggleOnePage() => OnePageMode = !OnePageMode;
 
     /// <summary>Raised when the focused note's editor should take keyboard focus (after focus or workspace moves).</summary>
     public event Action? FocusEditorRequested;
 
     public void RequestEditorFocus() => FocusEditorRequested?.Invoke();
+
+    /// <summary>Raised for the find / replace keys; the window opens its Find and Replace dialog (true = with the Replace row).</summary>
+    public event Action<bool>? FindRequested;
+
+    [RelayCommand] private void Find() => FindRequested?.Invoke(false);
+    [RelayCommand] private void Replace() => FindRequested?.Invoke(true);
 
     public void SwitchWorkspace(int delta)
     {
@@ -374,6 +415,10 @@ public sealed partial class AppViewModel : ObservableObject
     [RelayCommand]
     private void OpenReam() => Files?.OpenReam();
 
+    /// <summary>The File tab's Recent list: opens a specific ream by its full path.</summary>
+    [RelayCommand]
+    private void OpenRecentReam(string path) => Files?.OpenReam(path);
+
     [RelayCommand]
     private void SaveReam() => Files?.Save();
 
@@ -487,8 +532,69 @@ public sealed partial class AppViewModel : ObservableObject
             note.IsFullscreen = !note.IsFullscreen;
     }
 
+    /// <summary>
+    /// Read Mode: a full view of the focused note with no ability to edit it - fullscreen, plus locked. The View
+    /// group's three view modes are mutually exclusive (entering one leaves the other two), so entering this one
+    /// also leaves Draft and Outline.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleReadMode()
+    {
+        if (CurrentWorkspace.FocusedNote is not { } note) return;
+
+        bool entering = !note.IsReadOnly;
+        if (entering)
+        {
+            note.HideImages = false;
+            note.IsOutlineView = false;
+        }
+        note.IsFullscreen = entering;
+        note.IsReadOnly = entering;
+    }
+
+    /// <summary>Draft view: hides the focused note's images (still there, still saved - just out of the way while writing). Leaves Read Mode, the same mutual exclusion as its own doc comment describes.</summary>
+    [RelayCommand]
+    private void ToggleDraftView()
+    {
+        if (CurrentWorkspace.FocusedNote is not { } note) return;
+
+        bool entering = !note.HideImages;
+        if (entering)
+        {
+            note.IsReadOnly = false;
+            note.IsOutlineView = false;
+        }
+        note.HideImages = entering;
+    }
+
+    /// <summary>Outline view: the focused note's editor shows just its heading structure, read-only, until turned off again. Leaves Read Mode and Draft, the same mutual exclusion as its own doc comment describes.</summary>
+    [RelayCommand]
+    private void ToggleOutlineView()
+    {
+        if (CurrentWorkspace.FocusedNote is not { } note) return;
+
+        bool entering = !note.IsOutlineView;
+        if (entering)
+        {
+            note.IsReadOnly = false;
+            note.HideImages = false;
+        }
+        note.IsOutlineView = entering;
+    }
+
+    /// <summary>Show group's Ruler: shows or hides the focused note's draggable left-indent marker.</summary>
+    [RelayCommand]
+    private void ToggleRuler()
+    {
+        if (CurrentWorkspace.FocusedNote is { } note) note.ShowRuler = !note.ShowRuler;
+    }
+
     [RelayCommand]
     private void NewNote() => OpenDraft();
+
+    /// <summary>Jumps to the trailing empty edge workspace - the same thing Alt+Down past the last named one does - ready to type into.</summary>
+    [RelayCommand]
+    private void NewWorkspace() => SwitchWorkspace(Workspaces.Count - 1 - CurrentIndex);
 
     [RelayCommand]
     private void CloseNote()
