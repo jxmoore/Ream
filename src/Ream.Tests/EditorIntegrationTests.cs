@@ -5,6 +5,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
 using Ream.App.Controls;
 using Ream.App.Services;
 using Ream.App.ViewModels;
@@ -650,13 +651,16 @@ public class EditorIntegrationTests
     public void Ruler_IsHidden_UntilShowRulerIsOn() => Ui.Run(() =>
     {
         using var fx = new EditorFixture(Plain);
-        var host = (FrameworkElement)fx.View.FindName("RulerHost");
-        Assert.Equal(Visibility.Collapsed, host.Visibility);
+        var horizontal = (FrameworkElement)fx.View.FindName("HorizontalRulerHost");
+        var vertical = (FrameworkElement)fx.View.FindName("VerticalRulerHost");
+        Assert.Equal(Visibility.Collapsed, horizontal.Visibility);
+        Assert.Equal(Visibility.Collapsed, vertical.Visibility);
 
         fx.Note.ShowRuler = true;
         Ui.Settle();
 
-        Assert.Equal(Visibility.Visible, host.Visibility);
+        Assert.Equal(Visibility.Visible, horizontal.Visibility);
+        Assert.Equal(Visibility.Visible, vertical.Visibility);
     });
 
     [Fact]
@@ -687,86 +691,78 @@ public class EditorIntegrationTests
         Assert.Equal(25, Canvas.GetLeft(fx.View.IndentMarker));
     });
 
-    // ----- Window group's Synchronous Scrolling -----
-
-    private static string LongBody(int lines) =>
-        "<ReamNote schemaVersion=\"1\"><Doc>" + string.Concat(Enumerable.Range(0, lines).Select(i => $"<P><R>line {i}</R></P>")) + "</Doc></ReamNote>";
+    // ----- Show group's Gridlines: on the note itself, not the canvas behind it -----
 
     [Fact]
-    public void SynchronousScrolling_WhenOn_ScrollsOtherLoadedNotesInTheSameRowToMatch() => Ui.Run(() =>
+    public void Gridlines_FollowTheSharedResource_OnEveryNote() => Ui.Run(() =>
     {
-        using var dir = new TempDir();
-        var repo = TestReam.Repo(dir.Combine("Docs"));
-        var workspace = new WorkspaceViewModel("W", repo);
-        var noteA = new NoteViewModel { Title = "A", Body = LongBody(80) };
-        var noteB = new NoteViewModel { Title = "B", Body = LongBody(80) };
-        workspace.LoadNotes([noteA, noteB], noteA.Id);
+        using var fx = new EditorFixture(Plain);
+        var grid = Ui.Descendants<Rectangle>(fx.View).Single(r => r.Fill is DrawingBrush);
 
-        var row = new NoteRowPanel { Width = 600, Height = 200 };
-        var viewA = new NoteColumnView { DataContext = noteA, Width = 280, Height = 200 };
-        var viewB = new NoteColumnView { DataContext = noteB, Width = 280, Height = 200 };
-        row.Children.Add(viewA);
-        row.Children.Add(viewB);
-
-        var window = Ui.Show(row);
         try
         {
-            viewA.EnsureLoaded();
-            viewB.EnsureLoaded();
+            Application.Current.Resources[SettingsViewModel.GridlinesVisibilityKey] = Visibility.Visible;
             Ui.Settle();
+            Assert.Equal(Visibility.Visible, grid.Visibility);
 
-            Application.Current.Resources[SettingsViewModel.SynchronousScrollingKey] = true;
-
-            viewA.Editor.ScrollToVerticalOffset(40);
+            Application.Current.Resources[SettingsViewModel.GridlinesVisibilityKey] = Visibility.Collapsed;
             Ui.Settle();
-
-            Assert.True(viewA.Editor.VerticalOffset > 0);
-            Assert.Equal(viewA.Editor.VerticalOffset, viewB.Editor.VerticalOffset, 1);
+            Assert.Equal(Visibility.Collapsed, grid.Visibility);
         }
         finally
         {
-            Application.Current.Resources[SettingsViewModel.SynchronousScrollingKey] = false;
-            window.Close();
+            Application.Current.Resources[SettingsViewModel.GridlinesVisibilityKey] = Visibility.Collapsed;
         }
     });
 
+    // ----- Ruler: the vertical one goes on whichever side has no neighbouring note -----
+
     [Fact]
-    public void SynchronousScrolling_WhenOff_NotesScrollIndependently() => Ui.Run(() =>
+    public void VerticalRuler_GoesLeft_ForTheOnlyNoteInTheRow() => Ui.Run(() =>
     {
-        using var dir = new TempDir();
-        var repo = TestReam.Repo(dir.Combine("Docs"));
-        var workspace = new WorkspaceViewModel("W", repo);
-        var noteA = new NoteViewModel { Title = "A", Body = LongBody(80) };
-        var noteB = new NoteViewModel { Title = "B", Body = LongBody(80) };
-        workspace.LoadNotes([noteA, noteB], noteA.Id);
+        using var fx = new EditorFixture(Plain);
 
-        var row = new NoteRowPanel { Width = 600, Height = 200 };
-        var viewA = new NoteColumnView { DataContext = noteA, Width = 280, Height = 200 };
-        var viewB = new NoteColumnView { DataContext = noteB, Width = 280, Height = 200 };
-        row.Children.Add(viewA);
-        row.Children.Add(viewB);
+        Assert.Equal(0, Grid.GetColumn((FrameworkElement)fx.View.FindName("VerticalRulerHost")));
+    });
 
-        var window = Ui.Show(row);
-        try
-        {
-            viewA.EnsureLoaded();
-            viewB.EnsureLoaded();
-            Ui.Settle();
+    [Fact]
+    public void VerticalRuler_GoesLeft_ForTheFirstOfSeveralNotes() => Ui.Run(() =>
+    {
+        var workspace = new WorkspaceViewModel("W");
+        var first = new NoteViewModel();
+        var second = new NoteViewModel();
+        workspace.LoadNotes([first, second], null);
+        var view = new NoteColumnView { DataContext = first };
+        view.EnsureLoaded();
 
-            // Defensive, not just "default off": Application.Resources is shared by every UI test, so this test
-            // doesn't trust another one left it alone (see TheSynchronousScrollingCheckBox_IsATwoWayBinding's own note).
-            Application.Current.Resources[SettingsViewModel.SynchronousScrollingKey] = false;
+        Assert.Equal(0, Grid.GetColumn((FrameworkElement)view.FindName("VerticalRulerHost")));
+    });
 
-            viewA.Editor.ScrollToVerticalOffset(40);
-            Ui.Settle();
+    [Fact]
+    public void VerticalRuler_GoesRight_ForTheLastOfSeveralNotes() => Ui.Run(() =>
+    {
+        var workspace = new WorkspaceViewModel("W");
+        var first = new NoteViewModel();
+        var second = new NoteViewModel();
+        workspace.LoadNotes([first, second], null);
+        var view = new NoteColumnView { DataContext = second };
+        view.EnsureLoaded();
 
-            Assert.True(viewA.Editor.VerticalOffset > 0);
-            Assert.Equal(0, viewB.Editor.VerticalOffset);
-        }
-        finally
-        {
-            window.Close();
-        }
+        Assert.Equal(2, Grid.GetColumn((FrameworkElement)view.FindName("VerticalRulerHost")));
+    });
+
+    [Fact]
+    public void VerticalRuler_GoesLeft_ForAMiddleNote() => Ui.Run(() =>
+    {
+        var workspace = new WorkspaceViewModel("W");
+        var first = new NoteViewModel();
+        var middle = new NoteViewModel();
+        var last = new NoteViewModel();
+        workspace.LoadNotes([first, middle, last], null);
+        var view = new NoteColumnView { DataContext = middle };
+        view.EnsureLoaded();
+
+        Assert.Equal(0, Grid.GetColumn((FrameworkElement)view.FindName("VerticalRulerHost")));
     });
 
     // ----- Whole pipeline -----

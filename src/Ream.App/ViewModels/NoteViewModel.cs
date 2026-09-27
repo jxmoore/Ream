@@ -108,6 +108,14 @@ public sealed partial class NoteViewModel : ObservableObject
     [ObservableProperty]
     private bool _showRuler;
 
+    /// <summary>
+    /// Window group's One Page: true for every note but the focused one while <see cref="AppViewModel.OnePageMode"/>
+    /// is on (<see cref="AppViewModel.ApplyOnePageVisibility"/> keeps this in step with focus). Unlike Read Mode's
+    /// fullscreen, the note that stays visible keeps its own normal size - the others are hidden, not enlarged.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isHiddenByOnePage;
+
     [ObservableProperty]
     private bool _isFocused;
 

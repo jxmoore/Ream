@@ -57,21 +57,15 @@ public partial class MainWindow : Window
         NavigationPane.DataContext = new NavigationPaneViewModel(viewModel);
         FileRibbon.HelpRequested += OpenHelp;
         FileRibbon.AboutRequested += OpenAbout;
-        ViewRibbon.ReadModeRequested += () => viewModel.ToggleReadModeCommand.Execute(null);
-        ViewRibbon.DraftViewRequested += () => viewModel.ToggleDraftViewCommand.Execute(null);
-        ViewRibbon.OutlineViewRequested += () => viewModel.ToggleOutlineViewCommand.Execute(null);
-        ViewRibbon.RulerRequested += () => viewModel.ToggleRulerCommand.Execute(null);
-        ViewRibbon.OnePageRequested += () => viewModel.ToggleOnePageCommand.Execute(null);
+        // Read Mode / Draft / Outline / Ruler / One Page are CheckBoxes/a ToggleButton bound straight to SettingsViewModel
+        // passthrough properties now (FocusedNoteIsReadOnly etc., OnePageMode) - no event-relay needed.
         ViewRibbon.ThemeRequested += OpenThemeModal;
         Settings.PropertyChanged += OnSettingsPropertyChanged;
         SelectTab(RibbonTab.Home);
 
         _ribbonHideTimer.Tick += (_, _) => CompleteRibbonHide();
-        Ribbon.MenuOpenChanged += () =>
-        {
-            _ribbonState.MenuOpen = Ribbon.IsMenuOpen;
-            UpdateRibbon();
-        };
+        Ribbon.MenuOpenChanged += UpdateMenuOpenState;
+        ViewRibbon.MenuOpenChanged += UpdateMenuOpenState;
         ApplyRibbonMode(viewModel.Config.Ribbon.AutoHide);
 
         _fullscreen = new FullscreenController(new WindowFrame(this));
@@ -266,6 +260,16 @@ public partial class MainWindow : Window
         ShowRibbon(_ribbonState.WantsOpen, animate: false);
     }
 
+    /// <summary>Either ribbon's drop-down/menu (Home's font & size boxes and color menus; View's Switch Notes / Switch
+    /// Workspaces menus) keeps the panel up regardless of the pin, so a menu never outlives the ribbon it opened
+    /// from - previously only Home's own menus were watched, so an unpinned ribbon could vanish out from under an
+    /// open View-tab menu the moment the pointer left it.</summary>
+    private void UpdateMenuOpenState()
+    {
+        _ribbonState.MenuOpen = Ribbon.IsMenuOpen || ViewRibbon.IsMenuOpen;
+        UpdateRibbon();
+    }
+
     /// <summary>Brings the panel up at once if it should be, or starts the countdown to tucking it away.</summary>
     internal void UpdateRibbon()
     {
@@ -436,18 +440,12 @@ public partial class MainWindow : Window
     /// <summary>Show group's Gridlines and Navigation Pane: both are session-only view state (SettingsViewModel), not config, so the window just reacts to them directly rather than through Config.</summary>
     private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        switch (e.PropertyName)
-        {
-            case nameof(SettingsViewModel.GridlinesOn):
-                GridlinesOverlay.Visibility = Settings.GridlinesOn ? Visibility.Visible : Visibility.Collapsed;
-                break;
-            case nameof(SettingsViewModel.NavigationPaneOpen):
-                bool open = Settings.NavigationPaneOpen;
-                NavigationPaneColumn.Width = open ? NavigationPaneWidth : new GridLength(0);
-                NavigationPane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
-                if (open && NavigationPane.DataContext is NavigationPaneViewModel pane) pane.Refresh();
-                break;
-        }
+        if (e.PropertyName != nameof(SettingsViewModel.NavigationPaneOpen)) return;
+
+        bool open = Settings.NavigationPaneOpen;
+        NavigationPaneColumn.Width = open ? NavigationPaneWidth : new GridLength(0);
+        NavigationPane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        if (open && NavigationPane.DataContext is NavigationPaneViewModel pane) pane.Refresh();
     }
 
     /// <summary>Closing the window asks about unsaved changes (only ever when auto-save is off and something changed).</summary>

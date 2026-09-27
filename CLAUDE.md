@@ -57,40 +57,118 @@ the wheel). Recent (like Word's Backstage
 Open > Recent) is `AppConfig.RecentReams` - the last `RecentReamsLimit` reams opened, saved or created, newest first, deduplicated case-insensitively and maintained by `ReamManager.RecordLastReam`; its button lists everything there except whichever ream is open right now (reopening that would be a
 no-op) and disables itself, with an explanatory tooltip, when there is nothing else to show. Clicking an entry runs `AppViewModel.OpenRecentReamCommand`, which is `IReamFiles.OpenReam(path)` - the same open-a-specific-ream path `ReamLauncher`/`ReamManager.OpenReam()` already used, just reachable
 with a path in hand instead of a file-picker round trip. `RibbonView` (Home, the
-editor controls) and `ViewRibbonView` (DataContext is the `SettingsViewModel`), laid out group-for-group like Word's own
-View tab where it still applies, reworked where Ream actually differs, in Word's own group order minus what has no
-equivalent: **Page Movement** (Ream's row is always horizontal, its workspace stack always vertical) and, inside
-Views, Print Layout/Web Layout (no page to offer a page-layout mode for) are dropped outright, and Word's page-view
+editor controls) and `ViewRibbonView` (DataContext is the `SettingsViewModel`), in this order, left to right: **Theme**,
+**Zoom**, **View**, **Window**, **Show** - not Word's own order, and not alphabetical; just the arrangement asked
+for (moved once already, from an initial View/Window/Show/Zoom/Theme). Word's Page Movement group (Ream's row is always horizontal, its workspace stack always vertical) and, inside
+View, Print Layout/Web Layout (no page to offer a page-layout mode for) are dropped outright, and Word's page-view
 controls (One Page, Multiple Pages, Page Width) go the same way except One Page, which survives as a real command
-moved into Window. Every control on this tab is real now - Views, Show, Zoom and Window each got their own pass, so
-none of the Home tab's "placed but disabled, `IsEnabled="False"`, tooltip 'Not available yet'" convention survives
-here. After Views, Show, Zoom, Window comes Ream's own settings - a single Theme button, not the three separate
-groups (Layout, Theme, Opacity) it used to be (see further down). **Views** is a vertical column of three real, working
-toggles, not tiles: **Read Mode** (`ReadModeButton`/`ReadModeRequested` -> `AppViewModel.ToggleReadModeCommand`; Word
-itself called this "Full Screen Reading" before renaming it) sets both `NoteViewModel.IsFullscreen` and `IsReadOnly`
-together (a hand-drawn open-book `Path`, not an icon-font glyph - none reads as "book" reliably enough to risk
-guessing one); clearing `IsFullscreen` by any path always clears `IsReadOnly` too (`NoteViewModel.OnIsFullscreenChanged`).
-**Draft** (`DraftButton`/`DraftViewRequested` -> `ToggleDraftViewCommand`) sets `HideImages`, which
-`NoteColumnView.ApplyImageVisibility` turns into `Visibility.Collapsed` on every pasted image in the live document
-(nothing is removed - turning it off restores them); applied on load and right after a paste too, so it can't be
-bypassed by timing. **Outline** (`OutlineButton`/`OutlineViewRequested` -> `ToggleOutlineViewCommand`) sets
-`IsOutlineView`; `NoteColumnView.ApplyOutlineView` stashes the real `FlowDocument` and swaps in a generated one - one
-read-only paragraph per heading (`NoteStyles.HeadingLevelOf`), indented and styled to match, a "No headings in this
-note" placeholder if there are none - and clicking a line (`OnEditorPreviewMouseDown`, mapped back via
-`_outlineMap`) turns Outline off and puts the caret at the real paragraph it summarizes. Both `IsReadOnly` and
-`IsOutlineView` feed `NoteViewModel.EffectiveReadOnly`, which is what `Editor.IsReadOnly` actually binds to - neither
-is persisted (`NoteSnapshot`/`SnapshotMapper`), unlike `IsFullscreen` which is. **Show** is all three real too, mixing
-a Button with two CheckBoxes because they aren't the same kind of state: **Ruler** (`RulerButton`/`RulerRequested` ->
-`ToggleRulerCommand`) sets the focused note's own `NoteViewModel.ShowRuler` (same "no DataContext path from
-SettingsViewModel to the focused note" reason Draft/Outline are Buttons, not CheckBoxes) - `NoteColumnView` shows a
-tick-marked strip above the editor (redrawn to width in `RedrawRulerTicks`) with a draggable triangle `Thumb`
-(`IndentMarker`) that sets `Paragraph.Margin.Left` for whatever `SelectionParagraphs.Of(Editor)` returns, synced to
-the caret's own paragraph (`SyncIndentMarker`) whenever the selection moves or Ruler is turned on. **Gridlines**
-and **Navigation Pane** are session-only settings `SettingsViewModel` owns outright (`GridlinesOn`,
-`NavigationPaneOpen` - neither is saved to config.json), so they're ordinary two-way `CheckBox`es; `MainWindow`
-reacts to them directly (`OnSettingsPropertyChanged`) since they affect its own layout, not a note: Gridlines toggles
-a `DrawingBrush` tile overlay (`GridlinesOverlay`) behind the workspace strip, and Navigation Pane grows
-`CanvasArea`'s second column (`NavigationPaneColumn`, 0 <-> 280px) to show `NavigationPaneView`. That view's
+moved into Window. Every control on this tab is real - none of the Home tab's "placed but disabled,
+`IsEnabled="False"`, tooltip 'Not available yet'" convention survives here. Every group's own content is explicitly
+`HorizontalAlignment="Left"` (both the group's own StackPanel and each control in it, via the `StackedRow`/
+`StackedLeft` styles) - relying on a vertical StackPanel's default child stretch plus left-aligned content looked
+right often enough to ship once, but not reliably. Every group's content wrapper is also a fixed `Height="60"` with
+`VerticalAlignment="Bottom"`, so the `RibbonGroupLabel` caption underneath starts at the exact same Y for every
+group regardless of how tall that group's own content naturally is - `MinHeight` plus `VerticalAlignment="Center"`
+(the previous approach) centers each group's content independently within its own band, and groups with shorter
+content (Show's three CheckBoxes, especially) would end up with their captions sitting at a visibly different height
+than groups whose content fills the full 60px. **View** is a horizontal row of three ToggleButtons (`RibbonToggleTile`,
+the same tile One Page below uses - clicking one "enables it similar to the One Page tile"), mutually exclusive: only
+one of Read Mode / Draft / Outline can be on for a note at a time, since they're alternate ways of viewing it, not
+independent flags. **Read Mode** (`ReadModeButton`, a hand-drawn open-book `Path` - no icon-font glyph reads as
+"book" reliably enough to risk guessing one; Word itself called this "Full Screen Reading" before renaming it) sets
+both `NoteViewModel.IsFullscreen` and `IsReadOnly` together, and leaves Draft/Outline; clearing `IsFullscreen` by any
+path always clears `IsReadOnly` too (`NoteViewModel.OnIsFullscreenChanged`). **Draft** (`DraftButton`) sets
+`HideImages`, which `NoteColumnView.ApplyImageVisibility` turns into `Visibility.Collapsed` on every pasted image in
+the live document (nothing is removed - turning it off restores them; applied on load and right after a paste too,
+so it can't be bypassed by timing), and leaves Read Mode/Outline. **Outline** (`OutlineButton`) sets `IsOutlineView`;
+`NoteColumnView.ApplyOutlineView` stashes the real `FlowDocument` and swaps in a generated one - one read-only
+paragraph per heading (`NoteStyles.HeadingLevelOf`), indented and styled to match, a "No headings in this note"
+placeholder if there are none - and clicking a line (`OnEditorPreviewMouseDown`, mapped back via `_outlineMap`) turns
+Outline off and puts the caret at the real paragraph it summarizes; entering it leaves Read Mode/Draft. Both
+`IsReadOnly` and `IsOutlineView` feed `NoteViewModel.EffectiveReadOnly`, which is what `Editor.IsReadOnly` actually
+binds to - neither is persisted (`NoteSnapshot`/`SnapshotMapper`), unlike `IsFullscreen` which is. The mutual
+exclusion lives in `AppViewModel.ToggleReadMode`/`ToggleDraftView`/`ToggleOutlineView` themselves: entering one
+clears the other two's flags directly (not just its own `IsChecked` binding - a raw property set from anywhere hits
+the same note fields, so there's no path around it). None of these three ToggleButtons bind to the note directly -
+`ViewRibbonView`'s DataContext is `SettingsViewModel`, which has no path to "the focused note's own flag" - so
+`SettingsViewModel` carries a passthrough property for each (`FocusedNoteIsReadOnly`, `FocusedNoteHideImages`,
+`FocusedNoteIsOutlineView`, plus `FocusedNoteShowRuler` for Show's Ruler and `OnePageMode` for Window's One Page): the
+getter reads straight off `_app.CurrentWorkspace.FocusedNote`, the setter just asks the matching `AppViewModel`
+command to toggle, and `SettingsViewModel.TrackFocus` (subscribed to the app's `CurrentIndex` and the current
+workspace's `FocusedIndex`) re-subscribes to whichever note is focused and raises the right property when one of its
+four flags changes - so each control's own `IsChecked` always converges to the truth regardless of which end changed
+it (including the other two flipping itself off from underneath it). **Window** is Switch Workspaces stacked above
+Switch Notes, to the left of One Page, a big `ToggleButton` (`RibbonToggleTile`, `Themes/Controls.xaml` - the same
+tile `RibbonTile` draws, but staying highlighted while checked via an `IsChecked` trigger, not just on hover/press)
+the same size as the Theme tile. Word's own New Window, Arrange All, Split, View Side by Side, Synchronous Scrolling
+and Reset Window Position are all dropped outright - Ream has no multi-window concept for any of them (New Note /
+New Workspace, which used to stand in for New Window / Arrange All here, moved to File's own Add group; Synchronous
+Scrolling never pulled its weight enough to keep once it had a real implementation to weigh). **One Page**
+(`OnePageButton`, bound to `OnePageMode`) hides every note but the focused one - unlike Read Mode, the note that
+stays doesn't grow to fill the row, it keeps its own `WidthFraction`-based size; the others just disappear
+(`NoteViewModel.IsHiddenByOnePage`, a plain `Visibility.Collapsed` trigger in `WorkspaceView.xaml`'s
+`ItemContainerStyle` - `NoteRowPanel`'s own row-position math in `RowLayout.cs` isn't touched, so a hidden note still
+reserves its slot in the row rather than the row compacting around it). `AppViewModel.ApplyOnePageVisibility` sets
+every note in a workspace's `IsHiddenByOnePage` to "OnePageMode is on and this isn't the focused one", called from
+`OnOnePageModeChanged`, from `OnWorkspaceChanged` (focus moving within the current workspace), and from
+`OnCurrentIndexChanged` (a workspace switch, which also explicitly un-hides everything in the workspace left behind,
+since it isn't on screen either way - arriving back at it later without One Page being asked for again shouldn't
+find it still narrowed to one note). **Switch Notes** (renamed from Word's Switch Windows - Ream has notes, not windows)
+and **Switch Workspaces** are both themed drop-downs built entirely in code-behind (`ViewRibbonView.OnSwitchNotesClick`/
+`OnSwitchWorkspacesClick`, `BuildPopupShell`, `BuildRow`) - Notes lists the current workspace's own notes, Workspaces
+every named-or-occupied one (`SelectWorkspaceCommand`); both read `AppViewModel` through a small
+`internal SettingsViewModel.App` accessor, since only it has the workspaces/notes to list. Each is a plain `Popup`,
+not a `ContextMenu`: a `Border`/`StackPanel`/`Border`-per-row shell built by hand and styled to match the
+`ContextMenu`/`MenuItem` template in `Controls.xaml` (rounded card, `CardBrush`/`ControlBorderBrush`, a checkmark
+glyph before whichever row is current, `ControlHoverBrush` on `MouseEnter`). Getting "click either button again while
+its own menu is open closes it, instead of tearing it down and reopening an identical one" right took four attempts
+before this one, and the first three shared a design mistake worth remembering: each tried to ask a `ContextMenu`
+itself whether *this* click was the one that had just closed it (checking `IsOpen` from inside the button's own
+`Click` handler, then watching `IsOpen` change via a `DependencyPropertyDescriptor`, then setting
+`ContextMenu.StaysOpen="True"` and watching only this file's own code close it) - all three passed a synthetic test
+built around whatever signal they watched, and all three still failed in the live app. `StaysOpen` documents itself as
+governing only the click-outside-dismisses-it case; `ContextMenu`/`MenuBase` carries its own keyboard-navigation
+focus-scope machinery underneath that (for arrow-key item navigation, access keys, submenus) which - near as this
+could be pinned down without being able to drive the real desktop to confirm it directly, per this file's own
+"never drive the live app" rule below - closes the menu on losing keyboard focus independently of `StaysOpen`, and
+clicking the anchor button again shifts focus to it, triggering that regardless of which signal was being watched.
+So the fourth attempt, the one that stuck, stopped using `ContextMenu`/`MenuItem` at all: a plain `Popup` is a
+framework primitive with none of that menu-specific focus baggage - it closes only when told to - so closing is
+entirely this file's own job now: `CloseIfOpen` (the same button clicked again - since nothing but this code can ever
+close one of these, its tracked field's own `IsOpen` is unconditionally accurate, with no race to lose) and
+`OnWindowPreviewMouseDown` (anywhere else clicked - reimplementing "click elsewhere closes it" is the cost of a plain
+`Popup` not doing it automatically the way `ContextMenu` did; a click actually landing inside an open popup never
+reaches this handler, since its content is hosted in its own top-level window, so the only thing the handler has to
+rule out is a click on the button that opened it, which its own `Click` handler already closes), plus each row
+closing its own popup before acting, since picking an item no longer closes the menu for free either. Both menus are
+watched (`ViewRibbonView.MenuOpenChanged`/`IsMenuOpen`, from `BuildPopupShell`'s own `Opened`/`Closed` handlers, the
+same shape `RibbonView`'s own font/size drop-downs already used for their menus) and wired into
+`MainWindow.UpdateMenuOpenState` (`Ribbon.IsMenuOpen || ViewRibbon.IsMenuOpen`) so the ribbon stays up for as long as
+either is open, regardless of the pin - previously only `RibbonView`'s own menus were watched, so an unpinned ribbon
+could vanish out from under an open View-tab menu the moment the pointer left it.
+**Show** is three CheckBoxes: **Ruler** (`RulerCheckBox`, the `FocusedNoteShowRuler` passthrough) shows two rulers
+outside the focused note's own card, not inside it - `NoteColumnView`'s root is a 3-column, 2-row `Grid` with the
+card itself in the middle cell; `HorizontalRulerHost` sits above it (row 0, the card's own column) and
+`VerticalRulerHost` sits in column 0 or column 2 of the card's row, whichever `UpdateVerticalRulerSide` decides is
+the side with no neighbouring note (the first note in the row takes the left, the last takes the right, a middle
+note - or the only note - defaults left; recomputed on `Subscribe`/`OnDataContextChanged` and whenever the
+workspace's own `Notes.CollectionChanged` fires, since another note being added, removed or reordered anywhere in
+the row can flip it). `ResizeHandle` and `DraftOutline` still key off the outer grid's own bounds, not just the
+card's, so resizing and the draft outline keep working regardless of a ruler. Only the horizontal ruler has a
+draggable indent `Thumb` (`IndentMarker`, sets `Paragraph.Margin.Left` for whatever `SelectionParagraphs.Of(Editor)`
+returns, synced via `SyncIndentMarker` whenever the selection moves or Ruler turns on) - the vertical one is ticks
+only, the same as Word's own side ruler. **Gridlines** (`GridlinesCheckBox`, `SettingsViewModel.GridlinesOn`,
+session-only) draws on each note itself, not the canvas behind them: a `DrawingBrush`-tiled `Rectangle` inside
+`NoteColumnView`'s own card - `Grid.RowSpan="2"` and declared before the header `DockPanel`, so it sits behind the
+heading too, not just the editor beneath it - bound to `{DynamicResource GridlinesVisibility}` -
+`SettingsViewModel.GridlinesVisibilityKey`, a `Visibility` (not a `bool`, so no converter is needed) published to
+`Application.Resources` on every change, the same cross-DataContext trick `NoteZoomScale` uses, and once explicitly
+in the constructor too (`OnGridlinesOnChanged(GridlinesOn)`) - a plain `[ObservableProperty]`'s own default value
+never runs its `OnChanged`, and a `DynamicResource` nobody has ever published falls back to the property's own
+default, `Visibility.Visible`, which would draw a grid on every note before anyone asked for one. **Navigation Pane**
+(`NavigationPaneCheckBox`, `SettingsViewModel.NavigationPaneOpen`, session-only) is unrelated to any of that -
+`MainWindow` reacts to it directly (`OnSettingsPropertyChanged`) since it affects its own layout, not a note: it
+grows `CanvasArea`'s second column (`NavigationPaneColumn`, 0 <-> 280px) to show `NavigationPaneView`. That view's
 DataContext is a `NavigationPaneViewModel` (`MainWindow.NavigationPane`, one instance for the window, not per-note) -
 headings (from the focused note's `NoteViewModel.LiveDocument`, the same live `FlowDocument` the editor is showing,
 scanned with `NoteStyles.HeadingLevelOf` and re-scanned on `NoteViewModel.ContentChangedProperty`), the current
@@ -100,56 +178,49 @@ over title and `NoteContent.ToPlainText(note.Body)`, each note flushed first so 
 `NoteViewModel.CaretMoveRequested` (a paragraph reference `NoteColumnView.OnCaretMoveRequested` lands the caret on,
 turning off Outline view first if it was showing); clicking a note or workspace entry reuses
 `WorkspaceViewModel.SetFocus`/`AppViewModel.SelectWorkspaceCommand`, the same paths the row and the File ribbon's
-workspace list already use. **Zoom** is three stacked buttons, each its own magnifying-glass glyph from Segoe Fluent
-Icons (`ZoomInButton`/`ZoomOutButton`, +-10 a click, clamped 50-200; `ZoomResetButton`, back to 100%, its label still
-showing the live percentage - `SettingsViewModel.ZoomLabel`/`ZoomResetTooltip`) rather than a menu of presets; Word's
-page-view trio (One Page, Multiple Pages, Page Width) is dropped - One Page moves to the Window group below as a real
-command, Ream has no pages for the other two. Deliberately no slider on the ribbon itself, matching Word (its live
-zoom control is in a status bar Ream doesn't have); `Ctrl+Scroll` also zooms (`MainWindow.OnPreviewMouseWheel`, its
-own `WheelAccumulator`).
+workspace list already use; the search-scope `RadioButton`s' own text was unreadable until the app-wide themed
+`RadioButton` style existed (below). **Zoom** is three stacked buttons, each its own magnifying-glass glyph from
+Segoe Fluent Icons (`ZoomInButton`/`ZoomOutButton`, +-10 a click, clamped 50-200), plus `ZoomResetButton` with a
+hand-drawn reset-arrow `Path` (not Zoom's own glyph, so Reset doesn't look like a fourth zoom control) and no
+percentage printed on the tile any more - the live number stays in `ZoomResetTooltip`'s tooltip only now. Word's
+page-view trio (One Page, Multiple Pages, Page Width) is dropped - One Page moved to Window, Ream has no pages for
+the other two. Deliberately no slider on the ribbon itself, matching Word (its live zoom control is in a status bar
+Ream doesn't have); `Ctrl+Scroll` also zooms (`MainWindow.OnPreviewMouseWheel`, its own `WheelAccumulator`).
 `SettingsViewModel.ZoomPercent` (`AppConfig.Zoom`, 50-200) scales a note's whole editor, not just its font: `ThemeService`
 publishes it as `NoteZoomScale` (a boxed double, config.zoom / 100) the same way it publishes theme brushes, and each
 `NoteColumnView`'s `RichTextBox` binds a `ScaleTransform` `LayoutTransform` to it with `{DynamicResource NoteZoomScale}` -
 a LayoutTransform, not a RenderTransform, so text actually re-wraps at the zoomed size instead of just stretching, and
-it is live and app-wide with no other plumbing, exactly like a theme change. **Window** drops Word's New Window,
-Arrange All, Split, View Side by Side and Reset Window Position outright - Ream has no multi-window concept for any
-of them (New Note / New Workspace, which used to stand in for New Window / Arrange All here, moved to File's own Add
-group). Three real, stacked controls remain: **One Page** (`OnePageButton`/`OnePageRequested` ->
-`AppViewModel.ToggleOnePageCommand`, moved here from Zoom) hides
-every note but the focused one - built on the fullscreen every note already has (`NoteViewModel.IsFullscreen`), just
-kept following focus instead of tied to one note: `AppViewModel.OnePageMode` re-fullscreens whichever note becomes
-focused and clears whichever had it, both within a workspace (`OnWorkspaceChanged`, since `WorkspaceViewModel.SetFocus`
-already clears the note it moved off of - only the newly-focused one needs setting) and across a workspace switch
-(`OnCurrentIndexChanged`, which has to clear the old workspace's note explicitly since switching workspaces doesn't
-go through `SetFocus` at all). **Synchronous Scrolling** (`SynchronousScrollingCheckBox`, a real two-way `CheckBox` -
-`SettingsViewModel.SynchronousScrollingOn`, session-only) publishes to `Application.Resources` under
-`SettingsViewModel.SynchronousScrollingKey` (the same cross-DataContext trick `NoteZoomScale` uses, read
-imperatively here rather than bound); `NoteColumnView` hooks `Editor`'s `ScrollViewer.ScrollChangedEvent` and, when
-the flag reads true, walks its `NoteRowPanel` siblings (`SiblingColumns`, skipping any column that hasn't loaded its
-editor) and calls `ScrollToVerticalOffset` on each with a static reentrancy guard so the propagated scrolls don't
-bounce back and forth. **Switch Notes** (renamed from Word's Switch Windows - Ream has notes, not windows) is a themed
-menu of the current workspace's notes built directly in `ViewRibbonView.OnSwitchNotesClick` (the same
-build-the-menu-in-code-behind shape Zoom's old preset menu used, since a `CheckBox`/`Button` two-way binding can't
-carry a list); it reads the workspace through a small `internal SettingsViewModel.App` accessor, since only
-`AppViewModel` has the notes to list. **Theme** (`ThemeButton`/`ThemeRequested`, raised as an event and presented by
-`MainWindow.OpenThemeModal` the same way Help/About are - opening a window is MainWindow's job, ownership and the
-test-interceptable `ShowModal` hook live there) replaces what used to be three separate ribbon groups (Layout, Theme,
-Opacity) with one button that opens `ThemeModal` (`Views/ThemeModal.xaml`, styled like Help/About with
-`ModalWindowStyle`), holding all three as sections on the exact same `SettingsViewModel` those groups already edited
-- moving them didn't change what they bind to, only where they live. **Layout** is a Gap `ComboBox` (presets 8-60,
-`AppConfig.WithLayout`'s nested `layout` object, the same "patch only the given keys" contract as everything else in
-`AppConfigStore.Update`) plus the "Center the focused note" checkbox. **Theme** is a `RadioButton` per
-`SettingsViewModel.Themes` entry (its own swatch, same template the old dropdown used), `Checked` calling
-`SelectThemeCommand` straight away - no separate "apply" step. **Opacity** is two more `ComboBox`es (Canvas / Notes,
-presets 0-100). Gap and both opacities are genuinely editable - pick a preset or type any in-range number - which
+it is live and app-wide with no other plumbing, exactly like a theme change. **Theme** (`ThemeButton`/`ThemeRequested`,
+raised as an event and presented by `MainWindow.OpenThemeModal` the same way Help/About are - opening a window is
+MainWindow's job, ownership and the test-interceptable `ShowModal` hook live there) is a single button that opens
+`ThemeModal` (`Views/ThemeModal.xaml`, styled like Help/About with `ModalWindowStyle`), which holds what used to be
+three separate ribbon groups (Layout, Theme, Opacity) on the exact same `SettingsViewModel` those groups already
+edited - moving them didn't change what they bind to, only where they live, and down to two sections now, not three:
+**Layout & Opacity** is combined into one, two columns (a `Grid` with two `*` columns and a narrow fixed gutter) -
+opacity (Canvas then Notes, stacked) on the left, Gap on the right, both columns' own label column the same fixed
+width (52) and the Gap column `VerticalAlignment="Top"` (it otherwise stretches to the opacity column's full
+two-row height and centers within it, landing visibly below-and-right of where Canvas's own box starts) - so Gap's
+box lines up with Canvas's, not merely "somewhere in the right column" - with the "Center the focused note" checkbox
+below both columns, spanning the full width. **Theme** is a grid, not a long list - `ThemeList`'s `ItemsPanel` is a
+`WrapPanel`, each entry a fixed-`Width` `RadioButton` with a wide right `Margin` (the gap between columns) so two fit
+per row instead of one down a mostly-empty modal - `Checked` calls `SelectThemeCommand` straight away, no separate
+"apply" step. Gap and both opacities are genuinely editable - pick a preset or type any in-range number - which
 needed `Themes/Controls.xaml`'s `ComboBox` style to grow a `PART_EditableTextBox` part (`IsEditable="True"` did
 nothing before this; WPF's own `ComboBox` wires that named part up automatically once the template has one, no extra
 code needed) - every other `ComboBox` in the app keeps `IsEditable` unset and is unaffected. Each box binds `Text`
-(not `SelectedItem`) `TwoWay` with `UpdateSourceTrigger=LostFocus` (so typing doesn't fight the box mid-keystroke;
+(not `SelectedItem`, and deliberately a bare number, no "%"/"px" suffix baked in - appending one would break parsing
+it back to a number) `TwoWay` with `UpdateSourceTrigger=LostFocus` (so typing doesn't fight the box mid-keystroke;
 Enter commits early via `GetBindingExpression(...).UpdateSource()`) straight to `GapPx`/`OpacityPercent`/
-`NoteOpacityPercent`, which already clamp out-of-range values themselves. The Show checkboxes, `CenterFocusedCheckBox`
-and `SynchronousScrollingCheckBox` all share one themed `CheckBox` style (`Themes/Controls.xaml`): a small square with
-an accent checkmark, the app's only one, since nothing needed a real checkbox before View tab work started. Home is laid out like Word's Home tab (flat buttons, icon rows, a label centered under each group; there is no
+`NoteOpacityPercent`, which already clamp out-of-range values themselves; each box has its own plain "%" or "px"
+`TextBlock` beside it instead, so the unit is still visible without being part of the editable text. `Themes/Controls.xaml`
+also grew an app-wide themed `RadioButton` style (the same shape as its `CheckBox` - a circle with an accent dot
+instead of a square with an accent check) once two different radio-button usages (this modal's theme picker, the
+Navigation Pane's search scope) both turned out unreadable without one - WPF's own default RadioButton assumes a
+light backdrop, so on Ream's own dark theme the text just disappeared. The View tab's own CheckBoxes (Show only now -
+View went back to ToggleButtons, Window's none, Layout's `CenterFocusedCheckBox` lives in the modal) all pick up the
+app-wide themed `CheckBox` style too, via `BasedOn="{StaticResource {x:Type CheckBox}}"` on the local `StackedLeft`
+style that only adds the left-alignment - setting `Style` to something that ISN'T based on the app-wide one would
+replace it outright and fall back to WPF's own unstyled checkbox, the exact bug the RadioButtons had. Home is laid out like Word's Home tab (flat buttons, icon rows, a label centered under each group; there is no
 dialog-launcher corner and no Add-ins group - Ream doesn't have either): Clipboard, Font, Paragraph, Styles (a framed, horizontally
 scrollable gallery: Normal, Heading 1-4, Title, Subtitle, Quote, with working Previous/More arrows and an "All styles" menu -
 `RibbonView.Styles`, `ApplyStyle`), Editing (Find/Replace open a modeless `FindReplaceWindow` bound to `AppViewModel.FindCommand`/

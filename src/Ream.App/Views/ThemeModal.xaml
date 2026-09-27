@@ -13,19 +13,61 @@
     -->
     <StackPanel Margin="20,16,20,18">
 
-        <TextBlock Text="Layout" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10"/>
+        <!-- Layout and Opacity share one section: opacity (Canvas/Notes) on the left, Gap on the right, Center the
+             focused note below both columns - not three separate blocks the way this used to be laid out. -->
+        <TextBlock Text="Layout &amp; Opacity" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10"/>
         <Grid Margin="2,0,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="60"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="28"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="Gap" VerticalAlignment="Center" Foreground="{DynamicResource ToolbarMutedBrush}"/>
-            <ComboBox x:Name="GapBox" Grid.Column="1" Width="90" Height="26" HorizontalAlignment="Left"
-                      IsEditable="True" PreviewKeyDown="OnNumberBoxKeyDown"
-                      Text="{Binding GapPx, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0}}"
-                      ToolTip="Space between notes, and around the row (8-60px)"/>
+
+            <StackPanel Grid.Column="0">
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="52"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Canvas" VerticalAlignment="Center" Foreground="{DynamicResource ToolbarMutedBrush}"/>
+                    <ComboBox x:Name="CanvasOpacityBox" Grid.Column="1" Width="80" Height="26"
+                              IsEditable="True" PreviewKeyDown="OnNumberBoxKeyDown"
+                              Text="{Binding OpacityPercent, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0}}"
+                              ToolTip="{Binding OpacityHint}"/>
+                    <TextBlock Grid.Column="2" Text="%" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource ToolbarMutedBrush}"/>
+                </Grid>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="52"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Notes" VerticalAlignment="Center" Foreground="{DynamicResource ToolbarMutedBrush}"/>
+                    <ComboBox x:Name="NoteOpacityBox" Grid.Column="1" Width="80" Height="26"
+                              IsEditable="True" PreviewKeyDown="OnNumberBoxKeyDown"
+                              Text="{Binding NoteOpacityPercent, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0}}"
+                              ToolTip="How solid each note's background is. The text always stays solid."/>
+                    <TextBlock Grid.Column="2" Text="%" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource ToolbarMutedBrush}"/>
+                </Grid>
+            </StackPanel>
+
+            <Grid Grid.Column="2" VerticalAlignment="Top">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="52"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="Gap" VerticalAlignment="Center" Foreground="{DynamicResource ToolbarMutedBrush}"/>
+                <ComboBox x:Name="GapBox" Grid.Column="1" Width="80" Height="26"
+                          IsEditable="True" PreviewKeyDown="OnNumberBoxKeyDown"
+                          Text="{Binding GapPx, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0}}"
+                          ToolTip="Space between notes, and around the row (8-60px)"/>
+                <TextBlock Grid.Column="2" Text="px" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource ToolbarMutedBrush}"/>
+            </Grid>
         </Grid>
-        <CheckBox x:Name="CenterFocusedCheckBox" Content="Center the focused note" Margin="2,10,0,0"
+
+        <CheckBox x:Name="CenterFocusedCheckBox" Content="Center the focused note" Margin="2,14,0,0"
                   IsChecked="{Binding CenterFocusedColumn, Mode=TwoWay}"
                   ToolTip="Keep the note you're working in centered in the row as you move between notes"/>
 
@@ -33,9 +75,16 @@
 
         <TextBlock Text="Theme" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10"/>
         <ItemsControl x:Name="ThemeList" ItemsSource="{Binding Themes}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <RadioButton GroupName="ThemePicker" Margin="2,3" Checked="OnThemeChecked"
+                    <!-- A grid, not one entry per line - Width keeps two per row instead of a single long list with
+                         empty space down the right half of the modal; the right margin is the gap between columns. -->
+                    <RadioButton GroupName="ThemePicker" Width="164" Margin="2,4,16,4" Checked="OnThemeChecked"
                                  IsChecked="{Binding IsSelected, Mode=OneWay}">
                         <DockPanel LastChildFill="True">
                             <Border DockPanel.Dock="Left" Width="40" Height="20" CornerRadius="4" Margin="0,0,10,0"
@@ -46,36 +95,12 @@
                                     <Ellipse Width="7" Height="7" Margin="0,0,6,0" HorizontalAlignment="Right" Fill="{Binding Accent}"/>
                                 </Grid>
                             </Border>
-                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                         </DockPanel>
                     </RadioButton>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
-
-        <Rectangle Height="1" Fill="{DynamicResource ControlBorderBrush}" Margin="0,16"/>
-
-        <TextBlock Text="Opacity" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10"/>
-        <Grid Margin="2,0,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="60"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="30"/>
-                <RowDefinition Height="30"/>
-            </Grid.RowDefinitions>
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="Canvas" VerticalAlignment="Center" Foreground="{DynamicResource ToolbarMutedBrush}"/>
-            <ComboBox x:Name="CanvasOpacityBox" Grid.Row="0" Grid.Column="1" Width="90" Height="26" HorizontalAlignment="Left"
-                      IsEditable="True" PreviewKeyDown="OnNumberBoxKeyDown"
-                      Text="{Binding OpacityPercent, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0}}"
-                      ToolTip="{Binding OpacityHint}"/>
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="Notes" VerticalAlignment="Center" Foreground="{DynamicResource ToolbarMutedBrush}"/>
-            <ComboBox x:Name="NoteOpacityBox" Grid.Row="1" Grid.Column="1" Width="90" Height="26" HorizontalAlignment="Left"
-                      IsEditable="True" PreviewKeyDown="OnNumberBoxKeyDown"
-                      Text="{Binding NoteOpacityPercent, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0}}"
-                      ToolTip="How solid each note's background is. The text always stays solid."/>
-        </Grid>
 
         <Button Content="Close" IsCancel="True" IsDefault="True" HorizontalAlignment="Right" Margin="0,20,0,0" Padding="18,4"/>
     </StackPanel>

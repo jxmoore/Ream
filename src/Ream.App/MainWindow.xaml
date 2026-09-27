@@ -228,27 +228,6 @@
                 </Grid.ColumnDefinitions>
 
                 <Grid Grid.Column="0">
-                    <!-- Show group's Gridlines: a faint grid behind the notes, nothing more - MainWindow toggles Visibility from Settings.GridlinesOn. -->
-                    <Rectangle x:Name="GridlinesOverlay" IsHitTestVisible="False" Visibility="Collapsed" Opacity="0.16">
-                        <Rectangle.Fill>
-                            <DrawingBrush TileMode="Tile" Viewport="0,0,24,24" ViewportUnits="Absolute">
-                                <DrawingBrush.Drawing>
-                                    <GeometryDrawing>
-                                        <GeometryDrawing.Pen>
-                                            <Pen Thickness="1" Brush="{DynamicResource MutedTextBrush}"/>
-                                        </GeometryDrawing.Pen>
-                                        <GeometryDrawing.Geometry>
-                                            <GeometryGroup>
-                                                <LineGeometry StartPoint="0,0" EndPoint="24,0"/>
-                                                <LineGeometry StartPoint="0,0" EndPoint="0,24"/>
-                                            </GeometryGroup>
-                                        </GeometryDrawing.Geometry>
-                                    </GeometryDrawing>
-                                </DrawingBrush.Drawing>
-                            </DrawingBrush>
-                        </Rectangle.Fill>
-                    </Rectangle>
-
                     <ItemsControl ItemsSource="{Binding Workspaces}" Focusable="False">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>

@@ -4,6 +4,7 @@ using System.Windows.Automation.Peers;
 using System.Windows.Automation.Provider;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Media;
 using Ream.App.Services;
 using Ream.App.ViewModels;
@@ -480,8 +481,20 @@ public class ViewRibbonTests
 
     private static void RaiseClick(Button button) => button.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
 
+    /// <summary>The rows of a Switch Workspaces/Switch Notes drop-down (ViewRibbonView.BuildPopupShell/BuildRow) -
+    /// a Border per row inside a StackPanel inside the popup's own outer Border.</summary>
+    private static IReadOnlyList<Border> MenuRows(Popup popup) =>
+        ((StackPanel)((Border)popup.Child).Child).Children.Cast<Border>().ToList();
+
+    private static string RowText(Border row) => ((Grid)row.Child).Children.OfType<TextBlock>().Last().Text;
+
+    private static bool RowIsCurrent(Border row) => ((Grid)row.Child).Children.OfType<TextBlock>().Count() > 1;
+
+    private static void RaiseRowClick(Border row) =>
+        row.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseLeftButtonUpEvent });
+
     [Fact]
-    public void TheZoomResetTile_LabelsAndTooltipFollowTheZoom_AndAClickResetsIt() => Ui.Run(() =>
+    public void TheGroupLabels_AllAlignAtTheSameHeight() => Ui.Run(() =>
     {
         var app = new AppViewModel(new AppConfig(), []);
         var theme = new ThemeService(Application.Current, () => true);
@@ -490,18 +503,45 @@ public class ViewRibbonTests
         {
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
-            Assert.Equal("100%", ((TextBlock)view.FindName("ZoomLabel")).Text);
+
+            // The Theme tile's own inner label also happens to read "Theme" - only the RibbonGroupLabel captions
+            // (never inside a button) are what this test is checking.
+            var labels = Ui.Descendants<TextBlock>(view)
+                .Where(t => t.Text is "View" or "Window" or "Show" or "Zoom" or "Theme")
+                .Where(t => Ui.Ancestor<ButtonBase>(t) is null)
+                .ToList();
+            Assert.Equal(5, labels.Count);
+
+            var tops = labels.Select(l => l.TranslatePoint(new Point(0, 0), view).Y).ToList();
+            Assert.True(tops.Max() - tops.Min() < 0.5, "label tops: " + string.Join(", ", tops));
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void TheZoomResetTile_TooltipFollowsTheZoom_AndAClickResetsIt() => Ui.Run(() =>
+    {
+        // No live percentage printed on the tile itself any more - just the tooltip.
+        var app = new AppViewModel(new AppConfig(), []);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
             Assert.Equal("Zoom is 100%", ((Button)view.FindName("ZoomResetButton")).ToolTip);
 
             settings.ZoomPercent = 125;
             Ui.Settle();
-            Assert.Equal("125%", ((TextBlock)view.FindName("ZoomLabel")).Text);
             Assert.Equal("Zoom is 125% - click to reset to 100%", ((Button)view.FindName("ZoomResetButton")).ToolTip);
 
             RaiseClick((Button)view.FindName("ZoomResetButton"));
             Ui.Settle();
             Assert.Equal(100, app.Config.Zoom);
-            Assert.Equal("100%", ((TextBlock)view.FindName("ZoomLabel")).Text);
+            Assert.Equal("Zoom is 100%", ((Button)view.FindName("ZoomResetButton")).ToolTip);
         }
         finally
         {
@@ -567,22 +607,32 @@ public class ViewRibbonTests
         }
     });
 
-    [Fact]
-    public void TheRulerButton_RaisesItsEvent() => Ui.Run(() =>
+    private static (AppViewModel App, NoteViewModel Note) FixtureWithNote()
     {
-        var app = new AppViewModel(new AppConfig(), []);
+        var workspace = new WorkspaceViewModel("W");
+        var note = new NoteViewModel();
+        workspace.LoadNotes([note], null);
+        var app = new AppViewModel(new AppConfig(), [workspace]);
+        return (app, note);
+    }
+
+    [Fact]
+    public void TheRulerCheckBox_TogglesTheFocusedNotesRuler() => Ui.Run(() =>
+    {
+        var (app, note) = FixtureWithNote();
         var theme = new ThemeService(Application.Current, () => true);
         var settings = Make(app, theme);
         try
         {
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
-            bool raised = false;
-            view.RulerRequested += () => raised = true;
+            var box = (CheckBox)view.FindName("RulerCheckBox");
+            Assert.False(box.IsChecked);
 
-            RaiseClick((Button)view.FindName("RulerButton"));
+            box.IsChecked = true;
+            Ui.Settle();
 
-            Assert.True(raised);
+            Assert.True(note.ShowRuler);
         }
         finally
         {
@@ -591,21 +641,24 @@ public class ViewRibbonTests
     });
 
     [Fact]
-    public void TheOnePageButton_RaisesItsEvent() => Ui.Run(() =>
+    public void TheOnePageButton_TogglesOnePageMode() => Ui.Run(() =>
     {
-        var app = new AppViewModel(new AppConfig(), []);
+        var (app, note) = FixtureWithNote();
         var theme = new ThemeService(Application.Current, () => true);
         var settings = Make(app, theme);
         try
         {
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
-            bool raised = false;
-            view.OnePageRequested += () => raised = true;
+            var toggle = (ToggleButton)view.FindName("OnePageButton");
+            Assert.False(toggle.IsChecked);
 
-            RaiseClick((Button)view.FindName("OnePageButton"));
+            toggle.IsChecked = true;
+            Ui.Settle();
 
-            Assert.True(raised);
+            Assert.True(app.OnePageMode);
+            Assert.False(note.IsHiddenByOnePage); // the only note in the workspace - never hides itself
+            Assert.False(note.IsFullscreen); // One Page doesn't enlarge the note that stays, unlike Read Mode
         }
         finally
         {
@@ -637,28 +690,37 @@ public class ViewRibbonTests
     });
 
     [Fact]
-    public void TheSynchronousScrollingCheckBox_IsATwoWayBinding() => Ui.Run(() =>
+    public void TheSwitchWorkspacesButton_ListsWorkspaces_AndPickingOneSwitchesToIt() => Ui.Run(() =>
     {
-        var app = new AppViewModel(new AppConfig(), []);
+        var w1 = new WorkspaceViewModel("Alpha");
+        w1.LoadNotes([new NoteViewModel()], null);
+        var w2 = new WorkspaceViewModel("Beta");
+        w2.LoadNotes([new NoteViewModel()], null);
+        var app = new AppViewModel(new AppConfig(), [w1, w2], currentIndex: 0);
         var theme = new ThemeService(Application.Current, () => true);
         var settings = Make(app, theme);
         try
         {
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
-            var box = (CheckBox)view.FindName("SynchronousScrollingCheckBox");
-            Assert.False(box.IsChecked);
+            var button = (Button)view.FindName("SwitchWorkspacesButton");
 
-            box.IsChecked = true;
+            RaiseClick(button);
             Ui.Settle();
 
-            Assert.True(settings.SynchronousScrollingOn);
+            var menu = view.SwitchWorkspacesMenu;
+            Assert.NotNull(menu);
+            var rows = MenuRows(menu);
+            Assert.Equal(["Alpha", "Beta"], rows.Select(RowText));
+            Assert.True(RowIsCurrent(rows[0]));
+
+            RaiseRowClick(rows[1]);
+            Ui.Settle();
+
+            Assert.Same(w2, app.CurrentWorkspace);
         }
         finally
         {
-            // It publishes to the shared Application.Resources (NoteColumnView reads it directly), which every
-            // UI test shares - leaving it on would leak into whichever test runs next.
-            settings.SynchronousScrollingOn = false;
             theme.Apply("dark");
         }
     });
@@ -682,16 +744,146 @@ public class ViewRibbonTests
             RaiseClick(button);
             Ui.Settle();
 
-            var menu = button.ContextMenu;
+            var menu = view.SwitchNotesMenu;
             Assert.NotNull(menu);
-            var items = menu.Items.Cast<MenuItem>().ToList();
-            Assert.Equal(["First", "Second"], items.Select(i => (string)i.Header));
-            Assert.True(items[0].IsChecked);
+            var rows = MenuRows(menu);
+            Assert.Equal(["First", "Second"], rows.Select(RowText));
+            Assert.True(RowIsCurrent(rows[0]));
 
-            items[1].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            RaiseRowClick(rows[1]);
             Ui.Settle();
 
             Assert.Same(second, app.CurrentWorkspace.FocusedNote);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void ClickingSwitchNotes_AgainWhileItsMenuIsOpen_ClosesItInsteadOfReopening() => Ui.Run(() =>
+    {
+        var workspace = new WorkspaceViewModel("W");
+        workspace.LoadNotes([new NoteViewModel()], null);
+        var app = new AppViewModel(new AppConfig(), [workspace]);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            var button = (Button)view.FindName("SwitchNotesButton");
+
+            RaiseClick(button);
+            Ui.Settle();
+            var firstMenu = view.SwitchNotesMenu;
+            Assert.NotNull(firstMenu);
+            Assert.True(firstMenu.IsOpen);
+
+            // The drop-down is a plain Popup, closed only by ViewRibbonView's own code (CloseIfOpen here, or
+            // OnWindowPreviewMouseDown for a click elsewhere) - never by any WPF menu-dismissal machinery - so
+            // this exercises the real production path directly, with no WPF-internal timing to simulate.
+            RaiseClick(button);
+            Ui.Settle();
+
+            Assert.False(firstMenu.IsOpen); // closed, not left open and hidden behind a freshly-opened second one
+            Assert.Null(view.SwitchNotesMenu); // and not tracked as still open, either
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void ClickingSwitchWorkspaces_AgainWhileItsMenuIsOpen_ClosesItInsteadOfReopening() => Ui.Run(() =>
+    {
+        var w1 = new WorkspaceViewModel("Alpha");
+        w1.LoadNotes([new NoteViewModel()], null);
+        var app = new AppViewModel(new AppConfig(), [w1], currentIndex: 0);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            var button = (Button)view.FindName("SwitchWorkspacesButton");
+
+            RaiseClick(button);
+            Ui.Settle();
+            var firstMenu = view.SwitchWorkspacesMenu;
+            Assert.NotNull(firstMenu);
+            Assert.True(firstMenu.IsOpen);
+
+            RaiseClick(button);
+            Ui.Settle();
+
+            Assert.False(firstMenu.IsOpen);
+            Assert.Null(view.SwitchWorkspacesMenu);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void ClickingElsewhere_ClosesAnOpenSwitchMenu() => Ui.Run(() =>
+    {
+        // The drop-down is a plain Popup with StaysOpen="True" (so a reclick on its own button can close it
+        // deterministically - see ClickingSwitchNotes_AgainWhileItsMenuIsOpen_ClosesItInsteadOfReopening), which
+        // means nothing closes it on an outside click automatically: ViewRibbonView reimplements that itself
+        // (OnWindowPreviewMouseDown), so this checks it actually does.
+        var workspace = new WorkspaceViewModel("W");
+        workspace.LoadNotes([new NoteViewModel()], null);
+        var app = new AppViewModel(new AppConfig(), [workspace]);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            var switchButton = (Button)view.FindName("SwitchNotesButton");
+            var elsewhere = (Button)view.FindName("ZoomInButton");
+
+            RaiseClick(switchButton);
+            Ui.Settle();
+            var menu = view.SwitchNotesMenu;
+            Assert.NotNull(menu);
+            Assert.True(menu.IsOpen);
+
+            elsewhere.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseDownEvent });
+            Ui.Settle();
+
+            Assert.False(menu.IsOpen);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void ASwitchMenu_KeepsTheRibbonUp_EvenWhenNotPinned() => Ui.Run(() =>
+    {
+        var workspace = new WorkspaceViewModel("W");
+        workspace.LoadNotes([new NoteViewModel()], null);
+        var app = new AppViewModel(new AppConfig(), [workspace]);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            bool? menuOpen = null;
+            view.MenuOpenChanged += () => menuOpen = view.IsMenuOpen;
+
+            RaiseClick((Button)view.FindName("SwitchWorkspacesButton"));
+            Ui.Settle();
+
+            Assert.True(view.IsMenuOpen);
+            Assert.True(menuOpen);
         }
         finally
         {
@@ -714,9 +906,9 @@ public class ViewRibbonTests
             string[] working =
             [
                 "ThemeButton",
-                "ReadModeButton", "DraftButton", "OutlineButton", "RulerButton", "GridlinesCheckBox", "NavigationPaneCheckBox",
+                "ReadModeButton", "DraftButton", "OutlineButton", "RulerCheckBox", "GridlinesCheckBox", "NavigationPaneCheckBox",
                 "ZoomInButton", "ZoomOutButton", "ZoomResetButton",
-                "OnePageButton", "SynchronousScrollingCheckBox", "SwitchNotesButton",
+                "OnePageButton", "SwitchWorkspacesButton", "SwitchNotesButton",
             ];
             foreach (var name in working) Assert.True(((Control)view.FindName(name)).IsEnabled, name);
         }
@@ -738,13 +930,19 @@ public class ViewRibbonTests
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
 
-            foreach (var name in new[] { "ReadModeButton", "ZoomInButton", "ZoomResetButton", "OnePageButton", "OutlineButton" })
+            foreach (var name in new[] { "ZoomInButton", "ZoomResetButton", "ThemeButton", "SwitchNotesButton", "SwitchWorkspacesButton" })
             {
                 var button = (Button)view.FindName(name);
                 var frame = Ui.Descendants<Border>(button).First(b => b.Name == "Frame");
                 Assert.True(((SolidColorBrush)frame.Background).Color == Colors.Transparent, $"{name} has a background at rest");
                 Assert.True(((SolidColorBrush)frame.BorderBrush).Color == Colors.Transparent, $"{name} has a border at rest");
             }
+
+            // OnePageButton is a ToggleButton (RibbonToggleTile), not a Button, but shares the same flat-until-hover Frame.
+            var onePage = (ToggleButton)view.FindName("OnePageButton");
+            var onePageFrame = Ui.Descendants<Border>(onePage).First(b => b.Name == "Frame");
+            Assert.True(((SolidColorBrush)onePageFrame.Background).Color == Colors.Transparent, "OnePageButton has a background at rest");
+            Assert.True(((SolidColorBrush)onePageFrame.BorderBrush).Color == Colors.Transparent, "OnePageButton has a border at rest");
         }
         finally
         {
@@ -753,21 +951,23 @@ public class ViewRibbonTests
     });
 
     [Fact]
-    public void TheReadModeButton_RaisesItsEvent() => Ui.Run(() =>
+    public void TheReadModeButton_TogglesTheFocusedNotesReadMode() => Ui.Run(() =>
     {
-        var app = new AppViewModel(new AppConfig(), []);
+        var (app, note) = FixtureWithNote();
         var theme = new ThemeService(Application.Current, () => true);
         var settings = Make(app, theme);
         try
         {
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
-            bool raised = false;
-            view.ReadModeRequested += () => raised = true;
+            var toggle = (ToggleButton)view.FindName("ReadModeButton");
+            Assert.False(toggle.IsChecked);
 
-            RaiseClick((Button)view.FindName("ReadModeButton"));
+            toggle.IsChecked = true;
+            Ui.Settle();
 
-            Assert.True(raised);
+            Assert.True(note.IsReadOnly);
+            Assert.True(note.IsFullscreen);
         }
         finally
         {
@@ -776,24 +976,28 @@ public class ViewRibbonTests
     });
 
     [Fact]
-    public void TheDraftAndOutlineButtons_RaiseTheirEvents() => Ui.Run(() =>
+    public void TheDraftAndOutlineButtons_AreMutuallyExclusive() => Ui.Run(() =>
     {
-        var app = new AppViewModel(new AppConfig(), []);
+        var (app, note) = FixtureWithNote();
         var theme = new ThemeService(Application.Current, () => true);
         var settings = Make(app, theme);
         try
         {
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
-            bool draft = false, outline = false;
-            view.DraftViewRequested += () => draft = true;
-            view.OutlineViewRequested += () => outline = true;
+            var draft = (ToggleButton)view.FindName("DraftButton");
+            var outline = (ToggleButton)view.FindName("OutlineButton");
 
-            RaiseClick((Button)view.FindName("DraftButton"));
-            RaiseClick((Button)view.FindName("OutlineButton"));
+            draft.IsChecked = true;
+            Ui.Settle();
+            Assert.True(note.HideImages);
 
-            Assert.True(draft);
-            Assert.True(outline);
+            outline.IsChecked = true;
+            Ui.Settle();
+
+            Assert.True(note.IsOutlineView);
+            Assert.False(note.HideImages); // entering Outline leaves Draft, they're views of the same note, not independent flags
+            Assert.False(draft.IsChecked);
         }
         finally
         {

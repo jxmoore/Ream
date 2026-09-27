@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Media;
@@ -26,6 +27,7 @@ public partial class NoteColumnView : UserControl, INearAware
     private bool _loadingDocument;
     private bool _hasContent;
     private bool _loadQueued;
+    private WorkspaceViewModel? _trackedWorkspace;
 
     // Outline view: the real document, stashed away while Editor.Document shows a generated summary instead.
     private FlowDocument? _liveDocument;
@@ -44,7 +46,6 @@ public partial class NoteColumnView : UserControl, INearAware
         Editor.GotKeyboardFocus += (_, _) => _note?.FocusCommand.Execute(null);
         Editor.PreviewMouseLeftButtonDown += OnEditorPreviewMouseDown;
         Editor.SelectionChanged += (_, _) => SyncIndentMarker();
-        Editor.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(OnEditorScrollChanged));
         DataObject.AddPastingHandler(Editor, OnPaste);
     }
 
@@ -65,6 +66,7 @@ public partial class NoteColumnView : UserControl, INearAware
 
         _liveDocument = null;
         _outlineMap = null;
+        UpdateVerticalRulerSide();
 
         if (!IsLoaded) return;
         Subscribe();
@@ -74,6 +76,7 @@ public partial class NoteColumnView : UserControl, INearAware
     private void OnLoaded()
     {
         Subscribe();
+        UpdateVerticalRulerSide();
         if (NoteRowPanel.GetIsNear(this)) EnsureLoaded();
     }
 
@@ -127,10 +130,18 @@ public partial class NoteColumnView : UserControl, INearAware
         _note.CaretMoveRequested += OnCaretMoveRequested;
         _note.PropertyChanged += OnNotePropertyChanged;
         _subscribed = true;
+
+        // The vertical ruler's side depends on this note's position among its siblings, so a note added, removed
+        // or reordered anywhere in the row can change it.
+        _trackedWorkspace = _note.Owner;
+        if (_trackedWorkspace is not null) _trackedWorkspace.Notes.CollectionChanged += OnWorkspaceNotesChanged;
     }
 
     private void Unsubscribe()
     {
+        if (_trackedWorkspace is not null) _trackedWorkspace.Notes.CollectionChanged -= OnWorkspaceNotesChanged;
+        _trackedWorkspace = null;
+
         if (_note is null || !_subscribed) return;
         _note.EditorFocusRequested -= OnEditorFocusRequested;
         _note.SizeToastRequested -= OnSizeToast;
@@ -138,6 +149,8 @@ public partial class NoteColumnView : UserControl, INearAware
         _note.PropertyChanged -= OnNotePropertyChanged;
         _subscribed = false;
     }
+
+    private void OnWorkspaceNotesChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdateVerticalRulerSide();
 
     private void OnNotePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -300,49 +313,6 @@ public partial class NoteColumnView : UserControl, INearAware
         if (_note is not null) _note.IsResizing = false;
     }
 
-    // ----- Window group's Synchronous Scrolling -----
-
-    // Guards against the propagated ScrollToVerticalOffset calls below bouncing back and forth between columns.
-    // One at a time only, which is fine: nothing else drives scrolling from a background thread.
-    private static bool _syncingScroll;
-
-    private void OnEditorScrollChanged(object sender, ScrollChangedEventArgs e)
-    {
-        if (_syncingScroll || Math.Abs(e.VerticalChange) < 0.01) return;
-        if (Application.Current.Resources[SettingsViewModel.SynchronousScrollingKey] is not true) return;
-        if (FindRow() is not { } row) return;
-
-        _syncingScroll = true;
-        try
-        {
-            double offset = Editor.VerticalOffset;
-            foreach (var sibling in SiblingColumns(row))
-                if (!ReferenceEquals(sibling, this)) sibling.Editor.ScrollToVerticalOffset(offset);
-        }
-        finally
-        {
-            _syncingScroll = false;
-        }
-    }
-
-    /// <summary>Every other loaded note column in the same row - only ones near enough to have parsed their note have a real editor to scroll.</summary>
-    private static IEnumerable<NoteColumnView> SiblingColumns(NoteRowPanel row)
-    {
-        foreach (var child in row.Children)
-            if (child is DependencyObject d && FindColumn(d) is { IsContentLoaded: true } view)
-                yield return view;
-    }
-
-    private static NoteColumnView? FindColumn(DependencyObject root)
-    {
-        if (root is NoteColumnView view) return view;
-
-        int count = VisualTreeHelper.GetChildrenCount(root);
-        for (int i = 0; i < count; i++)
-            if (FindColumn(VisualTreeHelper.GetChild(root, i)) is { } found) return found;
-        return null;
-    }
-
     // ----- Images -----
 
     private void OnPaste(object sender, DataObjectPastingEventArgs e)
@@ -493,44 +463,57 @@ public partial class NoteColumnView : UserControl, INearAware
         real.BringIntoView();
     }
 
-    // ----- Ruler -----
+    // ----- Ruler: horizontal above the card, vertical along whichever side has no neighbouring note -----
 
-    private void OnRulerSizeChanged(object sender, SizeChangedEventArgs e)
+    private void OnHorizontalRulerSizeChanged(object sender, SizeChangedEventArgs e)
     {
-        RedrawRulerTicks();
+        RedrawTicks(HorizontalRulerCanvas, horizontal: true);
         SyncIndentMarker();
     }
 
-    /// <summary>A tick every 20px, a longer labeled one every 100px - Ream has no physical page to put real units on, so these are just plain pixel marks.</summary>
-    private void RedrawRulerTicks()
+    private void OnVerticalRulerSizeChanged(object sender, SizeChangedEventArgs e) => RedrawTicks(VerticalRulerCanvas, horizontal: false);
+
+    /// <summary>A tick every 20px, a longer one every 100px - Ream has no physical page to put real units on, so these are just plain pixel marks. Only the (much wider) horizontal ruler has room to label its major ticks.</summary>
+    private void RedrawTicks(Canvas canvas, bool horizontal)
     {
-        for (int i = RulerCanvas.Children.Count - 1; i >= 0; i--)
+        object? keep = horizontal ? IndentMarker : null;
+        for (int i = canvas.Children.Count - 1; i >= 0; i--)
         {
-            if (!ReferenceEquals(RulerCanvas.Children[i], IndentMarker))
-                RulerCanvas.Children.RemoveAt(i);
+            if (!ReferenceEquals(canvas.Children[i], keep))
+                canvas.Children.RemoveAt(i);
         }
 
-        double width = RulerCanvas.ActualWidth;
-        for (double x = 0; x <= width; x += 20)
+        double length = horizontal ? canvas.ActualWidth : canvas.ActualHeight;
+        for (double d = 0; d <= length; d += 20)
         {
-            bool major = Math.Abs(x % 100) < 0.5;
-            var line = new Line { X1 = x, X2 = x, Y1 = major ? 0 : 9, Y2 = 20, StrokeThickness = 1 };
-            line.SetResourceReference(Shape.StrokeProperty, "MutedTextBrush");
-            RulerCanvas.Children.Insert(0, line);
-
-            if (major && x > 0)
+            bool major = Math.Abs(d % 100) < 0.5;
+            var line = new Line { StrokeThickness = 1 };
+            if (horizontal)
             {
-                var label = new TextBlock { Text = ((int)x).ToString(), FontSize = 9 };
+                line.X1 = d; line.X2 = d;
+                line.Y1 = major ? 0 : 9; line.Y2 = 20;
+            }
+            else
+            {
+                line.Y1 = d; line.Y2 = d;
+                line.X1 = major ? 0 : 9; line.X2 = 20;
+            }
+            line.SetResourceReference(Shape.StrokeProperty, "MutedTextBrush");
+            canvas.Children.Insert(0, line);
+
+            if (horizontal && major && d > 0)
+            {
+                var label = new TextBlock { Text = ((int)d).ToString(), FontSize = 9 };
                 label.SetResourceReference(TextBlock.ForegroundProperty, "MutedTextBrush");
-                Canvas.SetLeft(label, x + 2);
-                RulerCanvas.Children.Insert(0, label);
+                Canvas.SetLeft(label, d + 2);
+                canvas.Children.Insert(0, label);
             }
         }
     }
 
     private void OnIndentMarkerDrag(object sender, DragDeltaEventArgs e)
     {
-        double max = Math.Max(0, RulerCanvas.ActualWidth - IndentMarker.Width);
+        double max = Math.Max(0, HorizontalRulerCanvas.ActualWidth - IndentMarker.Width);
         Canvas.SetLeft(IndentMarker, Math.Clamp(Canvas.GetLeft(IndentMarker) + e.HorizontalChange, 0, max));
     }
 
@@ -553,8 +536,21 @@ public partial class NoteColumnView : UserControl, INearAware
         if (_note?.ShowRuler != true || !_hasContent) return;
 
         double left = SelectionParagraphs.Of(Editor) is [{ } first, ..] ? first.Margin.Left : 0;
-        double max = Math.Max(0, RulerCanvas.ActualWidth - IndentMarker.Width);
+        double max = Math.Max(0, HorizontalRulerCanvas.ActualWidth - IndentMarker.Width);
         Canvas.SetLeft(IndentMarker, Math.Clamp(left, 0, max));
+    }
+
+    /// <summary>
+    /// The vertical ruler goes on whichever side has no neighbouring note - the first note in the row takes the
+    /// left (nothing to its left), the last takes the right, and a middle note (or the only note) defaults left.
+    /// </summary>
+    private void UpdateVerticalRulerSide()
+    {
+        bool onRight = _note?.Owner is { } workspace && workspace.Notes.IndexOf(_note) is var index && index >= 0
+            && index == workspace.Notes.Count - 1 && index != 0;
+
+        Grid.SetColumn(VerticalRulerHost, onRight ? 2 : 0);
+        VerticalRulerHost.Margin = onRight ? new Thickness(4, 0, 0, 0) : new Thickness(0, 0, 4, 0);
     }
 
     /// <summary>Keeps pictures no wider than the column; the saved size is untouched.</summary>

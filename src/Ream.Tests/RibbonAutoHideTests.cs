@@ -494,6 +494,26 @@ public class RibbonAutoHideTests
         Assert.True(fx.Window.IsRibbonOpen);
     });
 
+    [Fact]
+    public void AnOpenViewTabMenu_KeepsThePanelUp_EvenUnpinned() => Ui.Run(() =>
+    {
+        // Previously only Home's own menus (font/size boxes, color menus) were watched, so an unpinned ribbon
+        // could vanish out from under an open View-tab menu the moment the pointer left it.
+        using var fx = Fixture(autoHide: true);
+        fx.Window.SelectTab(RibbonTab.View);
+        var view = (ViewRibbonView)fx.Window.FindName("ViewRibbon");
+        Mouse(TabRow(fx), enter: true);
+        Ui.Settle();
+
+        Click((Button)view.FindName("SwitchNotesButton"));
+        Ui.Settle();
+        Assert.True(view.IsMenuOpen);
+        Mouse(TabRow(fx), enter: false);
+        fx.Window.CompleteRibbonHide();
+
+        Assert.True(fx.Window.IsRibbonOpen);
+    });
+
     // ----- Live config -----
 
     [Fact]

@@ -251,17 +251,24 @@ public class ViewModeCommandTests
     }
 
     [Fact]
-    public void ToggleOnePage_FullscreensTheFocusedNote_AndClearsItOnASecondClick()
+    public void ToggleOnePage_HidesEveryOtherNote_AndRestoresThemOnASecondClick()
     {
-        var (app, note) = Fixture();
+        var workspace = new WorkspaceViewModel("W");
+        var first = new NoteViewModel();
+        var second = new NoteViewModel();
+        workspace.LoadNotes([first, second], first.Id);
+        var app = new AppViewModel(new AppConfig(), [workspace]);
 
         app.ToggleOnePageCommand.Execute(null);
         Assert.True(app.OnePageMode);
-        Assert.True(note.IsFullscreen);
+        Assert.False(first.IsHiddenByOnePage); // the focused one keeps its own size, it's not hidden
+        Assert.True(second.IsHiddenByOnePage);
+        Assert.False(first.IsFullscreen); // unlike Read Mode, One Page never enlarges the note that stays
 
         app.ToggleOnePageCommand.Execute(null);
         Assert.False(app.OnePageMode);
-        Assert.False(note.IsFullscreen);
+        Assert.False(first.IsHiddenByOnePage);
+        Assert.False(second.IsHiddenByOnePage);
     }
 
     [Fact]
@@ -273,31 +280,60 @@ public class ViewModeCommandTests
         workspace.LoadNotes([first, second], first.Id);
         var app = new AppViewModel(new AppConfig(), [workspace]);
         app.ToggleOnePageCommand.Execute(null);
-        Assert.True(first.IsFullscreen);
+        Assert.False(first.IsHiddenByOnePage);
+        Assert.True(second.IsHiddenByOnePage);
 
         app.FocusNoteBy(1);
 
-        Assert.False(first.IsFullscreen);
-        Assert.True(second.IsFullscreen);
+        Assert.True(first.IsHiddenByOnePage);
+        Assert.False(second.IsHiddenByOnePage);
     }
 
     [Fact]
     public void OnePage_FollowsAWorkspaceSwitchToo()
     {
         var w1 = new WorkspaceViewModel("Alpha");
-        var noteA = new NoteViewModel();
-        w1.LoadNotes([noteA], null);
+        var noteA1 = new NoteViewModel();
+        var noteA2 = new NoteViewModel();
+        w1.LoadNotes([noteA1, noteA2], noteA1.Id);
         var w2 = new WorkspaceViewModel("Beta");
         var noteB = new NoteViewModel();
         w2.LoadNotes([noteB], null);
         var app = new AppViewModel(new AppConfig(), [w1, w2], currentIndex: 0);
         app.ToggleOnePageCommand.Execute(null);
-        Assert.True(noteA.IsFullscreen);
+        Assert.False(noteA1.IsHiddenByOnePage);
+        Assert.True(noteA2.IsHiddenByOnePage);
 
         app.SwitchWorkspace(1);
 
-        Assert.False(noteA.IsFullscreen);
-        Assert.True(noteB.IsFullscreen);
+        // Leaving a workspace restores everything in it - it isn't shown either way, so nothing should still
+        // look narrowed down to one note if you scroll back to it without One Page being asked for there again.
+        Assert.False(noteA2.IsHiddenByOnePage);
+        Assert.False(noteB.IsHiddenByOnePage);
+    }
+
+    [Fact]
+    public void TheThreeViewModes_AreMutuallyExclusive()
+    {
+        var (app, note) = Fixture();
+
+        app.ToggleReadModeCommand.Execute(null);
+        Assert.True(note.IsReadOnly);
+
+        app.ToggleDraftViewCommand.Execute(null);
+        Assert.True(note.HideImages);
+        Assert.False(note.IsReadOnly);
+        Assert.False(note.IsOutlineView);
+
+        app.ToggleOutlineViewCommand.Execute(null);
+        Assert.True(note.IsOutlineView);
+        Assert.False(note.HideImages);
+        Assert.False(note.IsReadOnly);
+
+        app.ToggleReadModeCommand.Execute(null);
+        Assert.True(note.IsReadOnly);
+        Assert.False(note.IsOutlineView);
+        Assert.False(note.HideImages);
     }
 }
 

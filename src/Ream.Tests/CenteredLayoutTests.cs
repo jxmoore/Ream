@@ -139,11 +139,11 @@ public class CenteredLayoutTests
         using var fx = new WindowFixture(Instant, ("W", 1));
         var view = fx.ColumnOf(fx.App.CurrentWorkspace.Notes[0]);
 
-        var grid = Ui.Descendants<Grid>(view).First(g => g.RowDefinitions.Count > 0);
-
-        // Header, the Ruler row (collapsed unless NoteViewModel.ShowRuler), and the editor - never a fixed-height strip.
-        Assert.Equal(3, grid.RowDefinitions.Count);
-        Assert.DoesNotContain(grid.RowDefinitions, r => r.Height.IsAbsolute && r.Height.Value == 4);
+        // The outer grid (the Ruler row, collapsed unless NoteViewModel.ShowRuler, plus the card row) and the card's
+        // own inner grid (header, editor) - never a fixed-height strip in either.
+        var grids = Ui.Descendants<Grid>(view).Where(g => g.RowDefinitions.Count > 0).ToList();
+        Assert.NotEmpty(grids);
+        Assert.All(grids, g => Assert.DoesNotContain(g.RowDefinitions, r => r.Height.IsAbsolute && r.Height.Value == 4));
     });
 }
 
