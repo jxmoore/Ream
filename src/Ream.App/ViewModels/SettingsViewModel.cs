@@ -57,6 +57,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     private int? _pendingZoom;
     private double? _pendingGapPx;
     private bool? _pendingCenterFocusedColumn;
+    private bool? _pendingRibbonPinned;
 
     /// <param name="store">Where changes are saved; null keeps them for this run only.</param>
     /// <param name="dispatcher">Runs the delayed save on the UI thread; null runs it on a pool thread.</param>
@@ -362,6 +363,29 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         _save.Trigger();
     }
 
+    /// <summary>Called by MainWindow's own pin button (not bound from XAML - the ribbon's pin state lives in
+    /// MainWindow's RibbonVisibility, not here) so the choice survives a restart, the same "update in memory, save
+    /// shortly after" shape every other setting here already uses.</summary>
+    internal void SetRibbonPinned(bool pinned)
+    {
+        if (_syncing) return;
+
+        var next = _app.Config.WithRibbon(pinned: pinned);
+
+        _syncing = true;
+        try
+        {
+            _app.Config = next;
+        }
+        finally
+        {
+            _syncing = false;
+        }
+
+        _pendingRibbonPinned = pinned;
+        _save.Trigger();
+    }
+
     /// <summary>Follows the config when it changes elsewhere (the file was edited by hand and reloaded).</summary>
     private void Sync()
     {
@@ -401,13 +425,16 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
         int? zoom = _pendingZoom;
         double? gapPx = _pendingGapPx;
         bool? centerFocusedColumn = _pendingCenterFocusedColumn;
+        bool? ribbonPinned = _pendingRibbonPinned;
         _pendingTheme = null;
         _pendingOpacity = null;
         _pendingNoteOpacity = null;
         _pendingZoom = null;
         _pendingGapPx = null;
         _pendingCenterFocusedColumn = null;
-        if (_store is null || (theme is null && opacity is null && noteOpacity is null && zoom is null && gapPx is null && centerFocusedColumn is null))
+        _pendingRibbonPinned = null;
+        if (_store is null || (theme is null && opacity is null && noteOpacity is null && zoom is null
+            && gapPx is null && centerFocusedColumn is null && ribbonPinned is null))
             return;
 
         bool saved = _store.Update(root =>
@@ -426,6 +453,16 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
                 }
                 if (gapPx is not null) layout["gapPx"] = gapPx.Value;
                 if (centerFocusedColumn is not null) layout["centerFocusedColumn"] = centerFocusedColumn.Value;
+            }
+            if (ribbonPinned is not null)
+            {
+                var ribbon = root["ribbon"] as JsonObject;
+                if (ribbon is null)
+                {
+                    ribbon = new JsonObject();
+                    root["ribbon"] = ribbon;
+                }
+                ribbon["pinned"] = ribbonPinned.Value;
             }
         }, out var error);
 

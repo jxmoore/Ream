@@ -130,6 +130,32 @@ public sealed class AppConfig
         Keybindings = Keybindings,
     };
 
+    /// <summary>A copy with a Ribbon field changed (only <paramref name="pinned"/> is settable live right now, by the
+    /// pin button; <paramref name="autoHide"/> exists for completeness but nothing writes it - it's still a
+    /// hand-edit-config.json-only setting); everything else is carried over.</summary>
+    public AppConfig WithRibbon(bool? autoHide = null, bool? pinned = null) => new()
+    {
+        SchemaVersion = SchemaVersion,
+        DocumentsRoot = DocumentsRoot,
+        AutoSave = AutoSave,
+        TutorialOnNew = TutorialOnNew,
+        LastReam = LastReam,
+        Theme = Theme,
+        CanvasOpacity = CanvasOpacity,
+        NoteOpacity = NoteOpacity,
+        Zoom = Zoom,
+        RecentReams = RecentReams,
+        CanvasBlur = CanvasBlur,
+        Layout = Layout,
+        Ribbon = new RibbonConfig
+        {
+            AutoHide = autoHide ?? Ribbon.AutoHide,
+            Pinned = pinned ?? Ribbon.Pinned,
+        },
+        Animations = Animations,
+        Keybindings = Keybindings,
+    };
+
     public static Dictionary<string, string> DefaultKeybindings() => new()
     {
         ["focusPrevNote"] = "Alt+Left",
@@ -182,6 +208,10 @@ public sealed class RibbonConfig
     /// clicked (which pins it open). Off keeps the panel docked above the notes.
     /// </summary>
     public bool AutoHide { get; init; } = true;
+
+    /// <summary>Whether the pin button was on last time - restored at launch so a pinned ribbon stays pinned.
+    /// Meaningless with <see cref="AutoHide"/> off; <c>Ream.Core.Layout.RibbonVisibility</c> keeps that invariant.</summary>
+    public bool Pinned { get; init; }
 }
 
 public sealed class AnimationConfig

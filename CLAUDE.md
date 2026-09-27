@@ -48,15 +48,19 @@ never stack; tests read the rendered pixels (`Ui.Render`/`Ui.PixelAt`) to check 
 Blur behind is separate (`canvasBlur`, and never asked for at 0% - a blurred desktop is something of Ream): `WindowBackdrop` (behind `IWindowBackdrop`) asks Windows for it via
 `SetWindowCompositionAttribute`; `BlurPlan` is unit-tested, the real effect is not visible off-screen.
 Help/About are still ordinary native windows.
-Ribbon: the tab row is File | Home | View (`MainWindow.SelectTab`, `RibbonTab`); each tab swaps the panel below it:
-`FileRibbonView` (New / Open / Save / Save As, an Add group with New Note / New Workspace (moved here from the View
-tab's Window group - bound straight to `AppViewModel.NewNoteCommand`/`NewWorkspaceCommand`, no event-relay needed
-since this tab's DataContext already is the `AppViewModel`), Recent, the Auto-save switch, Clear, and Help/About
-raised as events; tooltips show the live gestures; there is no workspace list - workspaces are switched by keys and
-the wheel). Recent (like Word's Backstage
-Open > Recent) is `AppConfig.RecentReams` - the last `RecentReamsLimit` reams opened, saved or created, newest first, deduplicated case-insensitively and maintained by `ReamManager.RecordLastReam`; its button lists everything there except whichever ream is open right now (reopening that would be a
-no-op) and disables itself, with an explanatory tooltip, when there is nothing else to show. Clicking an entry runs `AppViewModel.OpenRecentReamCommand`, which is `IReamFiles.OpenReam(path)` - the same open-a-specific-ream path `ReamLauncher`/`ReamManager.OpenReam()` already used, just reachable
-with a path in hand instead of a file-picker round trip. `RibbonView` (Home, the
+Ribbon: the tab row is File | Home | View (`MainWindow.SelectTab`, `RibbonTab`); each tab
+swaps the panel below it: `FileRibbonView` has two groups for the ream itself - **Ream** (New, a full-size tile;
+Auto-save right beside it, a tile again but a visibly smaller one than New's - "maybe it should be smaller?"; then
+Open/Save/Save As stacked as a small icon+text row past that, reached far less often than New) and **Add** (New Note
+/ New Workspace, moved here from the View tab's Window group, plus Clear, moved in from its own group - still a
+"change what exists" action, just a subtractive one - all three now their own stacked column too, the same small
+icon+text row style as Open/Save/Save As, rather than three full-size tiles of their own; all bound straight to
+`AppViewModel.NewNoteCommand`/`NewWorkspaceCommand`/`ClearReamCommand`, no event-relay needed since this tab's
+DataContext already is the `AppViewModel`) - then **Help** (Help/About, raised as events). There is no Recent group
+any more (nor a workspace list - workspaces are switched by keys and the wheel) - what it was for wasn't obvious at
+a glance, so it's gone; `AppConfig.RecentReams` and `AppViewModel.OpenRecentReamCommand` underneath it are untouched,
+just not reachable from this ribbon right now.
+`RibbonView` (Home, the
 editor controls) and `ViewRibbonView` (DataContext is the `SettingsViewModel`), in this order, left to right: **Theme**,
 **Zoom**, **View**, **Window**, **Show** - not Word's own order, and not alphabetical; just the arrangement asked
 for (moved once already, from an initial View/Window/Show/Zoom/Theme). Word's Page Movement group (Ream's row is always horizontal, its workspace stack always vertical) and, inside
@@ -196,12 +200,12 @@ MainWindow's job, ownership and the test-interceptable `ShowModal` hook live the
 `ThemeModal` (`Views/ThemeModal.xaml`, styled like Help/About with `ModalWindowStyle`), which holds what used to be
 three separate ribbon groups (Layout, Theme, Opacity) on the exact same `SettingsViewModel` those groups already
 edited - moving them didn't change what they bind to, only where they live, and down to two sections now, not three:
-**Layout & Opacity** is combined into one, two columns (a `Grid` with two `*` columns and a narrow fixed gutter) -
-opacity (Canvas then Notes, stacked) on the left, Gap on the right, both columns' own label column the same fixed
-width (52) and the Gap column `VerticalAlignment="Top"` (it otherwise stretches to the opacity column's full
-two-row height and centers within it, landing visibly below-and-right of where Canvas's own box starts) - so Gap's
-box lines up with Canvas's, not merely "somewhere in the right column" - with the "Center the focused note" checkbox
-below both columns, spanning the full width. **Theme** is a grid, not a long list - `ThemeList`'s `ItemsPanel` is a
+**Layout & Opacity** is combined into one, two columns (a `Grid` with two `*` columns and a narrow fixed gutter),
+each now two rows deep to match the other: opacity (Canvas then Notes) on the left; Gap then "Center the focused
+note" on the right, the checkbox in a `Height="26"` `Grid` (`VerticalAlignment="Center"` inside it) so its own
+shorter content still lands centered on Notes's row despite a `CheckBox` naturally being shorter than a `ComboBox`.
+Both columns' own label column is the same fixed width (52), so Gap's box lines up under Canvas's, not merely
+"somewhere in the right column". **Theme** is a grid, not a long list - `ThemeList`'s `ItemsPanel` is a
 `WrapPanel`, each entry a fixed-`Width` `RadioButton` with a wide right `Margin` (the gap between columns) so two fit
 per row instead of one down a mostly-empty modal - `Checked` calls `SelectThemeCommand` straight away, no separate
 "apply" step. Gap and both opacities are genuinely editable - pick a preset or type any in-range number - which
@@ -241,6 +245,13 @@ summoned and back to 0 when put away, so it pushes the notes down rather than co
 pure state: pointer, open menu, pin; the window adds a 400 ms hide delay). Clicking a tab holds it open (`Engaged`) until a click
 elsewhere or Escape (`MainWindow.DismissRibbon`); the pin button (`PinButton`, bottom right of the panel) keeps it open until
 clicked again; like Word's it is a pin while unpinned and a caret up once pinned. autoHide off leaves the panel up always (and hides the pin).
+`ribbon.pinned` (default false) remembers whether it was on, restored at launch and after a live reload
+(`MainWindow.ApplyRibbonMode` calls `RibbonVisibility.RestorePinned`, gated by `AutoHide` the same way `TogglePin`
+is - a restored pin means as little as a clicked one with auto-hide off). Unlike `autoHide` (still a hand-edit-
+config.json-only setting - nothing in the app writes it), clicking the pin button does write `pinned`: `MainWindow.
+OnPinClick` calls `SettingsViewModel.SetRibbonPinned`, the same "update `AppViewModel.Config` at once, save shortly
+after through `AppConfigStore`" shape every other live setting here already uses, even though the pin's own on/off
+*state* (`RibbonVisibility`) lives in `MainWindow`, not `SettingsViewModel` - only the persisted *value* goes through it.
 Watch `ComboBox.IsDropDownOpen` itself, not DropDownOpened/Closed (Closed can arrive before the property flips).
 `SettingsViewModel` applies theme and both opacities live and saves them (debounced) via
 `AppConfigStore.Update`, which patches only the given keys and refuses to rewrite a file with
@@ -327,8 +338,8 @@ named or has a saveable note (blank drafts are not); a ream with no workspaces i
 - Reams live wherever the user puts them (New / Save As pick the place). With no last ream, a fresh one is made at
   `%USERPROFILE%\Documents\Ream\My Ream.ream`. `config.json` remembers `lastReam`; `documentsRoot` is legacy, read once to find an
   old folder to convert.
-- `%AppData%\Ream\config.json` — gaps, centered focus, animations, keybindings, autoSave, tutorialOnNew, lastReam.
-  Kept separate from the reams. Unreadable JSON is set aside as `*.corrupt-<timestamp>`
+- `%AppData%\Ream\config.json` — gaps, centered focus, animations, keybindings, autoSave, tutorialOnNew, lastReam,
+  the ribbon pin. Kept separate from the reams. Unreadable JSON is set aside as `*.corrupt-<timestamp>`
   and defaults are used; bad/duplicate keybindings fall back to defaults.
 - `--home <dir>` on the command line puts config and reams (`<dir>\Reams`) under one folder. Use it
   (with a temp dir) when running the app for testing so real data is never touched.

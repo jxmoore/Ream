@@ -110,11 +110,9 @@ public class RibbonTabTests
 
         Assert.Null(view.FindName("WorkspaceList"));
         Assert.Equal(
-            ["NewButton", "OpenButton", "SaveButton", "SaveAsButton", "NewNoteButton", "NewWorkspaceButton", "RecentButton", "ClearButton", "HelpButton", "AboutButton"],
+            ["NewButton", "OpenButton", "SaveButton", "SaveAsButton", "NewNoteButton", "NewWorkspaceButton", "ClearButton", "HelpButton", "AboutButton"],
             Ui.Descendants<Button>(view).Select(b => b.Name));
-        // RecentButton is disabled here on purpose: this fixture's config has no Recent list yet, and it says so in its own tooltip.
-        Assert.All(Ui.Descendants<Button>(view).Where(b => b.Name != "RecentButton"), b => Assert.True(b.IsEnabled, b.Name));
-        Assert.False(((Button)view.FindName("RecentButton")).IsEnabled);
+        Assert.All(Ui.Descendants<Button>(view), b => Assert.True(b.IsEnabled, b.Name));
         Assert.IsType<ToggleButton>(view.FindName("AutoSaveToggle"));
     });
 

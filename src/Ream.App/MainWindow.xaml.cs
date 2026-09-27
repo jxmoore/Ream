@@ -194,6 +194,7 @@ public partial class MainWindow : Window
     {
         _ribbonState.TogglePin();
         PinButton.IsChecked = _ribbonState.Pinned;
+        Settings.SetRibbonPinned(_ribbonState.Pinned);
         UpdateRibbon();
     }
 
@@ -249,10 +250,13 @@ public partial class MainWindow : Window
         UpdateRibbon();
     }
 
-    /// <summary>Puts the panel away until it is wanted (auto-hide on) or leaves it up for good (off).</summary>
+    /// <summary>Puts the panel away until it is wanted (auto-hide on) or leaves it up for good (off). Also restores
+    /// the pin from config (startup, and any later reload) - AutoHide is set first, since a restored pin is no more
+    /// meaningful than a clicked one with auto-hide off.</summary>
     internal void ApplyRibbonMode(bool autoHide)
     {
         _ribbonState.AutoHide = autoHide;
+        _ribbonState.RestorePinned(_viewModel.Config.Ribbon.Pinned);
         PinButton.IsChecked = _ribbonState.Pinned;
         PinButton.Visibility = autoHide ? Visibility.Visible : Visibility.Collapsed;
 

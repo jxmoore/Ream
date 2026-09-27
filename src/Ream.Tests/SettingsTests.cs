@@ -275,6 +275,22 @@ public class SettingsViewModelTests
         Assert.Equal(false, (bool?)saved["layout"]!["centerFocusedColumn"]);
     });
 
+    /// <summary>SetRibbonPinned isn't bound from XAML (MainWindow's pin button calls it directly - the pin itself
+    /// lives in RibbonVisibility, not SettingsViewModel), but it goes through the exact same "update in memory, save
+    /// shortly after" path as everything the View tab does edit.</summary>
+    [Fact]
+    public void SetRibbonPinned_ChangesTheRibbonConfig_AndPersistsIt() => Ui.Run(() =>
+    {
+        using var rig = new Rig(new AppConfig { Ribbon = new RibbonConfig { AutoHide = true, Pinned = false } });
+
+        rig.Settings.SetRibbonPinned(true);
+        rig.Settings.Flush();
+
+        Assert.True(rig.App.Config.Ribbon.Pinned);
+        Assert.True(rig.App.Config.Ribbon.AutoHide); // untouched
+        Assert.Equal(true, (bool?)rig.Saved["ribbon"]!["pinned"]);
+    });
+
     [Fact]
     public void LayoutChanges_DoNotDisturbOtherLayoutKeysAlreadyInTheFile() => Ui.Run(() =>
     {

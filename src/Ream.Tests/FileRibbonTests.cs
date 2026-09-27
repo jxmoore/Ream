@@ -270,6 +270,11 @@ public class FileRibbonTests
         Assert.Contains("Ctrl + Alt + J", (string)Named<Button>(view, "SaveButton").ToolTip);
     });
 
+    // Open/Save/Save As, Auto-save, and New Note/New Workspace/Clear are all small stacked rows/tiles now, not
+    // full-size tiles - excluded from the >=50px check below, which is about the big tiles (New, Help, About).
+    private static readonly string[] SmallStackedControls =
+        ["OpenButton", "SaveButton", "SaveAsButton", "AutoSaveToggle", "NewNoteButton", "NewWorkspaceButton", "ClearButton"];
+
     [Fact]
     public void ThePanel_FitsEveryTile_WithoutScrolling_AndWithoutClipping() => Ui.Run(() =>
     {
@@ -280,15 +285,15 @@ public class FileRibbonTests
         Assert.True(view.ActualWidth <= 1150, $"the File ribbon is {view.ActualWidth:0} px wide");
         Assert.True(view.ActualHeight <= panel.ActualHeight, $"{view.ActualHeight:0} px of ribbon in a {panel.ActualHeight:0} px panel");
 
-        foreach (var button in Ui.Descendants<ButtonBase>(view))
+        foreach (var button in Ui.Descendants<ButtonBase>(view).Where(b => !SmallStackedControls.Contains(b.Name)))
         {
             var bottom = button.TranslatePoint(new Point(0, button.ActualHeight), panel).Y;
             Assert.True(bottom <= panel.ActualHeight, $"{button.Name} ends at {bottom:0} in a {panel.ActualHeight:0} px panel");
             Assert.True(button.ActualHeight >= 50, $"{button.Name} is only {button.ActualHeight:0} px tall");
         }
 
-        var group = Ui.Descendants<TextBlock>(view).Where(t => t.Text is "Ream" or "Add" or "Recent" or "Saving" or "Tidy up" or "Help").Where(t => Ui.Ancestor<ButtonBase>(t) is null).ToList();
-        Assert.Equal(6, group.Count);
+        var group = Ui.Descendants<TextBlock>(view).Where(t => t.Text is "Ream" or "Add" or "Help").Where(t => Ui.Ancestor<ButtonBase>(t) is null).ToList();
+        Assert.Equal(3, group.Count);
         Assert.All(group, label => Assert.True(label.TranslatePoint(new Point(0, label.ActualHeight), panel).Y <= panel.ActualHeight, label.Text));
     });
 
@@ -306,33 +311,8 @@ public class FileRibbonTests
         if (fx.Window.ActualWidth >= 1200) Assert.Equal(0, scroll.ScrollableWidth);
     });
 
-    [Fact]
-    public void RecentButton_IsDisabled_WithNoOtherReamsYet() => Ui.Run(() =>
-    {
-        using var fx = Docked();
-        var view = FileRibbon(fx);
-        var button = Named<Button>(view, "RecentButton");
-
-        Assert.False(button.IsEnabled);
-        Assert.Equal("No other reams yet", button.ToolTip);
-        Assert.Empty(view.OtherRecentReams());
-    });
-
-    [Fact]
-    public void RecentButton_IsEnabled_AndExcludesTheOpenReam_WhenThereAreOthers() => Ui.Run(() =>
-    {
-        using var fx = Docked();
-        var view = FileRibbon(fx);
-
-        fx.App.Config = fx.App.Config.WithLastReam(@"C:\Reams\Current.ream")
-            .WithRecentReams([@"C:\Reams\Current.ream", @"C:\Reams\Older.ream", @"C:\Reams\Oldest.ream"]);
-
-        var button = Named<Button>(view, "RecentButton");
-        Assert.True(button.IsEnabled);
-        Assert.Equal("Reams opened, saved or created recently", button.ToolTip);
-        Assert.Equal([@"C:\Reams\Older.ream", @"C:\Reams\Oldest.ream"], view.OtherRecentReams());
-    });
-
+    /// <summary>The Recent button is gone from the ribbon (its purpose wasn't clear at a glance), but the command
+    /// and the config's own recent-reams list underneath it are untouched.</summary>
     [Fact]
     public void OpenRecentReamCommand_AsksTheManagerToOpenThatPath() => Ui.Run(() =>
     {

@@ -13,8 +13,9 @@
     -->
     <StackPanel Margin="20,16,20,18">
 
-        <!-- Layout and Opacity share one section: opacity (Canvas/Notes) on the left, Gap on the right, Center the
-             focused note below both columns - not three separate blocks the way this used to be laid out. -->
+        <!-- Layout and Opacity share one section: opacity (Canvas/Notes) on the left, Gap and Center the focused note
+             on the right - two rows in each column, so "Center the focused note" sits under Gap the same way Notes
+             sits under Canvas, rather than spanning below both. -->
         <TextBlock Text="Layout &amp; Opacity" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10"/>
         <Grid Margin="2,0,0,0">
             <Grid.ColumnDefinitions>
@@ -52,24 +53,29 @@
                 </Grid>
             </StackPanel>
 
-            <Grid Grid.Column="2" VerticalAlignment="Top">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="52"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="Gap" VerticalAlignment="Center" Foreground="{DynamicResource ToolbarMutedBrush}"/>
-                <ComboBox x:Name="GapBox" Grid.Column="1" Width="80" Height="26"
-                          IsEditable="True" PreviewKeyDown="OnNumberBoxKeyDown"
-                          Text="{Binding GapPx, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0}}"
-                          ToolTip="Space between notes, and around the row (8-60px)"/>
-                <TextBlock Grid.Column="2" Text="px" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource ToolbarMutedBrush}"/>
-            </Grid>
+            <StackPanel Grid.Column="2">
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="52"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Gap" VerticalAlignment="Center" Foreground="{DynamicResource ToolbarMutedBrush}"/>
+                    <ComboBox x:Name="GapBox" Grid.Column="1" Width="80" Height="26"
+                              IsEditable="True" PreviewKeyDown="OnNumberBoxKeyDown"
+                              Text="{Binding GapPx, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0}}"
+                              ToolTip="Space between notes, and around the row (8-60px)"/>
+                    <TextBlock Grid.Column="2" Text="px" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource ToolbarMutedBrush}"/>
+                </Grid>
+                <!-- Height="26" to match the Notes ComboBox it sits under, so the two rows' centers line up even
+                     though a CheckBox's own content is shorter than a ComboBox. -->
+                <Grid Height="26">
+                    <CheckBox x:Name="CenterFocusedCheckBox" Content="Center the focused note" VerticalAlignment="Center"
+                              IsChecked="{Binding CenterFocusedColumn, Mode=TwoWay}"
+                              ToolTip="Keep the note you're working in centered in the row as you move between notes"/>
+                </Grid>
+            </StackPanel>
         </Grid>
-
-        <CheckBox x:Name="CenterFocusedCheckBox" Content="Center the focused note" Margin="2,14,0,0"
-                  IsChecked="{Binding CenterFocusedColumn, Mode=TwoWay}"
-                  ToolTip="Keep the note you're working in centered in the row as you move between notes"/>
 
         <Rectangle Height="1" Fill="{DynamicResource ControlBorderBrush}" Margin="0,16"/>
 

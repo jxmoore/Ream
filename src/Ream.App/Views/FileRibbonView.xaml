@@ -6,28 +6,32 @@
             <Setter Property="Orientation" Value="Horizontal"/>
             <Setter Property="MinHeight" Value="60"/>
         </Style>
-        <!-- The auto-save switch: a ribbon tile that stays down while on. -->
-        <Style x:Key="ToggleTile" TargetType="ToggleButton" BasedOn="{StaticResource {x:Type ToggleButton}}">
-            <Setter Property="Focusable" Value="False"/>
-            <Setter Property="MinWidth" Value="64"/>
-            <Setter Property="Padding" Value="10,6"/>
-            <Setter Property="Margin" Value="3,1"/>
+        <!-- Open / Save / Save As: a small icon+text row, stacked to New's right instead of standing as their own
+             full-size tiles - the same rhythm ViewRibbonView's Switch Workspaces/Switch Notes use, resized into a
+             row instead of a tile. Based on RibbonTile so it inherits the same flat (no frame until hovered)
+             behaviour. Three of these (57px) is as many as fit a group's own 60px content band - a fourth row for
+             Auto-save wouldn't, so that one is a smaller tile instead (below), not a fourth row here. -->
+        <Style x:Key="StackedRow" TargetType="Button" BasedOn="{StaticResource RibbonTile}">
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Height" Value="19"/>
+            <Setter Property="Margin" Value="2,0.5"/>
+            <Setter Property="Padding" Value="6,0"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
         </Style>
-        <Style x:Key="DropArrow" TargetType="Path">
-            <Setter Property="Data" Value="M0.5,0.5 L3.5,3.5 L6.5,0.5"/>
-            <Setter Property="Width" Value="7"/>
-            <Setter Property="Height" Value="4"/>
-            <Setter Property="Margin" Value="4,0,0,0"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Stretch" Value="None"/>
-            <Setter Property="StrokeThickness" Value="1"/>
-            <Setter Property="Stroke" Value="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}"/>
+        <!-- Auto-save: still its own tile (it needs a checked/unchecked state a stacked row reads poorly at), just a
+             smaller one than the other groups' tiles - wanted less prominence than New, not "not a tile at all". -->
+        <Style x:Key="SmallToggleTile" TargetType="ToggleButton" BasedOn="{StaticResource RibbonToggleTile}">
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Padding" Value="8,6"/>
         </Style>
     </UserControl.Resources>
 
     <!-- The File tab: the ream itself (its file and how it is saved), and Help / About. -->
     <StackPanel Orientation="Horizontal" Margin="12,6,12,2">
 
+        <!-- Ream: New stays a full-size tile; Auto-save is a smaller tile right beside it; Open/Save/Save As stack
+             as a compact column past that (reached far less often than New). -->
         <StackPanel>
             <StackPanel Style="{StaticResource GroupBand}">
                 <Button x:Name="NewButton" Style="{StaticResource RibbonTile}" Command="{Binding NewReamCommand}">
@@ -36,24 +40,34 @@
                         <TextBlock Text="New" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
                     </StackPanel>
                 </Button>
-                <Button x:Name="OpenButton" Style="{StaticResource RibbonTile}" Command="{Binding OpenReamCommand}">
+                <ToggleButton x:Name="AutoSaveToggle" Style="{StaticResource SmallToggleTile}"
+                              IsChecked="{Binding AutoSave, Mode=OneWay}" Click="OnAutoSaveClick" Command="{Binding ToggleAutoSaveCommand}"
+                              ToolTip="Save changes as you make them. Off: changes wait until you save, and the title shows a * while there are unsaved changes.">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8E5;" FontSize="20"/>
-                        <TextBlock Text="Open" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE895;" FontSize="16"/>
+                        <TextBlock Text="Auto-save" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                     </StackPanel>
-                </Button>
-                <Button x:Name="SaveButton" Style="{StaticResource RibbonTile}" Command="{Binding SaveReamCommand}">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE74E;" FontSize="20"/>
-                        <TextBlock Text="Save" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
-                    </StackPanel>
-                </Button>
-                <Button x:Name="SaveAsButton" Style="{StaticResource RibbonTile}" Command="{Binding SaveReamAsCommand}">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE792;" FontSize="20"/>
-                        <TextBlock Text="Save As" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
-                    </StackPanel>
-                </Button>
+                </ToggleButton>
+                <StackPanel VerticalAlignment="Center">
+                    <Button x:Name="OpenButton" Style="{StaticResource StackedRow}" Command="{Binding OpenReamCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8E5;" FontSize="13" Width="18"/>
+                            <TextBlock Text="Open" FontSize="12" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="SaveButton" Style="{StaticResource StackedRow}" Command="{Binding SaveReamCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE74E;" FontSize="13" Width="18"/>
+                            <TextBlock Text="Save" FontSize="12" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="SaveAsButton" Style="{StaticResource StackedRow}" Command="{Binding SaveReamAsCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE792;" FontSize="13" Width="18"/>
+                            <TextBlock Text="Save As" FontSize="12" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
             </StackPanel>
             <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Ream"/>
         </StackPanel>
@@ -61,72 +75,34 @@
         <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
 
         <!-- New Note / New Workspace: moved here from the View tab's Window group - making things belongs with the
-             rest of File's new/open/save, not tucked into a settings tab. -->
+             rest of File's new/open/save, not tucked into a settings tab. Clear moved in from its own group too -
+             it's still a "make a change to what exists" action, just a subtractive one. All three are a stacked
+             column, like Open/Save/Save As, rather than three full-size tiles of their own. -->
         <StackPanel>
             <StackPanel Style="{StaticResource GroupBand}">
-                <Button x:Name="NewNoteButton" Style="{StaticResource RibbonTile}" Command="{Binding NewNoteCommand}" ToolTip="New note (Alt+N)">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8A5;" FontSize="20"/>
-                        <TextBlock Text="New Note" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
-                    </StackPanel>
-                </Button>
-                <Button x:Name="NewWorkspaceButton" Style="{StaticResource RibbonTile}" Command="{Binding NewWorkspaceCommand}"
-                        ToolTip="A fresh workspace, ready to type into">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8F4;" FontSize="20"/>
-                        <TextBlock Text="New Workspace" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
-                    </StackPanel>
-                </Button>
+                <StackPanel VerticalAlignment="Center">
+                    <Button x:Name="NewNoteButton" Style="{StaticResource StackedRow}" Command="{Binding NewNoteCommand}" ToolTip="New note (Alt+N)">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8A5;" FontSize="13" Width="18"/>
+                            <TextBlock Text="New Note" FontSize="12" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="NewWorkspaceButton" Style="{StaticResource StackedRow}" Command="{Binding NewWorkspaceCommand}"
+                            ToolTip="A fresh workspace, ready to type into">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8F4;" FontSize="13" Width="18"/>
+                            <TextBlock Text="New Workspace" FontSize="12" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ClearButton" Style="{StaticResource StackedRow}" Command="{Binding ClearReamCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE74D;" FontSize="13" Width="18"/>
+                            <TextBlock Text="Clear" FontSize="12" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
             </StackPanel>
             <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Add"/>
-        </StackPanel>
-
-        <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
-
-        <!-- Recent: the last few reams opened, saved or created, newest first, like Word's Backstage Open > Recent. -->
-        <StackPanel>
-            <StackPanel Style="{StaticResource GroupBand}">
-                <Button x:Name="RecentButton" Style="{StaticResource RibbonTile}" Click="OnRecentClick">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE81C;" FontSize="20"/>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,3,0,0">
-                            <TextBlock Text="Recent" FontSize="12"/>
-                            <Path Style="{StaticResource DropArrow}"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-            <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Recent"/>
-        </StackPanel>
-
-        <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
-
-        <StackPanel>
-            <StackPanel Style="{StaticResource GroupBand}">
-                <ToggleButton x:Name="AutoSaveToggle" Style="{StaticResource ToggleTile}"
-                              IsChecked="{Binding AutoSave, Mode=OneWay}" Click="OnAutoSaveClick" Command="{Binding ToggleAutoSaveCommand}"
-                              ToolTip="Save changes as you make them. Off: changes wait until you save, and the title shows a * while there are unsaved changes.">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE895;" FontSize="20"/>
-                        <TextBlock Text="Auto-save" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
-                    </StackPanel>
-                </ToggleButton>
-            </StackPanel>
-            <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Saving"/>
-        </StackPanel>
-
-        <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
-
-        <StackPanel>
-            <StackPanel Style="{StaticResource GroupBand}">
-                <Button x:Name="ClearButton" Style="{StaticResource RibbonTile}" Command="{Binding ClearReamCommand}">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE74D;" FontSize="20"/>
-                        <TextBlock Text="Clear" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-            <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Tidy up"/>
         </StackPanel>
 
         <Rectangle Style="{StaticResource RibbonGroupDivider}"/>

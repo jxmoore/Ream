@@ -115,6 +115,27 @@ public class RibbonVisibilityTests
         Assert.False(state.Engaged);
         Assert.False(state.WantsOpen);
     }
+
+    [Fact]
+    public void RestoringAPin_AppliesIt_JustLikeClickingIt()
+    {
+        var state = new RibbonVisibility();
+
+        state.RestorePinned(true);
+
+        Assert.True(state.Pinned);
+        Assert.True(state.WantsOpen);
+    }
+
+    [Fact]
+    public void RestoringAPin_DoesNothing_WithAutoHideOff()
+    {
+        var state = new RibbonVisibility { AutoHide = false };
+
+        state.RestorePinned(true);
+
+        Assert.False(state.Pinned);
+    }
 }
 
 public class RibbonConfigTests
@@ -123,6 +144,12 @@ public class RibbonConfigTests
     public void AutoHide_IsOnByDefault()
     {
         Assert.True(new AppConfig().Ribbon.AutoHide);
+    }
+
+    [Fact]
+    public void Pinned_IsOffByDefault()
+    {
+        Assert.False(new AppConfig().Ribbon.Pinned);
     }
 
     [Fact]
@@ -148,6 +175,33 @@ public class RibbonConfigTests
 
         Assert.False(config.Ribbon.AutoHide);
         Assert.False(config.With(theme: "nord").Ribbon.AutoHide);
+    }
+
+    [Fact]
+    public void Pinned_IsReadFromTheFile_AndSurvivesWith()
+    {
+        using var dir = new TempDir();
+        string path = dir.Combine("config.json");
+        File.WriteAllText(path, """{ "ribbon": { "pinned": true } }""");
+
+        Assert.True(new AppConfigStore(path).TryLoad(out var config, out _));
+
+        Assert.True(config.Ribbon.Pinned);
+        Assert.True(config.With(theme: "nord").Ribbon.Pinned);
+    }
+
+    [Fact]
+    public void WithRibbon_ChangesOnlyWhatItIsGiven()
+    {
+        var config = new AppConfig { Ribbon = new RibbonConfig { AutoHide = true, Pinned = false } };
+
+        var pinned = config.WithRibbon(pinned: true);
+        Assert.True(pinned.Ribbon.AutoHide); // untouched
+        Assert.True(pinned.Ribbon.Pinned);
+
+        var unhidden = config.WithRibbon(autoHide: false);
+        Assert.False(unhidden.Ribbon.AutoHide);
+        Assert.False(unhidden.Ribbon.Pinned); // untouched
     }
 }
 
@@ -413,6 +467,35 @@ public class RibbonAutoHideTests
         Assert.False(fx.Window.RibbonState.Pinned);
         fx.Window.CompleteRibbonHide();
         Assert.False(fx.Window.IsRibbonOpen);
+    });
+
+    /// <summary>The pin button doesn't just flip RibbonVisibility's own in-memory flag - it reaches Settings too, the
+    /// same path that writes config.json (SettingsViewModelTests.SetRibbonPinned_ChangesTheRibbonConfig_AndPersistsIt
+    /// covers the write itself, with a real store; this fixture's has none, so this only checks the wiring).</summary>
+    [Fact]
+    public void ThePinButton_AlsoUpdatesTheConfig_SoItCanBeSaved() => Ui.Run(() =>
+    {
+        using var fx = Fixture(autoHide: true);
+        var pin = (ToggleButton)fx.Window.FindName("PinButton");
+
+        Click(pin);
+        Assert.True(fx.App.Config.Ribbon.Pinned);
+
+        Click(pin);
+        Assert.False(fx.App.Config.Ribbon.Pinned);
+    });
+
+    [Fact]
+    public void APinnedConfig_StartsTheRibbonAlreadyPinned_AndOpen() => Ui.Run(() =>
+    {
+        using var fx = new WindowFixture(
+            new AppConfig { Ribbon = new RibbonConfig { AutoHide = true, Pinned = true }, Animations = new AnimationConfig { Enabled = false } },
+            ("W", 2));
+
+        var pin = (ToggleButton)fx.Window.FindName("PinButton");
+        Assert.True(fx.Window.RibbonState.Pinned);
+        Assert.True(pin.IsChecked);
+        Assert.True(fx.Window.IsRibbonOpen);
     });
 
     [Fact]
