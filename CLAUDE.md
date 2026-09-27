@@ -26,6 +26,89 @@ Empty workspaces are pruned only after a switch animation settles
 (`AppViewModel.PruneEmptyWorkspacesCommand`), using `SuppressAnimation` so the strip
 snaps rather than animates when the list shifts under it.
 
+Board Zoom (View tab's Zoom group, `SettingsViewModel.BoardZoomPercent`, 0-100, 100 = normal): pulls the
+workspace strip back so neighboring workspaces come into view, more of them the lower it goes. Not a toggled mode -
+a live value, the same shape `ZoomPercent` (note zoom) already is, just session-only rather than saved to
+config.json. Built on the fact that `WorkspaceStripPanel` already arranges every workspace (one full-viewport-height
+band per index, stacked vertically) and only *looks* like it shows one at a time because it clips itself to exactly
+one band: that clip is turned off once, unconditionally, in `MainWindow`'s own constructor (at 100% zoom with no
+pan it makes no visible difference, since `CanvasArea`'s own `Grid.Column="0"` clip already contains exactly the
+same area) rather than toggled live, since there's no "off" state left to toggle it for. `MainWindow.UpdateBoardTransform`
+applies a `RenderTransform` (scale, then pan, so panning always moves by screen pixels regardless of zoom level) to
+the panel itself, which reveals the neighbors for free, correctly scaled, with no change to the panel's own layout
+math; `WorkspaceStrip.RenderTransformOrigin = (0.5, 0.5)` (set once, alongside the clip, in the constructor) anchors
+that scale at the current workspace's own center rather than the default top-left, so zooming out reveals workspaces
+above and below symmetrically instead of pulling everything toward one corner (the panel's own `ActualHeight` is
+just one band, not the total stacked height of every workspace, so its own center *is* the current workspace's).
+`MainWindow.DrillIntoBoardClick` (a plain click, not a drag - see Pan below) maps a click back to a workspace index
+with the same arithmetic `WorkspaceStripPanel.ArrangeOverride` uses to place them, rather than hit-testing the
+visual tree, and - "drill into it" - resets both the zoom to 100% *and* any pan back to zero (a no-op if the click
+landed on the current workspace's own band, so an ordinary click into the current note keeps working while zoomed
+out at all) - dropping only the zoom and not the pan would still land somewhere other than centered, wherever the
+pan happened to leave it. Ctrl+Alt+Scroll (config's own `boardZoomWheel`) adjusts it from anywhere, the same shape
+Ctrl+Scroll already adjusts note zoom, except there's no single command a wheel gesture could bind to the way a
+keybinding normally does, so `MainWindow` reads the configured modifiers straight off `AppConfig.Keybindings` itself
+(see its own doc comment on `DefaultKeybindings` for why this and `panCanvas`, below, are unlike every other entry
+there). One rough edge, left as-is for now: zoom always centers on the current workspace, not the cursor.
+
+Since a `RenderTransform` never touches layout (only rendering), it alone can't make anything additional actually
+render, in two different ways that both needed fixing. First, loading: `WorkspaceStripPanel`'s own lazy-loading
+radius (`NearRadius`, see the lazy-loading note further down) only ever covered about a screen and a half either
+side of the current workspace, and, one level down, `NoteRowPanel.NearMargin` (an inherited attached property, set
+on the strip itself so every workspace's own row picks it up at once, not just the current one - mirroring
+`WorkspaceStripPanel.IsNearWorkspace`'s own "inherited, set once, read everywhere below" shape) only ever covered
+one viewport-width either side of a note *within* its own row - both fixed, un-zoomed distances, so zooming out
+(revealing far more on screen than either radius accounted for) or panning (which can put an arbitrary, unbounded
+offset between the current position and what's now visible, in a way no fixed radius could ever fully anticipate)
+left whatever fell outside those two radii showing as empty, unloaded cards. `MainWindow.UpdateBoardTransform` (run
+for every zoom *and* every pan update alike, so both stay current together) treats the two as one combined
+"exploring" state - not at rest (100% zoom, no pan) - and while exploring, grows both radii to a large, generous
+constant rather than trying to compute the exact margin an arbitrary zoom-and-pan combination actually needs; both
+loops are still bounded by how many workspaces/notes actually exist, so this costs nothing at rest and is cheap even
+in a large ream.
+
+Second, and separately - loading isn't the same as being visible, and this half was missed the first time around:
+`NoteRowPanel` clips itself to its own bounds (`ClipToBounds`, set in its constructor) and, however wide `NearMargin`
+is, `ArrangeOverride`'s own scroll offset is *always* computed by `RowLayout.TargetOffset` to keep whichever note is
+`FocusedIndex` centered/minimally-scrolled within that clip - a note positioned further out is arranged at its real
+`lefts[i] - offset`, so it exists in the visual tree and (widened `NearMargin` willing) has its content loaded, but
+the row's own clip still hides it, and nothing about Board Zoom's `RenderTransform` on an ancestor three levels up
+could ever reach in and change that. This is what kept notes to a note's own left/right looking cut off, and kept
+panning from revealing them either, even after the loading fix above: panning only ever moves where the (still just
+as narrow) already-clipped view sits on screen, never what it contains. Fixed by making `NearMargin` do double duty:
+past its resting default of 1, `OnNearMarginChanged` also turns the row's own `ClipToBounds` off, the same "an
+ancestor's own clip contains the picture instead" trick already used for `WorkspaceStripPanel` itself - once
+unclipped, every note in the row paints at its real, already-computed position regardless of whether that position
+falls within the row's own un-transformed width, revealing the rest of the row exactly the way turning off
+`WorkspaceStripPanel`'s clip already revealed neighboring workspaces.
+
+Pan: two independent sources, both driving the same drag (`MainWindow.PanActive`, `_boardPanX`/`_boardPanY`) -
+holding config's own `panCanvas` gesture (default **Alt+X** - not Alt+Shift, which every one of `moveNoteLeft`/
+`moveNoteRight`/`moveNoteToPrevWorkspace`/`moveNoteToNextWorkspace`/`resetNoteSize`/`clearReam` already begins by
+holding too, so a bare Alt+Shift hold would flicker pan on for the split second before their own third key lands)
+anywhere, momentarily, cursor turned into a hand for as long as it's held; or the Home tab's own Pan toggle
+(`RibbonView.PanModeButton`, `SettingsViewModel.PanModeOn`, session-only), a sticky version of the same thing, on
+until clicked again. `RibbonView`'s own DataContext is `AppViewModel`, not `SettingsViewModel`, so the button raises
+an event (`PanModeToggleRequested`) rather than binding `IsChecked` directly - the same "click flips nothing itself,
+the owner pushes the real value back in" shape `FileRibbonView`'s `AutoSaveToggle` and `MainWindow`'s own `PinButton`
+already use. An Alt-chord gesture (the default) is *not* watched the normal way (`OnPreviewKeyDown`/`OnPreviewKeyUp`,
+which only handle a non-Alt `panCanvas` rebind) - Win32 treats Alt+&lt;key&gt; as a "system" key
+(`WM_SYSKEYDOWN`/`WM_SYSKEYUP`, not the ordinary `WM_KEYDOWN`/`WM_KEYUP`), which WPF's own routed KeyDown/Up reports
+as `Key.System` with the real key only in `SystemKey` - and, before that routed event even fires, an unhandled
+`WM_SYSKEYDOWN` already reaches `DefWindowProc`, which is what turns Alt+Space specifically into
+`WM_SYSCOMMAND`/`SC_KEYMENU`, the window's own system menu; marking the *routed* event handled afterward doesn't
+reach back and stop that. `MainWindow.OnWindowMessage` (already hooked for the tilt wheel) reads the raw message
+instead, for any Alt-chord `panCanvas` is configured to (`KeyInterop.VirtualKeyFromKey` translates the configured
+`Key` to the matching virtual-key code) - the only place both the hold and, for whichever key actually needs it,
+suppressing a stock Windows shortcut can happen together. Two things have no automated test, both for the same
+reason: a synthetic `MouseButtonEventArgs`/`MouseEventArgs`/`KeyEventArgs` carries no position or real modifier
+state a test can control (`GetPosition` reads the shared `MouseDevice`'s own last-known position; `Keyboard.Modifiers`
+reflects the actual keyboard, not the event args) - drag-to-pan itself (`DrillIntoBoardClick` and
+`SetBoardPanForTests` are `internal` and tested directly instead, the pieces of that pipeline actually worth testing
+on their own) and the held-Alt-chord path specifically (the sticky `PanModeOn` toggle, not being a held key, is
+tested normally). This is the same limitation this codebase's existing Alt+Scroll/Shift+Scroll/Ctrl+Scroll handling
+already has no test coverage for.
+
 Themes: `Ream.Core/Models/ThemeCatalog.cs` lists the ids (dark = default, light, dracula, catppuccin,
 material, nord, gruvbox; unknown ids and the retired "system" fall back to dark). Every
 `Themes/<Id>.xaml` defines the same brush keys and stays readable (tests enforce both, incl.
@@ -189,7 +272,22 @@ hand-drawn reset-arrow `Path` (not Zoom's own glyph, so Reset doesn't look like 
 percentage printed on the tile any more - the live number stays in `ZoomResetTooltip`'s tooltip only now. Word's
 page-view trio (One Page, Multiple Pages, Page Width) is dropped - One Page moved to Window, Ream has no pages for
 the other two. Deliberately no slider on the ribbon itself, matching Word (its live zoom control is in a status bar
-Ream doesn't have); `Ctrl+Scroll` also zooms (`MainWindow.OnPreviewMouseWheel`, its own `WheelAccumulator`).
+Ream doesn't have); `Ctrl+Scroll` also zooms (`MainWindow.OnPreviewMouseWheel`, its own `WheelAccumulator`). Beside
+that stack, not a fourth row in it (a `ComboBox` is taller than the 19px rows above it, and it's a different zoom
+entirely - the board, not a note's content): `BoardZoomBox`, a Board Zoom dropdown (see further up). Deliberately
+*not* `IsEditable` - an editable version of this (`Text` bound `TwoWay`/`UpdateSourceTrigger=LostFocus`, the same
+pattern the Theme modal's Gap/Opacity boxes still use) shipped first and only ever applied a typed value on Enter or
+lost focus, which read as broken (pick an item from its own list, nothing visibly happens until you also hit Enter
+or click away) - so it's a plain closed list of four presets now (`ComboBoxItem.Tag`, not `SelectedValue` bound
+straight to a converter - simple enough to read by hand), and picking one applies immediately
+(`ViewRibbonView.OnBoardZoomSelectionChanged`). Nothing here binds either: a plain select has nothing to bind, so
+`ViewRibbonView` instead tracks `SettingsViewModel.PropertyChanged` itself and pushes `BoardZoomBox.SelectedItem`
+back in sync by hand (`SyncBoardZoomSelection`) whenever `BoardZoomPercent` changes from anywhere else (the wheel
+gesture, drilling into a workspace resetting it to 100) - guarded by a `_refreshingBoardZoom` flag so that sync
+doesn't loop back through `OnBoardZoomSelectionChanged` and reapply the same value, the same shape `RibbonView`'s
+own `FontBox`/`SizeBox` already use for the same reason. A percent that lands between presets (the wheel gesture
+again) just leaves the dropdown showing no selection, same as any plain closed-list select whose bound value isn't
+one of its own options.
 `SettingsViewModel.ZoomPercent` (`AppConfig.Zoom`, 50-200) scales a note's whole editor, not just its font: `ThemeService`
 publishes it as `NoteZoomScale` (a boxed double, config.zoom / 100) the same way it publishes theme brushes, and each
 `NoteColumnView`'s `RichTextBox` binds a `ScaleTransform` `LayoutTransform` to it with `{DynamicResource NoteZoomScale}` -
@@ -238,7 +336,7 @@ Find/Replace, `Ream.App/Editing/DocumentSearch` (a flattened-text scan so a quer
 Line height, paragraph spacing, borders and subscript/superscript are new `.reamnote` attributes (`src/Ream.Persistence/CLAUDE.md`);
 shading rides the existing run/paragraph `bg` attribute for free. A border's color is a fixed gray owned by the persistence layer, not
 a theme resource, so it looks the same before and after a reload regardless of the live theme (`RibbonView` uses the same fixed color
-when applying one live, for the same reason). Home's own Size group sits outside `RibbonView.Bar` so it works with no editor focused. When the window is too narrow
+when applying one live, for the same reason). Home's own Size group sits outside `RibbonView.Bar` so it works with no editor focused, and so does the Navigate group past it (`NavigateGroup`, a single `PanModeButton` `ToggleButton` - a hand-drawn open-hand `Path`, same reasoning as every other hand-drawn icon in this app - turning on Pan, described further up alongside Board Zoom; not bound directly for the same `Bar`-is-`AppViewModel` reason `FileRibbonView`'s `AutoSaveToggle` isn't). When the window is too narrow
 the panel scrolls sideways with no scrollbar: chevron buttons (`RibbonScrollLeft/Right`) appear at the edge with more to see, and the wheel scrolls. There is no File menu or
 settings popup any more. `ribbon.autoHide` (default true): the tab row stays, the panel (always grid row 2) grows from height 0 when
 summoned and back to 0 when put away, so it pushes the notes down rather than covering them (`Core/Layout/RibbonVisibility` is the
@@ -263,8 +361,10 @@ non-destructive `AppConfigStore.TryLoad`: an unusable file is reported in the to
 (`ConfigError`) and the running settings stay - never move or rewrite a file the user is
 mid-edit.
 
-Lazy loading: `NoteRowPanel` marks each column `IsNear` (within a viewport of the screen, in a
-workspace within ~1.5 screens); `NoteColumnView` (an `INearAware`) only parses its note in
+Lazy loading: `NoteRowPanel` marks each column `IsNear` (within `NearMargin` viewport-widths of the
+screen - normally 1, wider while Board Zoom is exploring, see its own note further up - in a
+workspace within `WorkspaceStripPanel.NearRadius` of the current one - normally ~1.5, same story);
+`NoteColumnView` (an `INearAware`) only parses its note in
 `EnsureLoaded()` once near, focused, or pasted into, and never unloads. A view that is
 constructed but never shown must be loaded explicitly (`EnsureLoaded()`) in tests.
 
@@ -353,7 +453,9 @@ named or has a saveable note (blank drafts are not); a ream with no workspaces i
 - Keybindings are read from config: one gesture per action, defaults in
   `AppConfig.DefaultKeybindings`. Every action also needs a description in `ActionCatalog` (a test
   enforces it) so the Help window lists it. F11 = app fullscreen (`FullscreenController` behind
-  `IWindowFrame`), Alt+F11 = the focused note's fullscreen.
+  `IWindowFrame`), Alt+F11 = the focused note's fullscreen. Two entries there (`boardZoomWheel`,
+  `panCanvas`) are read straight off the dictionary by `MainWindow` instead of becoming `KeyBinding`s -
+  see `DefaultKeybindings`'s own doc comment for why.
 - `RichTextBox.Document` is not a DependencyProperty — the editor owns its
   document in code-behind; don't try to bind it.
 - `XamlWriter`/`XamlReader` don't round-trip images; `NoteDocumentSerializer`

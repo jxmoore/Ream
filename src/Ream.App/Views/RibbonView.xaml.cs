@@ -78,6 +78,13 @@ public partial class RibbonView : UserControl
     /// <summary>Raised when a drop-down or color menu of this ribbon opens or closes.</summary>
     public event Action? MenuOpenChanged;
 
+    /// <summary>Raised when Pan is clicked. The toggle owns no state of its own - a ToggleButton already flips
+    /// its own IsChecked on click, but the real value (SettingsViewModel.PanModeOn) lives outside this view's
+    /// DataContext, so the owner pushes the authoritative IsChecked back in once it actually changes.</summary>
+    public event Action? PanModeToggleRequested;
+
+    private void OnPanModeClick(object sender, RoutedEventArgs e) => PanModeToggleRequested?.Invoke();
+
     /// <summary>A font/size drop-down or a popup menu is open. The window keeps an auto-hidden ribbon up meanwhile.</summary>
     internal bool IsMenuOpen => FontBox.IsDropDownOpen || SizeBox.IsDropDownOpen || _menuOpen;
 

@@ -156,6 +156,17 @@ public sealed class AppConfig
         Keybindings = Keybindings,
     };
 
+    /// <summary>
+    /// Every action's gesture, hand-editable in config.json. Almost all of these are ordinary key gestures fed to
+    /// <c>KeyGestureConverter</c> by <c>Ream.App/Input/KeyBindingsRegistry.cs</c>. Two are not, and are read
+    /// straight off this dictionary by <c>MainWindow</c> instead (they never appear in <c>AppViewModel.Actions</c>,
+    /// since there's no single command to bind a <c>KeyBinding</c> to): <c>boardZoomWheel</c> is modifiers only, no
+    /// key - which modifiers held while scrolling zoom the board (Board Zoom is a live value, not a one-shot
+    /// action, so there's nothing to "press") - and <c>panCanvas</c> is a hold, not a press - while its modifiers
+    /// and key are down, dragging pans the canvas, released and the drag ends. Both still parse with the exact same
+    /// gesture-string format and <c>GestureText.Pretty</c> formatting every other action uses; only what MainWindow
+    /// does with them differs.
+    /// </summary>
     public static Dictionary<string, string> DefaultKeybindings() => new()
     {
         ["focusPrevNote"] = "Alt+Left",
@@ -174,6 +185,8 @@ public sealed class AppConfig
         ["sizeDown"] = "Alt+OemMinus",
         ["toggleFullscreen"] = "Alt+F11",
         ["toggleAppFullscreen"] = "F11",
+        ["boardZoomWheel"] = "Ctrl+Alt",
+        ["panCanvas"] = "Alt+X",
         ["newNote"] = "Alt+N",
         ["closeNote"] = "Alt+Q",
         ["renameNote"] = "F2",

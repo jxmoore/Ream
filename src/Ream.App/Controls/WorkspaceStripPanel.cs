@@ -41,6 +41,21 @@ public sealed class WorkspaceStripPanel : Panel
     public static readonly DependencyProperty SwitchCompletedCommandProperty = DependencyProperty.Register(
         nameof(SwitchCompletedCommand), typeof(ICommand), typeof(WorkspaceStripPanel), new PropertyMetadata(null));
 
+    /// <summary>How many workspaces on either side of the current one count as "near" (see <see cref="IsNearWorkspaceProperty"/>),
+    /// in workspace units - 1.5 by default, matching the roughly-a-screen-and-a-half a normal view ever shows. Board
+    /// Zoom (MainWindow) grows this in proportion to how far zoomed out the board is, since zooming out can put many
+    /// more workspaces on screen at once and every one of them needs its notes actually loaded to look like anything
+    /// other than an empty card.</summary>
+    public static readonly DependencyProperty NearRadiusProperty = DependencyProperty.Register(
+        nameof(NearRadius), typeof(double), typeof(WorkspaceStripPanel),
+        new FrameworkPropertyMetadata(1.5, FrameworkPropertyMetadataOptions.AffectsArrange));
+
+    public double NearRadius
+    {
+        get => (double)GetValue(NearRadiusProperty);
+        set => SetValue(NearRadiusProperty, value);
+    }
+
     public WorkspaceStripPanel()
     {
         ClipToBounds = true;
@@ -111,10 +126,11 @@ public sealed class WorkspaceStripPanel : Panel
     protected override Size ArrangeOverride(Size finalSize)
     {
         double offset = ScrollOffset;
+        double radius = NearRadius;
         for (int i = 0; i < InternalChildren.Count; i++)
         {
             var child = InternalChildren[i];
-            SetIsNearWorkspace(child, Math.Abs(i - offset) < 1.5);
+            SetIsNearWorkspace(child, Math.Abs(i - offset) < radius);
             child.Arrange(new Rect(0, (i - offset) * finalSize.Height, finalSize.Width, finalSize.Height));
         }
         return finalSize;
