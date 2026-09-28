@@ -7,6 +7,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Ream.App.Animation;
+using Ream.App.Controls;
 using Ream.App.Input;
 using Ream.App.Services;
 using Ream.App.Views;
@@ -74,8 +75,10 @@ public partial class MainWindow : Window
             _fullscreen.Toggle();
             ApplyFullscreenChrome(_fullscreen.IsFullscreen);
         };
+        Ribbon.PanModeToggleRequested += () => Settings.PanModeOn = !Settings.PanModeOn;
 
         ApplyKeyBindings();
+        RefreshBoardZoomGestures();
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.FindRequested += OnFindRequested;
 
@@ -84,6 +87,26 @@ public partial class MainWindow : Window
             DispatcherPriority.Loaded,
             () => viewModel.CurrentWorkspace.FocusedNote?.RequestEditorFocus());
         Loaded += (_, _) => viewModel.RequestEditorFocus();
+        // WorkspaceStripPanel's own clip already matches CanvasArea's Grid.Column="0" clip exactly at 100% zoom
+        // with no pan, so turning it off here (once, unconditionally) rather than toggling it live has no visible
+        // effect until Board Zoom is actually used - see the Board Zoom note further down for the rest of the story.
+        Loaded += (_, _) =>
+        {
+            WorkspaceStrip.ClipToBounds = false;
+            // WorkspaceStrip's own ActualHeight is just the current workspace's one band (ArrangeOverride positions
+            // every child at that same size, however many bands it stacks beyond it) - the default RenderTransform
+            // origin (0,0, the panel's own top-left) is that band's own TOP, so scaling down from there pulls
+            // everything toward it: the current workspace shrinks toward its own top edge, workspaces above it
+            // (arranged at negative Y - see ArrangeOverride) shrink away from view entirely rather than toward it,
+            // and nothing above the current workspace can ever appear no matter how far zoomed out. Anchoring at
+            // (0.5, 0.5) instead - the current workspace's own center - fixes both at once: that point stays fixed
+            // on screen at any zoom (so the view expands outward from it symmetrically, not toward a corner), and
+            // workspaces both above and below become reachable as more of the now-larger logical space comes into
+            // the same screen area. TranslateTransform (the pan half of Board Zoom's own RenderTransform) is
+            // unaffected either way - translation is origin-invariant, so drag-to-pan still moves by exactly the
+            // screen pixels it always did.
+            WorkspaceStrip.RenderTransformOrigin = new Point(0.5, 0.5);
+        };
     }
 
     public SettingsViewModel Settings { get; }
@@ -198,9 +221,27 @@ public partial class MainWindow : Window
         UpdateRibbon();
     }
 
-    /// <summary>A click outside the ribbon puts it away, unless it is pinned or one of its menus is open.</summary>
+    /// <summary>A click outside the ribbon puts it away, unless it is pinned or one of its menus is open. Also
+    /// where a canvas click gets sorted into one of two unrelated things it might mean - see PanActive's own note.</summary>
     protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
     {
+        if (e.ChangedButton == MouseButton.Left && IsInsideCanvas(e.OriginalSource as DependencyObject))
+        {
+            if (PanActive)
+            {
+                _dragStart = e.GetPosition(CanvasArea);
+                _dragged = false;
+                CanvasArea.CaptureMouse();
+            }
+            else if (Settings.BoardZoomPercent < 100)
+            {
+                // Not a drag at all - a plain click while the board is pulled back enough that a neighboring
+                // workspace might be showing. DrillIntoBoardClick is a no-op if this one wasn't (it lands on the
+                // current workspace's own band, or past the last real one), so nothing needs to check that first.
+                DrillIntoBoardClick(e.GetPosition(WorkspaceStrip));
+            }
+        }
+
         if (_ribbonShown && _ribbonState.AutoHide && !_ribbonState.Pinned && !_ribbonState.MenuOpen
             && !IsInsideRibbon(e.OriginalSource as DependencyObject))
         {
@@ -210,13 +251,84 @@ public partial class MainWindow : Window
         base.OnPreviewMouseDown(e);
     }
 
-    /// <summary>Escape puts an open ribbon away (and still does its usual job elsewhere).</summary>
+    /// <summary>Drag-to-pan: once the pointer has moved a few pixels from where the button went down, every further
+    /// move pans by exactly that many screen pixels (see UpdateBoardTransform on why that's true at any zoom
+    /// level).</summary>
+    protected override void OnPreviewMouseMove(MouseEventArgs e)
+    {
+        if (_dragStart is { } start)
+        {
+            var position = e.GetPosition(CanvasArea);
+            var moved = position - start;
+            if (!_dragged && moved.Length > 4) _dragged = true;
+            if (_dragged)
+            {
+                _boardPanX += moved.X;
+                _boardPanY += moved.Y;
+                _dragStart = position;
+                UpdateBoardTransform();
+            }
+        }
+
+        base.OnPreviewMouseMove(e);
+    }
+
+    /// <summary>Ends a drag started above - a plain click was already handled on the way down (OnPreviewMouseDown),
+    /// not here, since a click that isn't the start of a drag never sets _dragStart at all.</summary>
+    protected override void OnPreviewMouseUp(MouseButtonEventArgs e)
+    {
+        if (_dragStart is not null && e.ChangedButton == MouseButton.Left)
+        {
+            CanvasArea.ReleaseMouseCapture();
+            _dragStart = null;
+            _dragged = false;
+        }
+
+        base.OnPreviewMouseUp(e);
+    }
+
+    /// <summary>Escape puts an open ribbon away (and still does its usual job elsewhere). Also where holding the
+    /// configured pan gesture is noticed - see PanActive's own note - but only for a gesture that does NOT include
+    /// Alt; an Alt-chord (the default, Alt+X) is handled at the raw window-message level instead, in
+    /// OnWindowMessage, for reasons explained there.</summary>
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
+        if (_panGesture is { } gesture && !gesture.Modifiers.HasFlag(ModifierKeys.Alt)
+            && e.Key == gesture.Key && Keyboard.Modifiers == gesture.Modifiers && !_panKeyHeld)
+        {
+            _panKeyHeld = true;
+            UpdatePanCursor();
+        }
+
         if (e.Key == Key.Escape && _ribbonShown && _ribbonState.AutoHide && !_ribbonState.Pinned && !_ribbonState.MenuOpen)
             DismissRibbon();
 
         base.OnPreviewKeyDown(e);
+    }
+
+    /// <summary>Releasing either half of the pan gesture's chord ends the hold - checking modifiers, not just the
+    /// specific key event.Key names, is what catches "let go of Alt but kept Space down" too (Keyboard.Modifiers
+    /// already reflects the key this same event is releasing by the time PreviewKeyUp runs). Not for an Alt-chord -
+    /// see OnPreviewKeyDown's own note.</summary>
+    protected override void OnPreviewKeyUp(KeyEventArgs e)
+    {
+        if (_panKeyHeld && _panGesture is { Modifiers: var mods } gesture && !mods.HasFlag(ModifierKeys.Alt)
+            && (e.Key == gesture.Key || Keyboard.Modifiers != gesture.Modifiers))
+        {
+            _panKeyHeld = false;
+            UpdatePanCursor();
+        }
+
+        base.OnPreviewKeyUp(e);
+    }
+
+    /// <summary>The window losing focus (Alt-Tab, clicking another app) can't be trusted to deliver a matching key-up
+    /// for whatever was held - without this, a hand cursor could get stuck showing forever.</summary>
+    protected override void OnDeactivated(EventArgs e)
+    {
+        _panKeyHeld = false;
+        UpdatePanCursor();
+        base.OnDeactivated(e);
     }
 
     private bool IsInsideRibbon(DependencyObject? source)
@@ -436,14 +548,28 @@ public partial class MainWindow : Window
         if (e.PropertyName != nameof(AppViewModel.Config)) return;
 
         ApplyKeyBindings();
+        RefreshBoardZoomGestures();
         if (_viewModel.Config.Ribbon.AutoHide != _ribbonState.AutoHide) ApplyRibbonMode(_viewModel.Config.Ribbon.AutoHide);
     }
 
     private static readonly GridLength NavigationPaneWidth = new(280);
 
-    /// <summary>Show group's Gridlines and Navigation Pane: both are session-only view state (SettingsViewModel), not config, so the window just reacts to them directly rather than through Config.</summary>
+    /// <summary>Show group's Gridlines and Navigation Pane, Zoom's own Board Zoom, and Home's Pan toggle: all
+    /// session-only view state (SettingsViewModel), not config, so the window just reacts to them directly rather
+    /// than through Config.</summary>
     private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        switch (e.PropertyName)
+        {
+            case nameof(SettingsViewModel.BoardZoomPercent):
+                ApplyBoardZoom();
+                return;
+            case nameof(SettingsViewModel.PanModeOn):
+                Ribbon.PanModeButton.IsChecked = Settings.PanModeOn;
+                UpdatePanCursor();
+                return;
+        }
+
         if (e.PropertyName != nameof(SettingsViewModel.NavigationPaneOpen)) return;
 
         bool open = Settings.NavigationPaneOpen;
@@ -466,14 +592,51 @@ public partial class MainWindow : Window
         if (_appearance is { } appearance) _backdrop.Apply(appearance);
     }
 
-    // WPF has no event for a horizontal (tilt) wheel, so read the raw message.
-    private IntPtr OnWindowMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+    private const int WM_SYSKEYDOWN = 0x0104;
+    private const int WM_SYSKEYUP = 0x0105;
+
+    // WPF has no event for a horizontal (tilt) wheel, so read the raw message. Also where an Alt-chord pan gesture
+    // (the default, Alt+X) is caught - see the block below for why it can't be done the normal way. Internal
+    // (not private), like DrillIntoBoardClick, so a test can drive it directly: it's real window messages, not
+    // anything WPF's own synthetic KeyEventArgs can carry (there is no HwndSource, and thus no raw message pump,
+    // for an off-screen test window the way a real one gets).
+    internal IntPtr OnWindowMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (MouseTilt.TryGetDelta(message, wParam.ToInt64(), out int delta))
         {
             _viewModel.FocusNoteBy(_tiltWheel.Add(delta));
             handled = true;
+            return IntPtr.Zero;
         }
+
+        // An Alt+<key> combination is a "system" key as far as Win32 is concerned (WM_SYSKEYDOWN/UP, not plain
+        // WM_KEYDOWN/UP) - two consequences, both only for an Alt-chord: WPF's own routed KeyDown/Up reports
+        // Key.System with the real key in SystemKey instead of Key directly (which is why OnPreviewKeyDown/Up
+        // above only handle a non-Alt gesture - checking e.Key against a Space-with-Alt gesture there would never
+        // match); and, for Space specifically, an unhandled WM_SYSKEYDOWN reaches DefWindowProc, which turns it
+        // into WM_SYSCOMMAND/SC_KEYMENU - the window's own system menu - before WPF's routed event ever fires, and
+        // marking that routed event handled afterward doesn't reach back and stop it. Reading the raw message
+        // (with KeyInterop translating the configured Key to the matching virtual-key code, so this still honors
+        // whatever panCanvas is actually configured to, not just the Alt+X default) is the only place both the
+        // hold and the suppression can happen together.
+        if (_panGesture is { } gesture && gesture.Modifiers.HasFlag(ModifierKeys.Alt))
+        {
+            int vk = KeyInterop.VirtualKeyFromKey(gesture.Key);
+            if (message == WM_SYSKEYDOWN && wParam.ToInt32() == vk && Keyboard.Modifiers == gesture.Modifiers)
+            {
+                if (!_panKeyHeld) { _panKeyHeld = true; UpdatePanCursor(); }
+                handled = true;
+            }
+            // Either half of the chord letting go ends the hold - releasing the configured key itself, or Alt
+            // (which also arrives as a WM_SYSKEYUP, just for a different virtual-key than the gesture's own).
+            else if (_panKeyHeld && message == WM_SYSKEYUP && (wParam.ToInt32() == vk || !Keyboard.Modifiers.HasFlag(ModifierKeys.Alt)))
+            {
+                _panKeyHeld = false;
+                UpdatePanCursor();
+                handled = true;
+            }
+        }
+
         return IntPtr.Zero;
     }
 
@@ -482,7 +645,15 @@ public partial class MainWindow : Window
     {
         var modifiers = Keyboard.Modifiers;
 
-        if (modifiers.HasFlag(ModifierKeys.Alt))
+        if (_boardZoomWheelModifiers != ModifierKeys.None && modifiers == _boardZoomWheelModifiers)
+        {
+            // Checked first, before the broader single-modifier cases below: the default (Ctrl+Alt) would otherwise
+            // match "HasFlag(Alt)" and switch workspaces instead.
+            int steps = _boardZoomWheel.Add(e.Delta);
+            if (steps != 0) Settings.BoardZoomPercent += steps * ZoomWheelStepPercent;
+            e.Handled = true;
+        }
+        else if (modifiers.HasFlag(ModifierKeys.Alt))
         {
             _viewModel.SwitchWorkspace(-_workspaceWheel.Add(e.Delta));
             e.Handled = true;
@@ -500,5 +671,191 @@ public partial class MainWindow : Window
         }
 
         base.OnPreviewMouseWheel(e);
+    }
+
+    // ===== Board Zoom: a live 0-100% dial (Zoom group's own dropdown, 100 = normal), not a toggled mode =====
+    //
+    // The idea: WorkspaceStripPanel already arranges every workspace, one full-viewport-height band per index,
+    // stacked vertically (ArrangeOverride: child i at Y = (i - ScrollOffset) * viewportHeight) - it just also clips
+    // itself to exactly one band's worth, so only the current workspace is ever visible. Turning that clip off
+    // (once, in the constructor - see its own comment there; there's no "on" to turn it off for any more) and
+    // applying a RenderTransform (scale, then pan, in that order, so panning always moves by screen pixels
+    // regardless of zoom level) to the panel itself reveals the neighbors for free, correctly scaled, with no
+    // change to the panel's own layout math at all. CanvasArea's own Grid.Column="0" picks up the clip instead, so
+    // the zoomed-out view stays inside the canvas rather than spilling into the navigation pane or the window
+    // chrome. WorkspaceStripPanel.NearRadius grows in proportion to how far zoomed out the board is (ApplyBoardZoom,
+    // below), so whatever the zoom reveals actually has its notes loaded rather than showing as empty cards - that
+    // radius otherwise only covers about a screen and a half either side of the current workspace, plenty at 100%
+    // but nowhere near enough once several more workspaces are on screen at once.
+    //
+    // Panning has two independent sources - config's own held gesture ("panCanvas", default Alt+X) and the Home
+    // tab's own Pan toggle (a sticky version of the same thing) - see PanActive's own note. One known rough edge,
+    // left as-is for now: zoom always centers on the panel's own origin rather than the cursor, so it doesn't zoom
+    // "into" whatever you're pointing at.
+
+    private const double BoardZoomMinScale = 0.01; // the ribbon dropdown allows 0%, but NearRadius's own math below
+                                                     // divides by the scale - this is the practical floor the actual
+                                                     // render transform uses, however low the shown value goes.
+
+    private readonly WheelAccumulator _boardZoomWheel = new();
+    private ModifierKeys _boardZoomWheelModifiers;
+    private KeyGesture? _panGesture;
+    private bool _panKeyHeld;
+    private double _boardPanX;
+    private double _boardPanY;
+    private Point? _dragStart;
+    private bool _dragged;
+    private WorkspaceStripPanel? _workspaceStrip;
+
+    private WorkspaceStripPanel WorkspaceStrip => _workspaceStrip ??= FindVisualChild<WorkspaceStripPanel>(WorkspaceStripHost)
+        ?? throw new InvalidOperationException("WorkspaceStripHost has no WorkspaceStripPanel yet.");
+
+    /// <summary>Panning is active from either of two independent sources - config's own held gesture (_panKeyHeld,
+    /// momentary: down for as long as the chord is held) or the Home tab's own Pan toggle (Settings.PanModeOn,
+    /// sticky: on until clicked again) - and what a canvas click/drag means depends on whether either is true right
+    /// now, so every place that needs to know checks this rather than the two sources separately.</summary>
+    private bool PanActive => _panKeyHeld || Settings.PanModeOn;
+
+    private void UpdatePanCursor() => CanvasArea.Cursor = PanActive ? Cursors.Hand : null;
+
+    /// <summary>Exposed for tests only, to check config's two special gestures parsed the way they were supposed to.</summary>
+    internal ModifierKeys BoardZoomWheelModifiers => _boardZoomWheelModifiers;
+    internal KeyGesture? PanGesture => _panGesture;
+
+    private void RefreshBoardZoomGestures()
+    {
+        _boardZoomWheelModifiers = ParseModifiers(_viewModel.Config.Keybindings.GetValueOrDefault("boardZoomWheel"));
+        _panGesture = ParseKeyGesture(_viewModel.Config.Keybindings.GetValueOrDefault("panCanvas"));
+    }
+
+    /// <summary>Modifiers-only gestures (config's own "boardZoomWheel" - there's no key to hold down for a wheel
+    /// notch, only modifiers) aren't something KeyGestureConverter parses (it always wants a real key), so this
+    /// reads them by hand: the same "+"-separated shape as every other gesture in config.json, minus the key.
+    /// Never throws - an unrecognized token just isn't a modifier, the same "hand-edited config, worst case it
+    /// doesn't bind" philosophy KeyBindingsRegistry already uses for real key gestures.</summary>
+    private static ModifierKeys ParseModifiers(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return ModifierKeys.None;
+
+        var modifiers = ModifierKeys.None;
+        foreach (var token in text.Split('+', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            modifiers |= token.ToLowerInvariant() switch
+            {
+                "ctrl" or "control" => ModifierKeys.Control,
+                "alt" => ModifierKeys.Alt,
+                "shift" => ModifierKeys.Shift,
+                "win" or "windows" => ModifierKeys.Windows,
+                _ => ModifierKeys.None,
+            };
+        }
+        return modifiers;
+    }
+
+    /// <summary>config's own "panCanvas" is an ordinary key gesture (Alt+X, by default) despite meaning
+    /// something different from every other one (a hold, not a press) - so it parses exactly the way
+    /// KeyBindingsRegistry parses every other action's gesture, just never becomes a KeyBinding at all (there's no
+    /// single command a hold could Execute()).</summary>
+    private static KeyGesture? ParseKeyGesture(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        try
+        {
+            return new KeyGestureConverter().ConvertFromString(text) as KeyGesture;
+        }
+        catch (Exception ex) when (ex is NotSupportedException or FormatException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private const double RestingNearRadius = 1.5; // WorkspaceStripPanel's own default - unchanged at rest
+    private const double RestingNoteMargin = 1.0; // NoteRowPanel's own default - unchanged at rest
+    private const double ExploringNearRadius = 1000; // "basically everything" - see the note on NearMargin below
+    private const double ExploringNoteMargin = 1000;
+
+    private void ApplyBoardZoom() => UpdateBoardTransform();
+
+    /// <summary>Exposed for tests only, to simulate "the user has panned" without a real, position-controlled drag
+    /// (see this file's own note on why drag-to-pan itself has no direct test).</summary>
+    internal void SetBoardPanForTests(double x, double y)
+    {
+        _boardPanX = x;
+        _boardPanY = y;
+        UpdateBoardTransform();
+    }
+
+    /// <summary>
+    /// Called for every zoom or pan change alike (a live property change, or every pointer move during a drag), so
+    /// both the visual transform and how generously content around it loads stay current together.
+    /// </summary>
+    private void UpdateBoardTransform()
+    {
+        double scale = Math.Max(Settings.BoardZoomPercent / 100.0, BoardZoomMinScale);
+        // Scale first, then translate, so a drag always pans by the same number of screen pixels no matter how
+        // far zoomed out you are - TransformGroup composes its children in list order, innermost first.
+        WorkspaceStrip.RenderTransform = new TransformGroup
+        {
+            Children = { new ScaleTransform(scale, scale), new TranslateTransform(_boardPanX, _boardPanY) },
+        };
+
+        // Not "at rest" (100%, no pan) - the board is being actively explored, so load generously rather than try
+        // to compute exactly how far zoom and an arbitrary, unbounded pan offset together put things off-screen.
+        // Both radii are counted in their own panel's units (workspaces for one, viewport-widths for the other),
+        // not pixels, so 1000 of either is far more than any real ream has to actually load - the loop in each
+        // panel's own ArrangeOverride is still bounded by how many children it actually has.
+        bool exploring = Settings.BoardZoomPercent != 100 || _boardPanX != 0 || _boardPanY != 0;
+        WorkspaceStrip.NearRadius = exploring ? ExploringNearRadius : RestingNearRadius;
+        NoteRowPanel.SetNearMargin(WorkspaceStrip, exploring ? ExploringNoteMargin : RestingNoteMargin);
+    }
+
+    private bool IsInsideCanvas(DependencyObject? source)
+    {
+        for (var node = source; node is not null;)
+        {
+            if (ReferenceEquals(node, CanvasArea)) return true;
+            node = (node is Visual ? VisualTreeHelper.GetParent(node) : null) ?? LogicalTreeHelper.GetParent(node);
+        }
+        return false;
+    }
+
+    /// <summary>Which workspace a click at this position (already in WorkspaceStrip's own local coordinates - WPF's
+    /// own GetPosition already accounts for its RenderTransform, so this needs no scale/pan math of its own) landed
+    /// on, mirroring WorkspaceStripPanel.ArrangeOverride's own placement (child i at (i - CurrentIndex) * viewport
+    /// height - using CurrentIndex rather than the panel's own live ScrollOffset, since a click only makes sense
+    /// once any switch animation has long since settled). A no-op if the click landed on the current workspace's
+    /// own band (nothing to drill into - and OnPreviewMouseDown calls this for every plain click while zoomed out
+    /// at all, including ordinary clicks into the current note, which must keep working normally) or past the last
+    /// real workspace. Internal (not private) so tests can drive it directly: a synthetic MouseButtonEventArgs
+    /// carries no position a test can control (GetPosition reads the shared MouseDevice's own last-known position,
+    /// not anything on the event args), so the real down/move/up handlers above aren't reachable the way a Click
+    /// event is - this is the one piece of that pipeline worth testing on its own.</summary>
+    internal void DrillIntoBoardClick(Point localPosition)
+    {
+        double viewportHeight = WorkspaceStrip.ActualHeight;
+        if (viewportHeight <= 0) return;
+
+        int index = _viewModel.CurrentIndex + (int)Math.Floor(localPosition.Y / viewportHeight);
+        if (index < 0 || index >= _viewModel.Workspaces.Count || index == _viewModel.CurrentIndex) return;
+
+        // "drill into it": land at the normal view of wherever you clicked, not just zoomed back to 100% wherever
+        // panning happened to leave the view - the whole point of drilling in is a clean, centered arrival.
+        Settings.BoardZoomPercent = 100;
+        _boardPanX = 0;
+        _boardPanY = 0;
+        UpdateBoardTransform(); // in case it was already 100 (this workspace only came into view via a pan, say),
+                                 // which wouldn't otherwise raise the property-changed that normally calls this
+        _viewModel.SelectWorkspaceCommand.Execute(_viewModel.Workspaces[index]);
+    }
+
+    private static T? FindVisualChild<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match) return match;
+            if (FindVisualChild<T>(child) is { } nested) return nested;
+        }
+        return null;
     }
 }

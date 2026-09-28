@@ -496,5 +496,37 @@
             </StackPanel>
             <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Reset size"/>
         </StackPanel>
+
+        <!-- Navigate (x:Name only - the caption below reads "Pan", not "Navigate": see the width note just below):
+             also outside the bar, same reasoning as Size - panning the canvas has nothing to do with the focused
+             editor, so it must work with none focused. PanModeButton isn't bound: its real on/off state
+             (SettingsViewModel.PanModeOn) lives outside this view's own DataContext (AppViewModel), so a click just
+             raises an event and the owner pushes IsChecked back in once the toggle actually changes (the same relay
+             FileRibbonView.AutoSaveToggle and MainWindow's PinButton already use). Kept as narrow as this group can
+             be made without losing the icon+caption shape every other tile has - RibbonWordLayoutTests.
+             TheWholeHomeRibbon_FitsTheDefaultWindow_WithoutScrolling had very little slack left at 1200px even
+             before this group existed, and font-metric differences alone were enough to make it overflow in CI
+             while passing locally, so this group (the newest, most dispensable one) gives that margin back three
+             ways: no divider of its own before it (unlike every other group); PanModeButton overrides
+             RibbonToggleTile's own MinWidth down to 0 (free - the button still grows to fit its own content
+             regardless of the floor removed, so this only ever removes UNUSED padding, never clips anything) and
+             tightens Padding/Margin too; and the caption itself reads "Pan", not "Navigate" - matching the button's
+             own label rather than describing the group, since at 8 characters "Navigate" was actually the wider of
+             the two and would have capped the group's width regardless of how far the button itself shrank. -->
+        <StackPanel x:Name="NavigateGroup">
+            <StackPanel Style="{StaticResource GroupBand}">
+                <ToggleButton x:Name="PanModeButton" Style="{StaticResource RibbonToggleTile}" Click="OnPanModeClick"
+                              MinWidth="0" Margin="0,1" Padding="4,4"
+                              ToolTip="Click and drag to pan around the board - a toggled-on version of holding Alt+X anywhere">
+                    <StackPanel>
+                        <!-- A flat open hand, drawn by hand - no icon-font glyph reads as "pan/grab" reliably enough to risk guessing one. -->
+                        <Path Style="{StaticResource LineIcon}" Width="16" Height="16"
+                              Data="M4,15 V8 A1,1 0 0 1 6,8 V9 M6,9 V6 A1,1 0 0 1 8,6 V9 M8,9 V5 A1,1 0 0 1 10,5 V9 M10,9 V6.5 A1,1 0 0 1 12,6.5 V11 C12,13.5 10.5,15 8,15 H6 C5,15 4,14 4,13 Z"/>
+                        <TextBlock Text="Pan" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                    </StackPanel>
+                </ToggleButton>
+            </StackPanel>
+            <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Pan"/>
+        </StackPanel>
     </StackPanel>
 </UserControl>

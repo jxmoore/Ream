@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -13,8 +15,10 @@ public partial class ViewRibbonView : UserControl
 {
     private const int ZoomStep = 10;
     private bool _menuOpen;
+    private bool _refreshingBoardZoom;
     private Popup? _switchWorkspacesMenu;
     private Popup? _switchNotesMenu;
+    private SettingsViewModel? _trackedSettings;
 
     public ViewRibbonView()
     {
@@ -22,6 +26,45 @@ public partial class ViewRibbonView : UserControl
         // Owning "click elsewhere closes it" ourselves (see OpenMenu) needs a window to watch clicks on.
         Loaded += (_, _) => { if (Window.GetWindow(this) is { } window) window.PreviewMouseDown += OnWindowPreviewMouseDown; };
         Unloaded += (_, _) => { if (Window.GetWindow(this) is { } window) window.PreviewMouseDown -= OnWindowPreviewMouseDown; };
+
+        // BoardZoomBox isn't bound (it's a plain closed-list select now, not an editable box with a Binding to
+        // fight) - so keeping it in sync with BoardZoomPercent changing from anywhere else (Ctrl+Alt+Scroll,
+        // drilling into a workspace resetting it to 100) is this file's own job, the same shape RibbonView's own
+        // FontBox/SizeBox already use for the same reason.
+        DataContextChanged += (_, _) => TrackSettings(DataContext as SettingsViewModel);
+        TrackSettings(DataContext as SettingsViewModel);
+    }
+
+    private void TrackSettings(SettingsViewModel? settings)
+    {
+        if (_trackedSettings is not null) _trackedSettings.PropertyChanged -= OnTrackedSettingsPropertyChanged;
+        _trackedSettings = settings;
+        if (_trackedSettings is not null) _trackedSettings.PropertyChanged += OnTrackedSettingsPropertyChanged;
+        SyncBoardZoomSelection();
+    }
+
+    private void OnTrackedSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SettingsViewModel.BoardZoomPercent)) SyncBoardZoomSelection();
+    }
+
+    /// <summary>Highlights whichever preset matches the live percent, or none (a scrolled-to value between presets
+    /// just shows no selection - the same as any plain closed-list select whose current value isn't one of its own
+    /// options) - never fights <see cref="OnBoardZoomSelectionChanged"/> for a value it didn't itself just set.</summary>
+    private void SyncBoardZoomSelection()
+    {
+        _refreshingBoardZoom = true;
+        BoardZoomBox.SelectedItem = Settings is { } settings
+            ? BoardZoomBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string?)i.Tag == settings.BoardZoomPercent.ToString())
+            : null;
+        _refreshingBoardZoom = false;
+    }
+
+    private void OnBoardZoomSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_refreshingBoardZoom || Settings is not { } settings) return;
+        if (BoardZoomBox.SelectedItem is ComboBoxItem { Tag: string tag } && int.TryParse(tag, out int percent))
+            settings.BoardZoomPercent = percent;
     }
 
     /// <summary>The Theme tile: opening a window (ownership, the test-interceptable ShowModal hook) is MainWindow's job, not this tab's - same reason Help/About are raised as events too.</summary>

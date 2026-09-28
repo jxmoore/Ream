@@ -227,8 +227,12 @@
                     <ColumnDefinition x:Name="NavigationPaneColumn" Width="0"/>
                 </Grid.ColumnDefinitions>
 
-                <Grid Grid.Column="0">
-                    <ItemsControl ItemsSource="{Binding Workspaces}" Focusable="False">
+                <!-- ClipToBounds: normally redundant (WorkspaceStripPanel already clips itself to one workspace's
+                     worth of content), but Board Zoom turns that off so neighboring workspaces come into view - this
+                     is what keeps THAT contained within the canvas column instead of spilling into the navigation
+                     pane or past the window. See MainWindow.xaml.cs's own note on Board Zoom. -->
+                <Grid Grid.Column="0" ClipToBounds="True">
+                    <ItemsControl x:Name="WorkspaceStripHost" ItemsSource="{Binding Workspaces}" Focusable="False">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <controls:WorkspaceStripPanel

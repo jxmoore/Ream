@@ -6,7 +6,10 @@
         asked for: Theme, Zoom, View, Window, Show. Word's Page Movement group is dropped outright (Ream's row is
         always horizontal, its workspace stack always vertical - no equivalent toggle), and Print Layout / Web Layout
         go with it (no page to offer a page-layout mode for). Word controls Ream has no behaviour for yet are placed
-        anyway, disabled, the same convention the Home tab already uses (see its own top-of-file note).
+        anyway, disabled, the same convention the Home tab already uses (see its own top-of-file note). Board Zoom
+        no longer has a ribbon group of its own - its dropdown lives in Zoom instead (below), a close cousin of the
+        note-zoom controls already there, not a separate toggled mode any more (see MainWindow.xaml.cs's own note
+        on Board Zoom for why - it's a live value now, not something you turn on and off).
     -->
     <UserControl.Resources>
         <!-- A small icon+text row: three of these stack beside a group's main tile(s), Word's own rhythm. Based on
@@ -82,28 +85,54 @@
         <!-- Zoom: three stacked buttons, each its own magnifying-glass glyph (Segoe Fluent Icons' own ZoomIn/ZoomOut -
              MUI isn't a font available on Windows/WPF, so an icon font already on the system stands in for it) plus
              a hand-drawn reset arrow so Reset doesn't share Zoom's own glyph; its live percentage stays in the
-             tooltip only now, not printed on the tile itself. -->
+             tooltip only now, not printed on the tile itself. Board Zoom's own dropdown sits beside that stack, not
+             stacked as a fourth row - a ComboBox is taller than the 19px rows above it, and it's a different zoom
+             entirely (the board itself, not a note's content), so it reads better as its own small column than as
+             one more row in the same list. -->
         <StackPanel>
-            <StackPanel Height="60" VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="2,0">
-                <Button x:Name="ZoomInButton" Style="{StaticResource StackedRow}" Click="OnZoomIn" ToolTip="Zoom in (or Ctrl+Scroll up)">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE71E;" FontSize="13" Width="18"/>
-                        <TextBlock Text="Zoom In" FontSize="12" Margin="4,0,0,0"/>
-                    </StackPanel>
-                </Button>
-                <Button x:Name="ZoomOutButton" Style="{StaticResource StackedRow}" Click="OnZoomOut" ToolTip="Zoom out (or Ctrl+Scroll down)">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE71F;" FontSize="13" Width="18"/>
-                        <TextBlock Text="Zoom Out" FontSize="12" Margin="4,0,0,0"/>
-                    </StackPanel>
-                </Button>
-                <Button x:Name="ZoomResetButton" Style="{StaticResource StackedRow}" Click="OnZoomReset" ToolTip="{Binding ZoomResetTooltip}">
-                    <StackPanel Orientation="Horizontal">
-                        <Path Style="{StaticResource ViewLineIcon}" Width="14" Height="14"
-                              Data="M12.5,8 A5,5 0 1 0 10.6,11.6 M13,4 L12.5,8 L9,7"/>
-                        <TextBlock Text="Reset" FontSize="12" Margin="4,0,0,0"/>
-                    </StackPanel>
-                </Button>
+            <StackPanel Orientation="Horizontal" Height="60" VerticalAlignment="Bottom" Margin="2,0">
+                <StackPanel HorizontalAlignment="Left">
+                    <Button x:Name="ZoomInButton" Style="{StaticResource StackedRow}" Click="OnZoomIn" ToolTip="Zoom in (or Ctrl+Scroll up)">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE71E;" FontSize="13" Width="18"/>
+                            <TextBlock Text="Zoom In" FontSize="12" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ZoomOutButton" Style="{StaticResource StackedRow}" Click="OnZoomOut" ToolTip="Zoom out (or Ctrl+Scroll down)">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE71F;" FontSize="13" Width="18"/>
+                            <TextBlock Text="Zoom Out" FontSize="12" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ZoomResetButton" Style="{StaticResource StackedRow}" Click="OnZoomReset" ToolTip="{Binding ZoomResetTooltip}">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Style="{StaticResource ViewLineIcon}" Width="14" Height="14"
+                                  Data="M12.5,8 A5,5 0 1 0 10.6,11.6 M13,4 L12.5,8 L9,7"/>
+                            <TextBlock Text="Reset" FontSize="12" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+                <StackPanel VerticalAlignment="Center" Margin="10,0,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Board" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"
+                                   Foreground="{DynamicResource ToolbarMutedBrush}"/>
+                        <!-- Not IsEditable: a typed value only ever took effect on Enter/lost focus, which read as
+                             broken (pick 50 from the list, nothing happens until you also hit Enter). A plain
+                             closed-list select - pick one, it applies immediately - has no such gap to fall into. -->
+                        <ComboBox x:Name="BoardZoomBox" Grid.Column="1" Width="56" Height="22"
+                                  SelectionChanged="OnBoardZoomSelectionChanged"
+                                  ToolTip="How far the board is pulled back to show neighboring workspaces - 100% is normal (or Ctrl+Alt+Scroll)">
+                            <ComboBoxItem Tag="25">25%</ComboBoxItem>
+                            <ComboBoxItem Tag="50">50%</ComboBoxItem>
+                            <ComboBoxItem Tag="75">75%</ComboBoxItem>
+                            <ComboBoxItem Tag="100">100%</ComboBoxItem>
+                        </ComboBox>
+                    </Grid>
+                </StackPanel>
             </StackPanel>
             <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Zoom"/>
         </StackPanel>

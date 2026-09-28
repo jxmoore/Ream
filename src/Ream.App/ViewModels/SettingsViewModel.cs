@@ -131,6 +131,33 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _navigationPaneOpen;
 
+    /// <summary>
+    /// Zoom group's Board Zoom dropdown: how far the workspace strip is pulled back, 0-100 (100 = normal - the
+    /// board isn't pulled back at all), so neighboring workspaces come into view the lower it goes. Session-only,
+    /// not saved to config.json - MainWindow reacts to it directly (OnSettingsPropertyChanged), the same as
+    /// Gridlines/NavigationPaneOpen, since it drives the window's own canvas transform, not anything this view
+    /// model owns. Ctrl+Alt+Scroll (config's own "boardZoomWheel", read by MainWindow directly - there's no single
+    /// command a wheel gesture could bind to the way a keybinding normally does) changes this same property.
+    /// </summary>
+    [ObservableProperty]
+    private int _boardZoomPercent = 100;
+
+    partial void OnBoardZoomPercentChanged(int value)
+    {
+        int clamped = Math.Clamp(value, 0, 100);
+        if (clamped != value) BoardZoomPercent = clamped;
+    }
+
+    /// <summary>
+    /// Home tab's own Pan toggle: a click-and-drag-to-pan mode that stays on until clicked again, rather than the
+    /// same panning held on with Alt+X (config's own "panCanvas", read by MainWindow directly for the same
+    /// reason boardZoomWheel is - a hold isn't a command either). Session-only, not saved to config.json - reacted
+    /// to directly by MainWindow (OnSettingsPropertyChanged), which owns the actual drag/cursor handling; this is
+    /// just the on/off switch, the same shape Gridlines/NavigationPaneOpen already are.
+    /// </summary>
+    [ObservableProperty]
+    private bool _panModeOn;
+
     /// <summary>The Window group's Switch Notes / Switch Workspaces menus need the app view model's own workspaces and notes.</summary>
     internal AppViewModel App => _app;
 
