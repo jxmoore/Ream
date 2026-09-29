@@ -110,7 +110,7 @@ public class RibbonTabTests
 
         Assert.Null(view.FindName("WorkspaceList"));
         Assert.Equal(
-            ["NewButton", "OpenButton", "SaveButton", "SaveAsButton", "ClearButton", "HelpButton", "AboutButton"],
+            ["NewButton", "OpenButton", "SaveButton", "SaveAsButton", "NewNoteButton", "NewWorkspaceButton", "ClearButton", "HelpButton", "AboutButton"],
             Ui.Descendants<Button>(view).Select(b => b.Name));
         Assert.All(Ui.Descendants<Button>(view), b => Assert.True(b.IsEnabled, b.Name));
         Assert.IsType<ToggleButton>(view.FindName("AutoSaveToggle"));
@@ -189,6 +189,30 @@ public class RibbonTabTests
         fx.Window.OpenAbout();
 
         Assert.Equal(1, requests);
+    });
+
+    // ----- The View ribbon's Theme button -----
+
+    private static ViewRibbonView ViewRibbon(WindowFixture fx)
+    {
+        fx.Window.SelectTab(RibbonTab.View);
+        Ui.Settle();
+        return (ViewRibbonView)fx.Window.FindName("ViewRibbon");
+    }
+
+    [Fact]
+    public void Theme_OpensAModal_WithTheSettingsAsDataContext() => Ui.Run(() =>
+    {
+        using var fx = Docked(("W", 1));
+        var view = ViewRibbon(fx);
+        var shown = new List<Window>();
+        fx.Window.ShowModal = shown.Add;
+
+        Click((Button)view.FindName("ThemeButton"));
+
+        var modal = Assert.IsType<ThemeModal>(Assert.Single(shown));
+        Assert.Same(fx.Window, modal.Owner);
+        Assert.Same(fx.Window.Settings, modal.DataContext);
     });
 
     // ----- Scrolling -----

@@ -5,6 +5,9 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
+using Ream.App.Controls;
+using Ream.App.Services;
 using Ream.App.ViewModels;
 using Ream.App.Views;
 using Ream.Core.Models;
@@ -306,6 +309,152 @@ public class EditorIntegrationTests
     });
 
     [Fact]
+    public void SubscriptAndSuperscript_ToggleAndAreSaved() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Editor.SelectAll();
+
+        Click(fx.Toolbar.SubscriptButton);
+        Assert.Contains("va=\"sub\"", fx.Saved());
+        Assert.True(fx.Toolbar.SubscriptButton.IsChecked);
+
+        // Toggling it back off removes the marker, and turns superscript on instead is a separate click.
+        Click(fx.Toolbar.SubscriptButton);
+        Assert.DoesNotContain("va=", fx.Saved());
+
+        Click(fx.Toolbar.SuperscriptButton);
+        Assert.Contains("va=\"super\"", fx.Saved());
+    });
+
+    [Fact]
+    public void ClearFormatting_RemovesCharacterFormattingFromTheSelection() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Editor.SelectAll();
+        Click(fx.Toolbar.BoldButton);
+        Click(fx.Toolbar.ItalicButton);
+        fx.Toolbar.ApplyTextColor(Colors.Red);
+        Assert.Contains("b=\"1\"", fx.Saved());
+
+        fx.Editor.SelectAll();
+        Click(fx.Toolbar.ClearFormattingButton);
+
+        string cleared = fx.Saved();
+        Assert.DoesNotContain("b=\"1\"", cleared);
+        Assert.DoesNotContain("i=\"1\"", cleared);
+        Assert.DoesNotContain("color=", cleared);
+    });
+
+    [Fact]
+    public void ChangeCase_UppercasesTheSelection() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Editor.SelectAll();
+
+        fx.Toolbar.TransformCase(t => t.ToUpperInvariant());
+
+        Assert.Equal("HELLO WORLD", TextOf(fx.Editor.Document).TrimEnd());
+    });
+
+    [Fact]
+    public void LineSpacing_SetsLineHeight_AsAMultipleOfTheFontSize() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Editor.SelectAll();
+
+        fx.Toolbar.ApplyLineSpacing(2.0);
+
+        Assert.Contains("lh=", fx.Saved());
+    });
+
+    [Fact]
+    public void Shading_SetsAndClearsTheParagraphBackground() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Editor.SelectAll();
+
+        fx.Toolbar.ApplyShading(Colors.LightBlue);
+        Assert.Contains("bg=", fx.Saved());
+
+        fx.Toolbar.ApplyShading(null);
+        Assert.DoesNotContain("bg=", fx.Saved());
+    });
+
+    [Fact]
+    public void Borders_AddAndRemoveAParagraphBorder() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Editor.SelectAll();
+
+        fx.Toolbar.ApplyBorder((_, _) => new Thickness(1));
+        Assert.Contains("bd=", fx.Saved());
+
+        fx.Toolbar.ApplyBorder((_, _) => new Thickness(0));
+        Assert.DoesNotContain("bd=", fx.Saved());
+    });
+
+    [Fact]
+    public void Sort_OrdersSelectedParagraphsAlphabetically() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture("""<ReamNote schemaVersion="1"><Doc><P><R>banana</R></P><P><R>apple</R></P><P><R>cherry</R></P></Doc></ReamNote>""");
+        fx.Editor.SelectAll();
+
+        fx.Toolbar.SortParagraphs(ascending: true);
+
+        Assert.Equal("apple\r\nbanana\r\ncherry", TextOf(fx.Editor.Document).TrimEnd());
+    });
+
+    [Fact]
+    public void MoreStyles_SetSizeAndSlant_NotJustWeight() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Editor.SelectAll();
+
+        fx.Toolbar.ApplyStyle(6); // Subtitle: italic, not bold
+        string saved = fx.Saved();
+        Assert.Contains("i=\"1\"", saved);
+        Assert.DoesNotContain("b=\"1\"", saved);
+    });
+
+    [Theory]
+    [InlineData(1, 28)] // Heading 1
+    [InlineData(2, 22)] // Heading 2 - was missing from the size box's own preset list
+    [InlineData(3, 18)] // Heading 3
+    [InlineData(4, 15)] // Heading 4 - likewise
+    [InlineData(5, 34)] // Title - likewise
+    public void TheSizeBox_ShowsTheRealSize_OnEveryHeadingStyle_NotJustSome(int styleIndex, double expectedSize) => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Editor.SelectAll();
+
+        fx.Toolbar.ApplyStyle(styleIndex);
+
+        Assert.Equal(expectedSize, fx.Toolbar.SizeBox.SelectedItem);
+    });
+
+    [Fact]
+    public void TheZoomResource_ScalesTheEditorsLayoutTransform() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        var theme = new ThemeService(Application.Current);
+        try
+        {
+            var transform = Assert.IsType<ScaleTransform>(fx.Editor.LayoutTransform);
+            Assert.Equal(1.0, transform.ScaleX);
+
+            theme.Apply("dark", zoomPercent: 150);
+            Ui.Settle();
+
+            Assert.Equal(1.5, transform.ScaleX);
+            Assert.Equal(1.5, transform.ScaleY);
+        }
+        finally
+        {
+            theme.Apply("dark"); // back to 100%, for whichever test shares the Application next
+        }
+    });
+
+    [Fact]
     public void Undo_RevertsToolbarFormatting() => Ui.Run(() =>
     {
         using var fx = new EditorFixture(Plain);
@@ -412,6 +561,208 @@ public class EditorIntegrationTests
         view.InsertImage(Png(10, 10));
 
         Assert.Empty(ImagesOf(view.Editor.Document));
+    });
+
+    // ----- View modes: Draft (hide images) and Outline (heading summary) -----
+
+    [Fact]
+    public void DraftView_HidesImages_WithoutRemovingThem() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.View.InsertImage(Png(20, 20));
+        Ui.Settle();
+        var image = Assert.Single(ImagesOf(fx.Editor.Document));
+
+        fx.Note.HideImages = true;
+        Ui.Settle();
+        Assert.Equal(Visibility.Collapsed, image.Visibility);
+
+        fx.Note.HideImages = false;
+        Ui.Settle();
+        Assert.Equal(Visibility.Visible, image.Visibility);
+        Assert.Single(ImagesOf(fx.Editor.Document)); // never removed, just hidden
+    });
+
+    [Fact]
+    public void PastingWhileInDraftView_TheNewImageStartsHiddenToo() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Note.HideImages = true;
+
+        fx.View.InsertImage(Png(20, 20));
+        Ui.Settle();
+
+        Assert.Equal(Visibility.Collapsed, Assert.Single(ImagesOf(fx.Editor.Document)).Visibility);
+    });
+
+    private const string HeadingsBody = """
+        <ReamNote schemaVersion="1"><Doc>
+        <P size="28" b="1"><R>Heading One</R></P>
+        <P><R>Some body text under it.</R></P>
+        <P size="22" b="1"><R>Heading Two</R></P>
+        <P><R>More body text.</R></P>
+        </Doc></ReamNote>
+        """;
+
+    [Fact]
+    public void OutlineView_ShowsOnlyTheHeadings_AndLocksEditing() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(HeadingsBody);
+
+        fx.Note.IsOutlineView = true;
+        Ui.Settle();
+
+        string text = TextOf(fx.Editor.Document);
+        Assert.Contains("Heading One", text);
+        Assert.Contains("Heading Two", text);
+        Assert.DoesNotContain("Some body text", text);
+        Assert.DoesNotContain("More body text", text);
+        Assert.True(fx.Editor.IsReadOnly);
+    });
+
+    [Fact]
+    public void OutlineView_TurnedOff_RestoresTheRealDocument_StillEditable() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(HeadingsBody);
+        fx.Note.IsOutlineView = true;
+        Ui.Settle();
+
+        fx.Note.IsOutlineView = false;
+        Ui.Settle();
+
+        Assert.Contains("Some body text under it", TextOf(fx.Editor.Document));
+        Assert.False(fx.Editor.IsReadOnly);
+    });
+
+    [Fact]
+    public void OutlineView_OnANoteWithNoHeadings_ShowsAPlaceholder_InsteadOfNothing() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+
+        fx.Note.IsOutlineView = true;
+        Ui.Settle();
+
+        Assert.Contains("No headings", TextOf(fx.Editor.Document));
+    });
+
+    // ----- Ruler -----
+
+    [Fact]
+    public void Ruler_IsHidden_UntilShowRulerIsOn() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        var horizontal = (FrameworkElement)fx.View.FindName("HorizontalRulerHost");
+        var vertical = (FrameworkElement)fx.View.FindName("VerticalRulerHost");
+        Assert.Equal(Visibility.Collapsed, horizontal.Visibility);
+        Assert.Equal(Visibility.Collapsed, vertical.Visibility);
+
+        fx.Note.ShowRuler = true;
+        Ui.Settle();
+
+        Assert.Equal(Visibility.Visible, horizontal.Visibility);
+        Assert.Equal(Visibility.Visible, vertical.Visibility);
+    });
+
+    [Fact]
+    public void DraggingTheIndentMarker_SetsTheParagraphsLeftMargin() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        fx.Note.ShowRuler = true;
+        Ui.Settle();
+        fx.Editor.CaretPosition = fx.Editor.Document.ContentStart; // the paragraph the drag should touch
+
+        Canvas.SetLeft(fx.View.IndentMarker, 40);
+        fx.View.IndentMarker.RaiseEvent(new DragCompletedEventArgs(0, 0, false) { RoutedEvent = Thumb.DragCompletedEvent });
+
+        var paragraph = (Paragraph)fx.Editor.Document.Blocks.First();
+        Assert.Equal(40, paragraph.Margin.Left);
+    });
+
+    [Fact]
+    public void TurningRulerOn_PositionsTheMarkerAtTheCaretParagraphsOwnMargin() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        var paragraph = (Paragraph)fx.Editor.Document.Blocks.First();
+        paragraph.Margin = new Thickness(25, 0, 0, 6);
+
+        fx.Note.ShowRuler = true;
+        Ui.Settle();
+
+        Assert.Equal(25, Canvas.GetLeft(fx.View.IndentMarker));
+    });
+
+    // ----- Show group's Gridlines: on the note itself, not the canvas behind it -----
+
+    [Fact]
+    public void Gridlines_FollowTheSharedResource_OnEveryNote() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+        var grid = Ui.Descendants<Rectangle>(fx.View).Single(r => r.Fill is DrawingBrush);
+
+        try
+        {
+            Application.Current.Resources[SettingsViewModel.GridlinesVisibilityKey] = Visibility.Visible;
+            Ui.Settle();
+            Assert.Equal(Visibility.Visible, grid.Visibility);
+
+            Application.Current.Resources[SettingsViewModel.GridlinesVisibilityKey] = Visibility.Collapsed;
+            Ui.Settle();
+            Assert.Equal(Visibility.Collapsed, grid.Visibility);
+        }
+        finally
+        {
+            Application.Current.Resources[SettingsViewModel.GridlinesVisibilityKey] = Visibility.Collapsed;
+        }
+    });
+
+    // ----- Ruler: the vertical one goes on whichever side has no neighbouring note -----
+
+    [Fact]
+    public void VerticalRuler_GoesLeft_ForTheOnlyNoteInTheRow() => Ui.Run(() =>
+    {
+        using var fx = new EditorFixture(Plain);
+
+        Assert.Equal(0, Grid.GetColumn((FrameworkElement)fx.View.FindName("VerticalRulerHost")));
+    });
+
+    [Fact]
+    public void VerticalRuler_GoesLeft_ForTheFirstOfSeveralNotes() => Ui.Run(() =>
+    {
+        var workspace = new WorkspaceViewModel("W");
+        var first = new NoteViewModel();
+        var second = new NoteViewModel();
+        workspace.LoadNotes([first, second], null);
+        var view = new NoteColumnView { DataContext = first };
+        view.EnsureLoaded();
+
+        Assert.Equal(0, Grid.GetColumn((FrameworkElement)view.FindName("VerticalRulerHost")));
+    });
+
+    [Fact]
+    public void VerticalRuler_GoesRight_ForTheLastOfSeveralNotes() => Ui.Run(() =>
+    {
+        var workspace = new WorkspaceViewModel("W");
+        var first = new NoteViewModel();
+        var second = new NoteViewModel();
+        workspace.LoadNotes([first, second], null);
+        var view = new NoteColumnView { DataContext = second };
+        view.EnsureLoaded();
+
+        Assert.Equal(2, Grid.GetColumn((FrameworkElement)view.FindName("VerticalRulerHost")));
+    });
+
+    [Fact]
+    public void VerticalRuler_GoesLeft_ForAMiddleNote() => Ui.Run(() =>
+    {
+        var workspace = new WorkspaceViewModel("W");
+        var first = new NoteViewModel();
+        var middle = new NoteViewModel();
+        var last = new NoteViewModel();
+        workspace.LoadNotes([first, middle, last], null);
+        var view = new NoteColumnView { DataContext = middle };
+        view.EnsureLoaded();
+
+        Assert.Equal(0, Grid.GetColumn((FrameworkElement)view.FindName("VerticalRulerHost")));
     });
 
     // ----- Whole pipeline -----

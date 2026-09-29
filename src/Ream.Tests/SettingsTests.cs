@@ -3,6 +3,8 @@ using System.Windows;
 using System.Windows.Automation.Peers;
 using System.Windows.Automation.Provider;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Media;
 using Ream.App.Services;
 using Ream.App.ViewModels;
@@ -182,6 +184,126 @@ public class SettingsViewModelTests
         rig.App.Config = rig.App.Config.With(noteOpacity: 20);
 
         Assert.Equal(20, rig.Settings.NoteOpacityPercent);
+    });
+
+    [Fact]
+    public void TheZoomSetting_ChangesTheConfig_AndLabelsIt() => Ui.Run(() =>
+    {
+        using var rig = new Rig();
+
+        rig.Settings.ZoomPercent = 150;
+
+        Assert.Equal(150, rig.App.Config.Zoom);
+        Assert.Equal("150%", rig.Settings.ZoomLabel);
+        Assert.Equal(1.5, Themes.Resource<double>(ThemeService.NoteZoomScaleKey));
+    });
+
+    [Theory]
+    [InlineData(500, 200)]
+    [InlineData(10, 50)]
+    public void Zoom_IsKeptBetweenFiftyAndTwoHundred(int typed, int expected) => Ui.Run(() =>
+    {
+        using var rig = new Rig();
+
+        rig.Settings.ZoomPercent = typed;
+
+        Assert.Equal(expected, rig.Settings.ZoomPercent);
+        Assert.Equal(expected, rig.App.Config.Zoom);
+    });
+
+    [Fact]
+    public void Zoom_IsSavedToTheConfigFile_WithoutDisturbingTheRest() => Ui.Run(() =>
+    {
+        using var rig = new Rig();
+
+        rig.Settings.ZoomPercent = 80;
+        rig.Settings.Flush();
+
+        var saved = rig.Saved;
+        Assert.Equal(80, (int?)saved["zoom"]);
+        Assert.Equal("Ctrl+T", (string?)saved["keybindings"]!["newNote"]);
+        Assert.Null(saved["canvasOpacity"]);
+    });
+
+    [Fact]
+    public void ZoomEditedInTheFile_IsFollowedBy_ThePanel() => Ui.Run(() =>
+    {
+        using var rig = new Rig();
+
+        rig.App.Config = rig.App.Config.With(zoom: 60);
+
+        Assert.Equal(60, rig.Settings.ZoomPercent);
+    });
+
+    [Fact]
+    public void TheGapSetting_ChangesTheLayoutConfig_AndSavesUnderLayout() => Ui.Run(() =>
+    {
+        using var rig = new Rig();
+
+        rig.Settings.GapPx = 40;
+        rig.Settings.Flush();
+
+        Assert.Equal(40, rig.App.Config.Layout.GapPx);
+        var saved = rig.Saved;
+        Assert.Equal(40, (double?)saved["layout"]!["gapPx"]);
+    });
+
+    [Theory]
+    [InlineData(500, 60)]
+    [InlineData(-10, 8)]
+    public void Gap_IsKeptBetweenEightAndSixty(double typed, double expected) => Ui.Run(() =>
+    {
+        using var rig = new Rig();
+
+        rig.Settings.GapPx = typed;
+
+        Assert.Equal(expected, rig.Settings.GapPx);
+        Assert.Equal(expected, rig.App.Config.Layout.GapPx);
+    });
+
+    [Fact]
+    public void TheCenterFocusedColumnToggle_ChangesTheLayoutConfig_AndKeepsTheGap() => Ui.Run(() =>
+    {
+        using var rig = new Rig(new AppConfig { Layout = new LayoutConfig { GapPx = 40, CenterFocusedColumn = true } });
+
+        rig.Settings.CenterFocusedColumn = false;
+        rig.Settings.Flush();
+
+        Assert.False(rig.App.Config.Layout.CenterFocusedColumn);
+        Assert.Equal(40, rig.App.Config.Layout.GapPx); // untouched
+        var saved = rig.Saved;
+        Assert.Equal(false, (bool?)saved["layout"]!["centerFocusedColumn"]);
+    });
+
+    /// <summary>SetRibbonPinned isn't bound from XAML (MainWindow's pin button calls it directly - the pin itself
+    /// lives in RibbonVisibility, not SettingsViewModel), but it goes through the exact same "update in memory, save
+    /// shortly after" path as everything the View tab does edit.</summary>
+    [Fact]
+    public void SetRibbonPinned_ChangesTheRibbonConfig_AndPersistsIt() => Ui.Run(() =>
+    {
+        using var rig = new Rig(new AppConfig { Ribbon = new RibbonConfig { AutoHide = true, Pinned = false } });
+
+        rig.Settings.SetRibbonPinned(true);
+        rig.Settings.Flush();
+
+        Assert.True(rig.App.Config.Ribbon.Pinned);
+        Assert.True(rig.App.Config.Ribbon.AutoHide); // untouched
+        Assert.Equal(true, (bool?)rig.Saved["ribbon"]!["pinned"]);
+    });
+
+    [Fact]
+    public void LayoutChanges_DoNotDisturbOtherLayoutKeysAlreadyInTheFile() => Ui.Run(() =>
+    {
+        using var rig = new Rig(fileText: """
+            { "theme": "dark", "layout": { "gapPx": 28, "focusFirstNoteOnSwitch": false } }
+            """);
+
+        rig.Settings.GapPx = 12;
+        rig.Settings.Flush();
+
+        var layout = rig.Saved["layout"]!;
+        Assert.Equal(12, (double?)layout["gapPx"]);
+        Assert.Equal(false, (bool?)layout["focusFirstNoteOnSwitch"]); // carried over, untouched
     });
 
     [Fact]
@@ -373,10 +495,22 @@ public class ViewRibbonTests
     private static void Click(Button button) =>
         ((IInvokeProvider)new ButtonAutomationPeer(button).GetPattern(PatternInterface.Invoke)!).Invoke();
 
-    private static Slider SliderNamed(ViewRibbonView view, string name) => (Slider)view.FindName(name);
+    private static void RaiseClick(Button button) => button.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+
+    /// <summary>The rows of a Switch Workspaces/Switch Notes drop-down (ViewRibbonView.BuildPopupShell/BuildRow) -
+    /// a Border per row inside a StackPanel inside the popup's own outer Border.</summary>
+    private static IReadOnlyList<Border> MenuRows(Popup popup) =>
+        ((StackPanel)((Border)popup.Child).Child).Children.Cast<Border>().ToList();
+
+    private static string RowText(Border row) => ((Grid)row.Child).Children.OfType<TextBlock>().Last().Text;
+
+    private static bool RowIsCurrent(Border row) => ((Grid)row.Child).Children.OfType<TextBlock>().Count() > 1;
+
+    private static void RaiseRowClick(Border row) =>
+        row.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseLeftButtonUpEvent });
 
     [Fact]
-    public void ThemesAreADropdown_OneEntryPerTheme_AndPickingOnePicksIt() => Ui.Run(() =>
+    public void TheGroupLabels_AllAlignAtTheSameHeight() => Ui.Run(() =>
     {
         var app = new AppViewModel(new AppConfig(), []);
         var theme = new ThemeService(Application.Current, () => true);
@@ -385,16 +519,17 @@ public class ViewRibbonTests
         {
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
-            var box = (ComboBox)view.FindName("ThemeBox");
 
-            Assert.Equal(ThemeCatalog.All.Select(t => t.Name), box.Items.Cast<ThemeOption>().Select(o => o.Name));
-            Assert.Equal("dark", ((ThemeOption)box.SelectedItem).Id);
+            // The Theme tile's own inner label also happens to read "Theme" - only the RibbonGroupLabel captions
+            // (never inside a button) are what this test is checking.
+            var labels = Ui.Descendants<TextBlock>(view)
+                .Where(t => t.Text is "View" or "Window" or "Show" or "Zoom" or "Theme")
+                .Where(t => Ui.Ancestor<ButtonBase>(t) is null)
+                .ToList();
+            Assert.Equal(5, labels.Count);
 
-            box.SelectedIndex = 2;
-            Ui.Settle();
-
-            Assert.Equal("dracula", app.Config.Theme);
-            Assert.Equal("dracula", ((ThemeOption)box.SelectedItem).Id);
+            var tops = labels.Select(l => l.TranslatePoint(new Point(0, 0), view).Y).ToList();
+            Assert.True(tops.Max() - tops.Min() < 0.5, "label tops: " + string.Join(", ", tops));
         }
         finally
         {
@@ -403,7 +538,62 @@ public class ViewRibbonTests
     });
 
     [Fact]
-    public void TheDropdown_FollowsTheConfigWhenItChangesElsewhere() => Ui.Run(() =>
+    public void TheZoomResetTile_TooltipFollowsTheZoom_AndAClickResetsIt() => Ui.Run(() =>
+    {
+        // No live percentage printed on the tile itself any more - just the tooltip.
+        var app = new AppViewModel(new AppConfig(), []);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            Assert.Equal("Zoom is 100%", ((Button)view.FindName("ZoomResetButton")).ToolTip);
+
+            settings.ZoomPercent = 125;
+            Ui.Settle();
+            Assert.Equal("Zoom is 125% - click to reset to 100%", ((Button)view.FindName("ZoomResetButton")).ToolTip);
+
+            RaiseClick((Button)view.FindName("ZoomResetButton"));
+            Ui.Settle();
+            Assert.Equal(100, app.Config.Zoom);
+            Assert.Equal("Zoom is 100%", ((Button)view.FindName("ZoomResetButton")).ToolTip);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void TheZoomInAndOutButtons_StepTheZoomByTen_Clamped() => Ui.Run(() =>
+    {
+        var app = new AppViewModel(new AppConfig { Zoom = 195 }, []);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+
+            RaiseClick((Button)view.FindName("ZoomInButton"));
+            Ui.Settle();
+            Assert.Equal(200, settings.ZoomPercent); // clamped at the top, not 205
+
+            RaiseClick((Button)view.FindName("ZoomOutButton"));
+            RaiseClick((Button)view.FindName("ZoomOutButton"));
+            Ui.Settle();
+            Assert.Equal(180, settings.ZoomPercent);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+
+    [Fact]
+    public void TheShowGroup_GridlinesAndNavigationPane_AreRealTwoWayCheckBoxes() => Ui.Run(() =>
     {
         var app = new AppViewModel(new AppConfig(), []);
         var theme = new ThemeService(Application.Current, () => true);
@@ -412,12 +602,20 @@ public class ViewRibbonTests
         {
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
-            var box = (ComboBox)view.FindName("ThemeBox");
 
-            app.Config = app.Config.With(theme: "nord");
+            var gridlines = (CheckBox)view.FindName("GridlinesCheckBox");
+            var navPane = (CheckBox)view.FindName("NavigationPaneCheckBox");
+            Assert.True(gridlines.IsEnabled);
+            Assert.True(navPane.IsEnabled);
+            Assert.False(gridlines.IsChecked);
+            Assert.False(navPane.IsChecked);
+
+            gridlines.IsChecked = true;
+            navPane.IsChecked = true;
             Ui.Settle();
 
-            Assert.Equal("nord", ((ThemeOption)box.SelectedItem).Id);
+            Assert.True(settings.GridlinesOn);
+            Assert.True(settings.NavigationPaneOpen);
         }
         finally
         {
@@ -425,20 +623,32 @@ public class ViewRibbonTests
         }
     });
 
-    [Fact]
-    public void TheDropdownShowsTheSelectedThemesSwatchAndName() => Ui.Run(() =>
+    private static (AppViewModel App, NoteViewModel Note) FixtureWithNote()
     {
-        var app = new AppViewModel(new AppConfig { Theme = "gruvbox" }, []);
+        var workspace = new WorkspaceViewModel("W");
+        var note = new NoteViewModel();
+        workspace.LoadNotes([note], null);
+        var app = new AppViewModel(new AppConfig(), [workspace]);
+        return (app, note);
+    }
+
+    [Fact]
+    public void TheRulerCheckBox_TogglesTheFocusedNotesRuler() => Ui.Run(() =>
+    {
+        var (app, note) = FixtureWithNote();
         var theme = new ThemeService(Application.Current, () => true);
         var settings = Make(app, theme);
         try
         {
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
-            var box = (ComboBox)view.FindName("ThemeBox");
+            var box = (CheckBox)view.FindName("RulerCheckBox");
+            Assert.False(box.IsChecked);
+
+            box.IsChecked = true;
             Ui.Settle();
 
-            Assert.Contains(Ui.Descendants<TextBlock>(box), t => t.Text == "Gruvbox");
+            Assert.True(note.ShowRuler);
         }
         finally
         {
@@ -447,7 +657,33 @@ public class ViewRibbonTests
     });
 
     [Fact]
-    public void TheTwoSliders_AreStackedAndShort() => Ui.Run(() =>
+    public void TheOnePageButton_TogglesOnePageMode() => Ui.Run(() =>
+    {
+        var (app, note) = FixtureWithNote();
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            var toggle = (ToggleButton)view.FindName("OnePageButton");
+            Assert.False(toggle.IsChecked);
+
+            toggle.IsChecked = true;
+            Ui.Settle();
+
+            Assert.True(app.OnePageMode);
+            Assert.False(note.IsHiddenByOnePage); // the only note in the workspace - never hides itself
+            Assert.False(note.IsFullscreen); // One Page doesn't enlarge the note that stays, unlike Read Mode
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void TheThemeButton_RaisesItsEvent() => Ui.Run(() =>
     {
         var app = new AppViewModel(new AppConfig(), []);
         var theme = new ThemeService(Application.Current, () => true);
@@ -456,15 +692,12 @@ public class ViewRibbonTests
         {
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
-            var canvas = SliderNamed(view, "OpacitySlider");
-            var notes = SliderNamed(view, "NoteOpacitySlider");
+            bool raised = false;
+            view.ThemeRequested += () => raised = true;
 
-            var canvasAt = canvas.TranslatePoint(new Point(0, 0), view);
-            var notesAt = notes.TranslatePoint(new Point(0, 0), view);
+            RaiseClick((Button)view.FindName("ThemeButton"));
 
-            Assert.Equal(canvasAt.X, notesAt.X);
-            Assert.True(notesAt.Y - canvasAt.Y >= 24, "the Notes slider sits under the Canvas one");
-            Assert.True(canvas.ActualWidth <= 130 && notes.ActualWidth <= 130);
+            Assert.True(raised);
         }
         finally
         {
@@ -473,7 +706,210 @@ public class ViewRibbonTests
     });
 
     [Fact]
-    public void TheSliders_DriveTheTwoOpacities_AndTheirLabels() => Ui.Run(() =>
+    public void TheSwitchWorkspacesButton_ListsWorkspaces_AndPickingOneSwitchesToIt() => Ui.Run(() =>
+    {
+        var w1 = new WorkspaceViewModel("Alpha");
+        w1.LoadNotes([new NoteViewModel()], null);
+        var w2 = new WorkspaceViewModel("Beta");
+        w2.LoadNotes([new NoteViewModel()], null);
+        var app = new AppViewModel(new AppConfig(), [w1, w2], currentIndex: 0);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            var button = (Button)view.FindName("SwitchWorkspacesButton");
+
+            RaiseClick(button);
+            Ui.Settle();
+
+            var menu = view.SwitchWorkspacesMenu;
+            Assert.NotNull(menu);
+            var rows = MenuRows(menu);
+            Assert.Equal(["Alpha", "Beta"], rows.Select(RowText));
+            Assert.True(RowIsCurrent(rows[0]));
+
+            RaiseRowClick(rows[1]);
+            Ui.Settle();
+
+            Assert.Same(w2, app.CurrentWorkspace);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void TheSwitchNotesButton_ListsTheWorkspacesNotes_AndPickingOneFocusesIt() => Ui.Run(() =>
+    {
+        var workspace = new WorkspaceViewModel("W");
+        var first = new NoteViewModel { Title = "First" };
+        var second = new NoteViewModel { Title = "Second" };
+        workspace.LoadNotes([first, second], first.Id);
+        var app = new AppViewModel(new AppConfig(), [workspace]);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            var button = (Button)view.FindName("SwitchNotesButton");
+
+            RaiseClick(button);
+            Ui.Settle();
+
+            var menu = view.SwitchNotesMenu;
+            Assert.NotNull(menu);
+            var rows = MenuRows(menu);
+            Assert.Equal(["First", "Second"], rows.Select(RowText));
+            Assert.True(RowIsCurrent(rows[0]));
+
+            RaiseRowClick(rows[1]);
+            Ui.Settle();
+
+            Assert.Same(second, app.CurrentWorkspace.FocusedNote);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void ClickingSwitchNotes_AgainWhileItsMenuIsOpen_ClosesItInsteadOfReopening() => Ui.Run(() =>
+    {
+        var workspace = new WorkspaceViewModel("W");
+        workspace.LoadNotes([new NoteViewModel()], null);
+        var app = new AppViewModel(new AppConfig(), [workspace]);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            var button = (Button)view.FindName("SwitchNotesButton");
+
+            RaiseClick(button);
+            Ui.Settle();
+            var firstMenu = view.SwitchNotesMenu;
+            Assert.NotNull(firstMenu);
+            Assert.True(firstMenu.IsOpen);
+
+            // The drop-down is a plain Popup, closed only by ViewRibbonView's own code (CloseIfOpen here, or
+            // OnWindowPreviewMouseDown for a click elsewhere) - never by any WPF menu-dismissal machinery - so
+            // this exercises the real production path directly, with no WPF-internal timing to simulate.
+            RaiseClick(button);
+            Ui.Settle();
+
+            Assert.False(firstMenu.IsOpen); // closed, not left open and hidden behind a freshly-opened second one
+            Assert.Null(view.SwitchNotesMenu); // and not tracked as still open, either
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void ClickingSwitchWorkspaces_AgainWhileItsMenuIsOpen_ClosesItInsteadOfReopening() => Ui.Run(() =>
+    {
+        var w1 = new WorkspaceViewModel("Alpha");
+        w1.LoadNotes([new NoteViewModel()], null);
+        var app = new AppViewModel(new AppConfig(), [w1], currentIndex: 0);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            var button = (Button)view.FindName("SwitchWorkspacesButton");
+
+            RaiseClick(button);
+            Ui.Settle();
+            var firstMenu = view.SwitchWorkspacesMenu;
+            Assert.NotNull(firstMenu);
+            Assert.True(firstMenu.IsOpen);
+
+            RaiseClick(button);
+            Ui.Settle();
+
+            Assert.False(firstMenu.IsOpen);
+            Assert.Null(view.SwitchWorkspacesMenu);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void ClickingElsewhere_ClosesAnOpenSwitchMenu() => Ui.Run(() =>
+    {
+        // The drop-down is a plain Popup with StaysOpen="True" (so a reclick on its own button can close it
+        // deterministically - see ClickingSwitchNotes_AgainWhileItsMenuIsOpen_ClosesItInsteadOfReopening), which
+        // means nothing closes it on an outside click automatically: ViewRibbonView reimplements that itself
+        // (OnWindowPreviewMouseDown), so this checks it actually does.
+        var workspace = new WorkspaceViewModel("W");
+        workspace.LoadNotes([new NoteViewModel()], null);
+        var app = new AppViewModel(new AppConfig(), [workspace]);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            var switchButton = (Button)view.FindName("SwitchNotesButton");
+            var elsewhere = (Button)view.FindName("ZoomInButton");
+
+            RaiseClick(switchButton);
+            Ui.Settle();
+            var menu = view.SwitchNotesMenu;
+            Assert.NotNull(menu);
+            Assert.True(menu.IsOpen);
+
+            elsewhere.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseDownEvent });
+            Ui.Settle();
+
+            Assert.False(menu.IsOpen);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void ASwitchMenu_KeepsTheRibbonUp_EvenWhenNotPinned() => Ui.Run(() =>
+    {
+        var workspace = new WorkspaceViewModel("W");
+        workspace.LoadNotes([new NoteViewModel()], null);
+        var app = new AppViewModel(new AppConfig(), [workspace]);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            bool? menuOpen = null;
+            view.MenuOpenChanged += () => menuOpen = view.IsMenuOpen;
+
+            RaiseClick((Button)view.FindName("SwitchWorkspacesButton"));
+            Ui.Settle();
+
+            Assert.True(view.IsMenuOpen);
+            Assert.True(menuOpen);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    /// <summary>Every control on the View tab is real now (Views, Show, Zoom and Window each got their own pass) - nothing left placed-but-disabled the way the Home tab still has a few Word controls with nothing behind them.</summary>
+    [Fact]
+    public void EveryControlOnTheViewTab_IsEnabled() => Ui.Run(() =>
     {
         var app = new AppViewModel(new AppConfig(), []);
         var theme = new ThemeService(Application.Current, () => true);
@@ -482,25 +918,15 @@ public class ViewRibbonTests
         {
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
-            var canvas = SliderNamed(view, "OpacitySlider");
-            var notes = SliderNamed(view, "NoteOpacitySlider");
-            Assert.Equal(100, canvas.Value);
-            Assert.Equal(100, notes.Value);
-            Assert.True(canvas.IsEnabled && notes.IsEnabled);
 
-            canvas.Value = 30;
-            notes.Value = 60;
-            Ui.Settle();
-
-            Assert.Equal(30, app.Config.CanvasOpacity);
-            Assert.Equal(60, app.Config.NoteOpacity);
-            Assert.Equal("30%", ((TextBlock)view.FindName("CanvasOpacityLabel")).Text);
-            Assert.Equal("60%", ((TextBlock)view.FindName("NoteOpacityLabel")).Text);
-
-            app.Config = app.Config.With(canvasOpacity: 75, noteOpacity: 10);
-            Ui.Settle();
-            Assert.Equal(75, canvas.Value);
-            Assert.Equal(10, notes.Value);
+            string[] working =
+            [
+                "ThemeButton",
+                "ReadModeButton", "DraftButton", "OutlineButton", "RulerCheckBox", "GridlinesCheckBox", "NavigationPaneCheckBox",
+                "ZoomInButton", "ZoomOutButton", "ZoomResetButton",
+                "OnePageButton", "SwitchWorkspacesButton", "SwitchNotesButton",
+            ];
+            foreach (var name in working) Assert.True(((Control)view.FindName(name)).IsEnabled, name);
         }
         finally
         {
@@ -509,19 +935,85 @@ public class ViewRibbonTests
     });
 
     [Fact]
-    public void OnWindowsWithoutBlur_TheSlidersStillWork_AndTheTooltipSaysWhatIsMissing() => Ui.Run(() =>
+    public void RibbonTiles_ShowNoFrame_UntilThePointerIsOnThem() => Ui.Run(() =>
     {
+        // Word's own ribbon buttons are just a glyph and a caption at rest - no box, no border - until hovered.
         var app = new AppViewModel(new AppConfig(), []);
-        var theme = new ThemeService(Application.Current, () => false);
-        var settings = Make(app, theme, supported: false);
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
         try
         {
             var view = new ViewRibbonView { DataContext = settings };
             using var window = new WindowHolder(view);
 
-            var canvas = SliderNamed(view, "OpacitySlider");
-            Assert.True(canvas.IsEnabled);
-            Assert.Contains("Windows 10", (string)canvas.ToolTip);
+            foreach (var name in new[] { "ZoomInButton", "ZoomResetButton", "ThemeButton", "SwitchNotesButton", "SwitchWorkspacesButton" })
+            {
+                var button = (Button)view.FindName(name);
+                var frame = Ui.Descendants<Border>(button).First(b => b.Name == "Frame");
+                Assert.True(((SolidColorBrush)frame.Background).Color == Colors.Transparent, $"{name} has a background at rest");
+                Assert.True(((SolidColorBrush)frame.BorderBrush).Color == Colors.Transparent, $"{name} has a border at rest");
+            }
+
+            // OnePageButton is a ToggleButton (RibbonToggleTile), not a Button, but shares the same flat-until-hover Frame.
+            var onePage = (ToggleButton)view.FindName("OnePageButton");
+            var onePageFrame = Ui.Descendants<Border>(onePage).First(b => b.Name == "Frame");
+            Assert.True(((SolidColorBrush)onePageFrame.Background).Color == Colors.Transparent, "OnePageButton has a background at rest");
+            Assert.True(((SolidColorBrush)onePageFrame.BorderBrush).Color == Colors.Transparent, "OnePageButton has a border at rest");
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void TheReadModeButton_TogglesTheFocusedNotesReadMode() => Ui.Run(() =>
+    {
+        var (app, note) = FixtureWithNote();
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            var toggle = (ToggleButton)view.FindName("ReadModeButton");
+            Assert.False(toggle.IsChecked);
+
+            toggle.IsChecked = true;
+            Ui.Settle();
+
+            Assert.True(note.IsReadOnly);
+            Assert.True(note.IsFullscreen);
+        }
+        finally
+        {
+            theme.Apply("dark");
+        }
+    });
+
+    [Fact]
+    public void TheDraftAndOutlineButtons_AreMutuallyExclusive() => Ui.Run(() =>
+    {
+        var (app, note) = FixtureWithNote();
+        var theme = new ThemeService(Application.Current, () => true);
+        var settings = Make(app, theme);
+        try
+        {
+            var view = new ViewRibbonView { DataContext = settings };
+            using var window = new WindowHolder(view);
+            var draft = (ToggleButton)view.FindName("DraftButton");
+            var outline = (ToggleButton)view.FindName("OutlineButton");
+
+            draft.IsChecked = true;
+            Ui.Settle();
+            Assert.True(note.HideImages);
+
+            outline.IsChecked = true;
+            Ui.Settle();
+
+            Assert.True(note.IsOutlineView);
+            Assert.False(note.HideImages); // entering Outline leaves Draft, they're views of the same note, not independent flags
+            Assert.False(draft.IsChecked);
         }
         finally
         {

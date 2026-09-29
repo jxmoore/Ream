@@ -32,7 +32,14 @@ A *ream* is a named file plus a data folder (`ReamPaths` has the helpers; `Docum
   NOT XAML: XamlReader can instantiate arbitrary types, so it is never used on note files.
   `NoteDocumentSerializer` writes only what differs from the paragraph/document baseline,
   refuses DTDs, ignores unknown elements, and rejects unsafe asset names. Text that isn't
-  in this format (older notes) opens as plain paragraphs.
+  in this format (older notes) opens as plain paragraphs. `P` also carries `lh` (line height),
+  `mt`/`mb` (space before/after, vs. a bare `new Paragraph()`'s margin) and `bd` (a
+  "left,top,right,bottom" border thickness; the border's color is a fixed gray the persistence
+  layer owns, not a theme resource, so a reload looks the same regardless of the live theme).
+  `R` carries `va="sub"`/`"super"` for subscript/superscript. Paragraph shading rides the
+  existing `bg` attribute (it's just `Paragraph.Background`, already diffed like any other style).
+
+
 - Closing a note (Alt+Q) never deletes it: the file moves to `<data folder>/.trash/<ws-folder>/`. Clearing a ream works the same way
   (it just saves an empty ream, and the normal save trashes what disappeared).
 - All writes go through `AtomicFile` (write `.tmp`, flush, replace). On load, leftover `*.tmp` files (including `Foo.ream.tmp`, which

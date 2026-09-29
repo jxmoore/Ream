@@ -3,7 +3,7 @@ using Ream.App.Views;
 
 namespace Ream.App.Services;
 
-/// <summary>The file pickers. The real ones are Ream's own browser window (ThemedFileDialogs); tests use fakes so nothing ever shows.</summary>
+/// <summary>The file pickers. The real ones are Windows' own native Open/Save dialogs (NativeFileDialogs); tests use fakes so nothing ever shows.</summary>
 internal interface IFileDialogs
 {
     /// <summary>For New: where to put the new ream and what to call it. Null if cancelled.</summary>

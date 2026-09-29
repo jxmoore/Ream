@@ -24,6 +24,8 @@ public static class ActionCatalog
         new("focusNextNote", "Next note (past the last: a new note)", Notes),
         new("moveNoteLeft", "Move the note left", Notes),
         new("moveNoteRight", "Move the note right", Notes),
+        new("find", "Find text in the note", Notes),
+        new("replace", "Find and replace text in the note", Notes),
 
         new("switchWorkspaceUp", "Workspace above", Workspaces),
         new("switchWorkspaceDown", "Workspace below", Workspaces),
@@ -39,6 +41,8 @@ public static class ActionCatalog
         new("resetAllSizes", "Reset every note's width in every workspace", Layout),
         new("toggleFullscreen", "Note fullscreen, and back", Layout),
         new("toggleAppFullscreen", "App fullscreen, and back", Layout),
+        new("boardZoomWheel", "Zoom the board out to see your workspaces at once (scroll)", Layout),
+        new("panCanvas", "Hold, then drag, to pan around the board", Layout),
 
         new("newReam", "New ream", Reams),
         new("openReam", "Open a ream", Reams),

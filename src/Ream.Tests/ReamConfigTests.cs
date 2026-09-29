@@ -153,6 +153,33 @@ public class ReamConfigTests
     }
 
     [Theory]
+    [InlineData("""{ "zoom": 40 }""")]
+    [InlineData("""{ "zoom": 500 }""")]
+    public void ZoomOutsideFiftyToTwoHundred_IsRefusedWithAClearReason_AndTheFileIsLeftAlone(string json)
+    {
+        using var dir = new TempDir();
+        string path = Write(dir, json);
+
+        Assert.False(new AppConfigStore(path).TryLoad(out _, out var error));
+
+        Assert.Contains("zoom must be between 50 and 200", error);
+        Assert.Equal(json, File.ReadAllText(path));
+    }
+
+    [Fact]
+    public void ZoomAtTheEdgesOfItsRange_IsAccepted()
+    {
+        using var dir = new TempDir();
+
+        Assert.True(new AppConfigStore(Write(dir, """{ "zoom": 50 }""")).TryLoad(out var low, out var lowError), lowError);
+        Assert.Equal(50, low.Zoom);
+
+        using var dir2 = new TempDir();
+        Assert.True(new AppConfigStore(Write(dir2, """{ "zoom": 200 }""")).TryLoad(out var high, out var highError), highError);
+        Assert.Equal(200, high.Zoom);
+    }
+
+    [Theory]
     [InlineData("""{ "autoSave": "yes" }""")]
     [InlineData("""{ "autoSave": 1 }""")]
     [InlineData("""{ "tutorialOnNew": "no" }""")]
@@ -210,6 +237,7 @@ public class ReamConfigTests
             Theme = "nord",
             CanvasOpacity = 80,
             NoteOpacity = 70,
+            Zoom = 125,
             CanvasBlur = false,
             Layout = new LayoutConfig { GapPx = 30, FocusBorderColor = "#123456" },
             Ribbon = new RibbonConfig { AutoHide = false },
@@ -226,6 +254,7 @@ public class ReamConfigTests
         Assert.Equal("nord", copy.Theme);
         Assert.Equal(80, copy.CanvasOpacity);
         Assert.Equal(70, copy.NoteOpacity);
+        Assert.Equal(125, copy.Zoom);
         Assert.False(copy.CanvasBlur);
         Assert.Same(original.Layout, copy.Layout);
         Assert.Same(original.Ribbon, copy.Ribbon);
@@ -262,6 +291,31 @@ public class ReamConfigTests
     }
 
     [Fact]
+    public void WithRecentReams_ReturnsACopyWithTheNewList_AndCarriesEverythingElseOver()
+    {
+        var original = Everything();
+
+        var changed = original.WithRecentReams([@"C:\Other\Play.ream", @"C:\Notes\Work.ream"]);
+
+        Assert.NotSame(original, changed);
+        Assert.Equal([@"C:\Other\Play.ream", @"C:\Notes\Work.ream"], changed.RecentReams);
+        Assert.Empty(original.RecentReams);
+        Assert.Equal(original.LastReam, changed.LastReam);
+        Assert.Equal(original.AutoSave, changed.AutoSave);
+        Assert.Equal(original.TutorialOnNew, changed.TutorialOnNew);
+        Assert.Equal(original.Zoom, changed.Zoom);
+        Assert.Equal("D:/notes", changed.DocumentsRoot);
+        Assert.Equal("nord", changed.Theme);
+        Assert.Equal(80, changed.CanvasOpacity);
+        Assert.Equal(70, changed.NoteOpacity);
+        Assert.False(changed.CanvasBlur);
+        Assert.Same(original.Layout, changed.Layout);
+        Assert.Same(original.Ribbon, changed.Ribbon);
+        Assert.Same(original.Animations, changed.Animations);
+        Assert.Same(original.Keybindings, changed.Keybindings);
+    }
+
+    [Fact]
     public void With_CarriesTheReamSettingsOver_AndCanChangeAutoSave()
     {
         var original = Everything();
@@ -278,6 +332,42 @@ public class ReamConfigTests
         Assert.Equal("nord", flipped.Theme);
         AssertCarriedOver(original, flipped);
         Assert.False(original.AutoSave);
+    }
+
+    [Fact]
+    public void With_CanChangeZoom_WithoutDisturbingTheOtherFlatSettings()
+    {
+        var original = Everything();
+
+        var zoomed = original.With(zoom: 150);
+
+        Assert.Equal(150, zoomed.Zoom);
+        Assert.Equal(125, original.Zoom);
+        Assert.Equal("nord", zoomed.Theme);
+        Assert.Equal(80, zoomed.CanvasOpacity);
+        Assert.Equal(70, zoomed.NoteOpacity);
+        AssertCarriedOver(original, original.With()); // a no-op With() still round-trips everything, zoom included
+    }
+
+    [Fact]
+    public void WithLayout_ChangesOnlyTheGivenLayoutField_AndCarriesEverythingElseOver()
+    {
+        var original = Everything();
+
+        var wider = original.WithLayout(gapPx: 44);
+
+        Assert.NotSame(original, wider);
+        Assert.Equal(44, wider.Layout.GapPx);
+        Assert.Equal(original.Layout.CenterFocusedColumn, wider.Layout.CenterFocusedColumn);
+        Assert.Equal(original.Layout.FocusFirstNoteOnSwitch, wider.Layout.FocusFirstNoteOnSwitch);
+        Assert.Equal("#123456", wider.Layout.FocusBorderColor); // untouched layout fields survive too
+        Assert.Equal(30, original.Layout.GapPx); // the original is unchanged
+        Assert.Equal("nord", wider.Theme);
+        Assert.Equal(125, wider.Zoom);
+
+        var centered = original.WithLayout(centerFocusedColumn: !original.Layout.CenterFocusedColumn);
+        Assert.Equal(!original.Layout.CenterFocusedColumn, centered.Layout.CenterFocusedColumn);
+        Assert.Equal(30, centered.Layout.GapPx); // untouched
     }
 
     // ----- Writing them back -----

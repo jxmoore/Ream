@@ -70,6 +70,76 @@
         </Setter>
     </Style>
 
+    <!-- A small square box with an accent checkmark, like Word's own Show-group checkboxes (Ruler, Gridlines, ...). -->
+    <Style TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource ControlTextBrush}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <StackPanel x:Name="Root" Orientation="Horizontal">
+                        <Border x:Name="Box" Width="14" Height="14" CornerRadius="3" BorderThickness="1.2"
+                                BorderBrush="{DynamicResource ControlBorderBrush}" Background="{DynamicResource InputBrush}"
+                                VerticalAlignment="Center">
+                            <Path x:Name="Check" Data="M2,7.3 L5.3,10.6 L11.5,3" Stretch="None" StrokeThickness="1.6"
+                                  StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Stroke="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
+                        </Border>
+                        <ContentPresenter Margin="6,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            <Setter TargetName="Check" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Same shape and rhythm as CheckBox above (a themed square with an accent checkmark) but a circle with an
+         accent dot, for anything that offers one choice among several (the Navigation Pane's search scope, the
+         Theme modal's theme picker) rather than an independent on/off. -->
+    <Style TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{DynamicResource ControlTextBrush}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <StackPanel x:Name="Root" Orientation="Horizontal">
+                        <Border x:Name="Circle" Width="14" Height="14" CornerRadius="7" BorderThickness="1.2"
+                                BorderBrush="{DynamicResource ControlBorderBrush}" Background="{DynamicResource InputBrush}"
+                                VerticalAlignment="Center">
+                            <Ellipse x:Name="Dot" Width="6" Height="6" Fill="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
+                        </Border>
+                        <ContentPresenter Margin="6,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Circle" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            <Setter TargetName="Dot" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Circle" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Drop-downs -->
     <ControlTemplate x:Key="ComboToggleTemplate" TargetType="ToggleButton">
         <Border x:Name="Root" Background="{DynamicResource ControlBrush}"
@@ -115,11 +185,20 @@
                         <ToggleButton x:Name="Toggle" Template="{StaticResource ComboToggleTemplate}" Focusable="False"
                                       ClickMode="Press"
                                       IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"/>
-                        <ContentPresenter IsHitTestVisible="False" Margin="8,2,26,2"
+                        <ContentPresenter x:Name="ContentSite" IsHitTestVisible="False" Margin="8,2,26,2"
                                           VerticalAlignment="Center" HorizontalAlignment="Left"
                                           Content="{TemplateBinding SelectionBoxItem}"
                                           ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                                           ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"/>
+                        <!-- Only shown when IsEditable - lets Gap/Opacity offer presets and a typed custom amount, the
+                             same box either way (the Toggle underneath still owns the drop-arrow's 26px on the right,
+                             since this stops short of it). -->
+                        <TextBox x:Name="PART_EditableTextBox" Visibility="Collapsed"
+                                 Margin="8,2,26,2" VerticalAlignment="Center" Padding="0"
+                                 Background="Transparent" BorderThickness="0"
+                                 Foreground="{TemplateBinding Foreground}"
+                                 CaretBrush="{DynamicResource ControlTextBrush}"
+                                 IsReadOnly="{TemplateBinding IsReadOnly}"/>
                         <Popup x:Name="PART_Popup" Placement="Bottom" Focusable="False" AllowsTransparency="True"
                                IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="Fade">
                             <Border MinWidth="{Binding ActualWidth, ElementName=Toggle}"
@@ -139,6 +218,10 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.5"/>
+                        </Trigger>
+                        <Trigger Property="IsEditable" Value="True">
+                            <Setter TargetName="ContentSite" Property="Visibility" Value="Collapsed"/>
+                            <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -408,11 +491,78 @@
         <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
         <Setter Property="HorizontalAlignment" Value="Center"/>
     </Style>
+    <!-- A ribbon tile: no frame until the pointer is on it, like Word's own ribbon buttons (RibbonView.xaml's Home tab
+         has its own copy of this same flat behaviour, applied to every button there via a local implicit style, since
+         it needs it everywhere; this one is for the tab-level ribbons, which only need it on the tiles that ask). -->
     <Style x:Key="RibbonTile" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
         <Setter Property="Focusable" Value="False"/>
         <Setter Property="MinWidth" Value="64"/>
         <Setter Property="Padding" Value="10,6"/>
         <Setter Property="Margin" Value="3,1"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Frame" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="1" CornerRadius="4">
+                        <ContentPresenter Margin="{TemplateBinding Padding}" RecognizesAccessKey="True"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Frame" Property="Background" Value="{DynamicResource ControlHoverBrush}"/>
+                            <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Frame" Property="Background" Value="{DynamicResource ControlPressedBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Same tile as RibbonTile above, but for a ToggleButton (One Page): stays highlighted while checked, not just
+         on hover/press, so a glance at the ribbon says whether it's on. -->
+    <Style x:Key="RibbonToggleTile" TargetType="ToggleButton">
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="MinWidth" Value="64"/>
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="Margin" Value="3,1"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource ControlTextBrush}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="Frame" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="1" CornerRadius="4">
+                        <ContentPresenter Margin="{TemplateBinding Padding}" RecognizesAccessKey="True"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Frame" Property="Background" Value="{DynamicResource ControlHoverBrush}"/>
+                            <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Frame" Property="Background" Value="{DynamicResource ControlPressedBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Frame" Property="Background" Value="{DynamicResource ControlCheckedBrush}"/>
+                            <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!-- Minimize / maximize / close. Close goes red on hover like every Windows app. -->

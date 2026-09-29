@@ -270,6 +270,32 @@ public class SettingsConfigTests
     }
 
     [Fact]
+    public void RecentReams_RoundTrips_AsAPlainJsonArray()
+    {
+        using var dir = new TempDir();
+        string path = Write(dir, """
+            { "recentReams": ["C:\\Notes\\A.ream", "C:\\Notes\\B.ream"] }
+            """);
+
+        Assert.True(new AppConfigStore(path).TryLoad(out var config, out _));
+
+        Assert.Equal([@"C:\Notes\A.ream", @"C:\Notes\B.ream"], config.RecentReams);
+    }
+
+    [Fact]
+    public void AnUpdatedRecentReamsList_LoadsBackWithTheChanges()
+    {
+        using var dir = new TempDir();
+        var store = new AppConfigStore(dir.Combine("config.json"));
+        store.Load();
+
+        Assert.True(store.Update(root => root["recentReams"] = new JsonArray(@"C:\Notes\A.ream", @"C:\Notes\B.ream"), out var error), error);
+
+        Assert.True(store.TryLoad(out var config, out var loadError), loadError);
+        Assert.Equal([@"C:\Notes\A.ream", @"C:\Notes\B.ream"], config.RecentReams);
+    }
+
+    [Fact]
     public void Update_CreatesTheFileWhenThereIsNone()
     {
         using var dir = new TempDir();

@@ -68,6 +68,36 @@ public sealed class NoteRowPanel : Panel
             0d,
             FrameworkPropertyMetadataOptions.AffectsParentMeasure | FrameworkPropertyMetadataOptions.AffectsParentArrange));
 
+    // How many extra viewport-widths of margin either side count as "near" (1 = the original "one viewport either
+    // side" this always had). Inherited, set on a common ancestor (MainWindow sets it on the workspace strip
+    // itself) rather than on each row individually, since there's one NoteRowPanel per workspace and Board Zoom
+    // needs every one of them to grow its margin together, not just whichever row happens to be current.
+    // MainWindow grows this while the board is zoomed or panned at all - RenderTransform (what Board Zoom's scale
+    // and pan both are) never touches layout, so a row's own w below is always the note's real, un-transformed
+    // width; a fixed multiple of it can never account for an arbitrary, unbounded pan offset, so MainWindow's own
+    // choice while exploring is deliberately generous rather than trying to compute the exact margin needed.
+    //
+    // A wider margin only ever widened what loads, never what could actually be SEEN: a row still clips itself to
+    // its own w (ClipToBounds, below) and, regardless of zoom or pan, ArrangeOverride's own offset is always
+    // computed to keep whichever note is FocusedIndex centered/minimally-scrolled within that w - Board Zoom's
+    // RenderTransform sits entirely outside this panel and can't touch either of those, so a loaded-but-clipped
+    // neighbor stayed invisible no matter how far zoomed out or panned you were. So NearMargin does double duty:
+    // past its resting default (1), OnNearMarginChanged also turns ClipToBounds off, the same "let an ancestor's
+    // own clip do the containing instead" trick MainWindow already uses turning WorkspaceStripPanel's off - once
+    // unclipped, every note in the row renders at its real, already-computed position (lefts[i] - offset) whether
+    // or not that position falls within [0, w], which is exactly what reveals the rest of the row while exploring.
+    public static readonly DependencyProperty NearMarginProperty = DependencyProperty.RegisterAttached(
+        "NearMargin", typeof(double), typeof(NoteRowPanel),
+        new FrameworkPropertyMetadata(1.0, FrameworkPropertyMetadataOptions.Inherits | FrameworkPropertyMetadataOptions.AffectsArrange, OnNearMarginChanged));
+
+    public static double GetNearMargin(DependencyObject d) => (double)d.GetValue(NearMarginProperty);
+    public static void SetNearMargin(DependencyObject d, double value) => d.SetValue(NearMarginProperty, value);
+
+    private static void OnNearMarginChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is NoteRowPanel row) row.ClipToBounds = (double)e.NewValue <= 1.0;
+    }
+
     private double _targetOffset;
     private Size _lastSize;
     private bool _initialized;
@@ -234,8 +264,10 @@ public sealed class NoteRowPanel : Panel
             var rect = Lerp(normal, full, GetFullscreenProgress(children[i]));
             children[i].Arrange(rect);
 
-            // One viewport of margin either side, so scrolling reveals text that is already loaded.
-            bool onScreenSoon = rect.Right > -w && rect.Left < 2 * w;
+            // NearMargin viewports of margin either side (1, normally - "one viewport either side"), so scrolling
+            // reveals text that is already loaded; MainWindow grows this while Board Zoom is exploring the board.
+            double margin = w * GetNearMargin(this);
+            bool onScreenSoon = rect.Right > -margin && rect.Left < w + margin;
             SetIsNear(children[i], workspaceNear && (i == focused || onScreenSoon));
         }
 

@@ -1,68 +1,240 @@
 <UserControl x:Class="Ream.App.Views.ViewRibbonView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <!-- The View tab: how Ream looks. Everything here applies at once and is saved to config.json shortly after. -->
+    <!--
+        The View tab. Loosely mirrors Word's own View tab groups, reworked to what Ream actually has, in the order
+        asked for: Theme, Zoom, View, Window, Show. Word's Page Movement group is dropped outright (Ream's row is
+        always horizontal, its workspace stack always vertical - no equivalent toggle), and Print Layout / Web Layout
+        go with it (no page to offer a page-layout mode for). Word controls Ream has no behaviour for yet are placed
+        anyway, disabled, the same convention the Home tab already uses (see its own top-of-file note). Board Zoom
+        no longer has a ribbon group of its own - its dropdown lives in Zoom instead (below), a close cousin of the
+        note-zoom controls already there, not a separate toggled mode any more (see MainWindow.xaml.cs's own note
+        on Board Zoom for why - it's a live value now, not something you turn on and off).
+    -->
+    <UserControl.Resources>
+        <!-- A small icon+text row: three of these stack beside a group's main tile(s), Word's own rhythm. Based on
+             RibbonTile so it inherits the same flat (no frame until hovered) behaviour, just resized into a row
+             instead of a tile, and pinned to the left of whatever width the group ends up (a Button/CheckBox
+             defaults to Stretch in a vertical StackPanel, which - combined with left-aligned content - looks the
+             same as true left alignment most of the time, but not reliably enough; every row in this file sets it
+             explicitly instead of relying on that). -->
+        <Style x:Key="StackedRow" TargetType="Button" BasedOn="{StaticResource RibbonTile}">
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Height" Value="19"/>
+            <Setter Property="Margin" Value="2,0.5"/>
+            <Setter Property="Padding" Value="6,0"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
+        <!-- Views' and Show's CheckBoxes: BasedOn the app-wide themed CheckBox style (Themes/Controls.xaml, applied
+             implicitly everywhere else), or setting Style here at all would replace it outright and fall back to
+             WPF's own unstyled checkbox - the exact thing that made the Theme modal's radio buttons unreadable. -->
+        <Style x:Key="StackedLeft" TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="Margin" Value="2,2"/>
+        </Style>
+        <!-- Icons drawn as paths take the button's own foreground, so they follow the theme and dim when disabled
+             (matches RibbonView's own LineIcon, which isn't shared - this tab needs the same trick independently). -->
+        <Style x:Key="ViewLineIcon" TargetType="Path">
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="Stretch" Value="None"/>
+            <Setter Property="StrokeThickness" Value="1"/>
+            <Setter Property="Stroke" Value="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="ViewDropArrow" TargetType="Path">
+            <Setter Property="Data" Value="M0.5,0.5 L3.5,3.5 L6.5,0.5"/>
+            <Setter Property="Width" Value="7"/>
+            <Setter Property="Height" Value="4"/>
+            <Setter Property="Margin" Value="4,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Stretch" Value="None"/>
+            <Setter Property="StrokeThickness" Value="1"/>
+            <Setter Property="Stroke" Value="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}"/>
+        </Style>
+    </UserControl.Resources>
+
     <StackPanel Orientation="Horizontal" Margin="12,6,12,2">
 
-        <!-- Theme: one dropdown; each entry shows a little swatch of the theme's colors -->
+        <!-- Theme: what used to be three separate groups (Layout, Theme, Opacity) is now a single button that opens
+             a modal (ThemeModal) with all three as sections, editing the exact same SettingsViewModel properties
+             those groups did - this tile is just a different door to them. -->
         <StackPanel>
-            <StackPanel MinHeight="60" Orientation="Horizontal">
-                <ComboBox x:Name="ThemeBox" Width="200" Height="30" VerticalAlignment="Center" Margin="4,0"
-                          ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme, Mode=TwoWay}"
-                          Focusable="False" ToolTip="Color theme">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate>
-                            <DockPanel LastChildFill="True">
-                                <Border DockPanel.Dock="Left" Width="40" Height="20" CornerRadius="4" Margin="0,0,10,0"
-                                        BorderThickness="1" BorderBrush="{DynamicResource ControlBorderBrush}"
-                                        Background="{Binding Canvas}">
-                                    <Grid>
-                                        <Border Margin="5,4,0,4" Width="18" HorizontalAlignment="Left" CornerRadius="3" Background="{Binding Card}"/>
-                                        <Ellipse Width="7" Height="7" Margin="0,0,6,0" HorizontalAlignment="Right" Fill="{Binding Accent}"/>
-                                    </Grid>
-                                </Border>
-                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
-                            </DockPanel>
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
+            <StackPanel Orientation="Horizontal" Height="60" VerticalAlignment="Bottom">
+                <Button x:Name="ThemeButton" Style="{StaticResource RibbonTile}" Click="OnThemeClick"
+                        ToolTip="Layout, theme and opacity">
+                    <StackPanel>
+                        <!-- A half-filled circle (a plain light/dark "theme" mark) - no icon-font glyph reads as
+                             "appearance" reliably enough to risk guessing one. -->
+                        <Grid Width="18" Height="18" HorizontalAlignment="Center">
+                            <Ellipse Width="18" Height="18" StrokeThickness="1.4"
+                                     Stroke="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}"/>
+                            <Path Data="M9,0.7 A7.3,7.3 0 0 1 9,15.3 Z"
+                                  Fill="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}"/>
+                        </Grid>
+                        <TextBlock Text="Theme" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                    </StackPanel>
+                </Button>
             </StackPanel>
             <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Theme"/>
         </StackPanel>
 
         <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
 
-        <!-- Opacity: two short sliders, stacked -->
+        <!-- Zoom: three stacked buttons, each its own magnifying-glass glyph (Segoe Fluent Icons' own ZoomIn/ZoomOut -
+             MUI isn't a font available on Windows/WPF, so an icon font already on the system stands in for it) plus
+             a hand-drawn reset arrow so Reset doesn't share Zoom's own glyph; its live percentage stays in the
+             tooltip only now, not printed on the tile itself. Board Zoom's own dropdown sits beside that stack, not
+             stacked as a fourth row - a ComboBox is taller than the 19px rows above it, and it's a different zoom
+             entirely (the board itself, not a note's content), so it reads better as its own small column than as
+             one more row in the same list. -->
         <StackPanel>
-            <Grid MinHeight="60" VerticalAlignment="Center" Margin="4,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="28"/>
-                    <RowDefinition Height="28"/>
-                </Grid.RowDefinitions>
+            <StackPanel Orientation="Horizontal" Height="60" VerticalAlignment="Bottom" Margin="2,0">
+                <StackPanel HorizontalAlignment="Left">
+                    <Button x:Name="ZoomInButton" Style="{StaticResource StackedRow}" Click="OnZoomIn" ToolTip="Zoom in (or Ctrl+Scroll up)">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE71E;" FontSize="13" Width="18"/>
+                            <TextBlock Text="Zoom In" FontSize="12" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ZoomOutButton" Style="{StaticResource StackedRow}" Click="OnZoomOut" ToolTip="Zoom out (or Ctrl+Scroll down)">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE71F;" FontSize="13" Width="18"/>
+                            <TextBlock Text="Zoom Out" FontSize="12" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ZoomResetButton" Style="{StaticResource StackedRow}" Click="OnZoomReset" ToolTip="{Binding ZoomResetTooltip}">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Style="{StaticResource ViewLineIcon}" Width="14" Height="14"
+                                  Data="M12.5,8 A5,5 0 1 0 10.6,11.6 M13,4 L12.5,8 L9,7"/>
+                            <TextBlock Text="Reset" FontSize="12" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+                <StackPanel VerticalAlignment="Center" Margin="10,0,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Board" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"
+                                   Foreground="{DynamicResource ToolbarMutedBrush}"/>
+                        <!-- Not IsEditable: a typed value only ever took effect on Enter/lost focus, which read as
+                             broken (pick 50 from the list, nothing happens until you also hit Enter). A plain
+                             closed-list select - pick one, it applies immediately - has no such gap to fall into. -->
+                        <ComboBox x:Name="BoardZoomBox" Grid.Column="1" Width="56" Height="22"
+                                  SelectionChanged="OnBoardZoomSelectionChanged"
+                                  ToolTip="How far the board is pulled back to show neighboring workspaces - 100% is normal (or Ctrl+Alt+Scroll)">
+                            <ComboBoxItem Tag="25">25%</ComboBoxItem>
+                            <ComboBoxItem Tag="50">50%</ComboBoxItem>
+                            <ComboBoxItem Tag="75">75%</ComboBoxItem>
+                            <ComboBoxItem Tag="100">100%</ComboBoxItem>
+                        </ComboBox>
+                    </Grid>
+                </StackPanel>
+            </StackPanel>
+            <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Zoom"/>
+        </StackPanel>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Canvas" FontSize="12" VerticalAlignment="Center" Margin="6,0,10,0"
-                           Foreground="{DynamicResource ToolbarMutedBrush}"/>
-                <Slider x:Name="OpacitySlider" Grid.Row="0" Grid.Column="1" Width="110" VerticalAlignment="Center"
-                        Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="1" Focusable="False"
-                        Value="{Binding OpacityPercent, Mode=TwoWay}" ToolTip="{Binding OpacityHint}"/>
-                <TextBlock x:Name="CanvasOpacityLabel" Grid.Row="0" Grid.Column="2" Text="{Binding OpacityLabel}" MinWidth="38" Margin="8,0,6,0"
-                           TextAlignment="Right" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}"/>
+        <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Notes" FontSize="12" VerticalAlignment="Center" Margin="6,0,10,0"
-                           Foreground="{DynamicResource ToolbarMutedBrush}"/>
-                <Slider x:Name="NoteOpacitySlider" Grid.Row="1" Grid.Column="1" Width="110" VerticalAlignment="Center"
-                        Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="1" Focusable="False"
-                        Value="{Binding NoteOpacityPercent, Mode=TwoWay}"
-                        ToolTip="How solid each note's background is. The text always stays solid."/>
-                <TextBlock x:Name="NoteOpacityLabel" Grid.Row="1" Grid.Column="2" Text="{Binding NoteOpacityLabel}" MinWidth="38" Margin="8,0,6,0"
-                           TextAlignment="Right" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource TextBrush}"/>
-            </Grid>
-            <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Opacity"/>
+        <!-- View: Read Mode, Draft and Outline are mutually exclusive (AppViewModel.ToggleReadMode/DraftView/OutlineView
+             each leave the other two), so ToggleButtons suit them better than CheckBoxes - clicking one enables it
+             "similar to the One Page tile" and turns the other two off. Each is a passthrough on SettingsViewModel
+             (FocusedNoteIsReadOnly etc.) reading/toggling the focused note's own property, since this tab's
+             DataContext has no direct path to the note otherwise. -->
+        <StackPanel>
+            <StackPanel Orientation="Horizontal" Height="60" VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="2,0">
+                <ToggleButton x:Name="ReadModeButton" Style="{StaticResource RibbonToggleTile}"
+                              IsChecked="{Binding FocusedNoteIsReadOnly, Mode=TwoWay}"
+                              ToolTip="A full view of the focused note with no ability to edit it (Alt+F11)">
+                    <StackPanel>
+                        <!-- An open book, drawn by hand - no icon-font glyph reads as "book" reliably enough to risk guessing one. -->
+                        <Path Style="{StaticResource ViewLineIcon}" Width="16" Height="14"
+                              Data="M1,3 L7,2 V13 L1,12 Z M15,3 L9,2 V13 L15,12 Z M8,2.5 V13"/>
+                        <TextBlock Text="Read Mode" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                    </StackPanel>
+                </ToggleButton>
+                <ToggleButton x:Name="DraftButton" Style="{StaticResource RibbonToggleTile}"
+                              IsChecked="{Binding FocusedNoteHideImages, Mode=TwoWay}"
+                              ToolTip="A simplified layout: hides images while you write (nothing is deleted - turn it off to see them again)">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE70F;" FontSize="20"/>
+                        <TextBlock Text="Draft" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                    </StackPanel>
+                </ToggleButton>
+                <ToggleButton x:Name="OutlineButton" Style="{StaticResource RibbonToggleTile}"
+                              IsChecked="{Binding FocusedNoteIsOutlineView, Mode=TwoWay}"
+                              ToolTip="Shows just the note's heading structure - click a heading to jump to it">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource RibbonIcon}" Text="&#xE8FD;" FontSize="20"/>
+                        <TextBlock Text="Outline" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                    </StackPanel>
+                </ToggleButton>
+            </StackPanel>
+            <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="View"/>
+        </StackPanel>
+
+        <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
+
+        <!-- Window: two stacked drop-down-style buttons (Switch Workspaces above Switch Notes) beside One Page, a
+             big toggle tile the same size as the Theme button - clicked/unclicked is visible at a glance, the same
+             reason Views/Show became CheckBoxes. Word's own New Window, Arrange All, Split, View Side by Side,
+             Synchronous Scrolling and Reset Window Position are all dropped outright - Ream has no multi-window
+             concept for any of them, and Synchronous Scrolling in particular never pulled its weight enough to keep
+             (New Note / New Workspace, which used to stand in for New Window / Arrange All here, moved to File's
+             own Add group). -->
+        <StackPanel>
+            <StackPanel Orientation="Horizontal" Height="60" VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="2,0">
+                <StackPanel VerticalAlignment="Center">
+                    <Button x:Name="SwitchWorkspacesButton" Style="{StaticResource StackedRow}" Click="OnSwitchWorkspacesClick"
+                            ToolTip="Jump to another workspace">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Style="{StaticResource ViewLineIcon}" Width="14" Height="14" Data="M2,3 H14 M2,8 H14 M2,13 H14"/>
+                            <TextBlock Text="Switch Workspaces" FontSize="12" Margin="4,0,4,0"/>
+                            <Path Style="{StaticResource ViewDropArrow}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="SwitchNotesButton" Style="{StaticResource StackedRow}" Click="OnSwitchNotesClick"
+                            ToolTip="Jump to another note in this workspace">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Style="{StaticResource ViewLineIcon}" Width="14" Height="14" Data="M2,2 H10 V10 H2 Z M6,6 H14 V14 H6 Z"/>
+                            <TextBlock Text="Switch Notes" FontSize="12" Margin="4,0,4,0"/>
+                            <Path Style="{StaticResource ViewDropArrow}"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+                <ToggleButton x:Name="OnePageButton" Style="{StaticResource RibbonToggleTile}"
+                              IsChecked="{Binding OnePageMode, Mode=TwoWay}"
+                              ToolTip="Shows only the focused note - still navigate freely, but one at a time">
+                    <StackPanel>
+                        <Path Style="{StaticResource ViewLineIcon}" Width="20" Height="20" Data="M4,2 H16 V18 H4 Z"/>
+                        <TextBlock Text="One Page" FontSize="12" HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                    </StackPanel>
+                </ToggleButton>
+            </StackPanel>
+            <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Window"/>
+        </StackPanel>
+
+        <Rectangle Style="{StaticResource RibbonGroupDivider}"/>
+
+        <!-- Show: all three real, all CheckBoxes now - Ruler is a passthrough on SettingsViewModel the same way
+             Views' three are (it's the focused note's own flag); Gridlines and Navigation Pane are session-only
+             settings SettingsViewModel owns outright, so they were already ordinary two-way CheckBoxes. -->
+        <StackPanel>
+            <StackPanel VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="6,0" Height="60">
+                <CheckBox x:Name="RulerCheckBox" Content="Ruler" Style="{StaticResource StackedLeft}"
+                          IsChecked="{Binding FocusedNoteShowRuler, Mode=TwoWay}"
+                          ToolTip="A ruler above and beside the focused note, with a draggable left-indent marker"/>
+                <CheckBox x:Name="GridlinesCheckBox" Content="Gridlines" Style="{StaticResource StackedLeft}"
+                          IsChecked="{Binding GridlinesOn, Mode=TwoWay}"
+                          ToolTip="A faint grid on each note"/>
+                <CheckBox x:Name="NavigationPaneCheckBox" Content="Navigation Pane" Style="{StaticResource StackedLeft}"
+                          IsChecked="{Binding NavigationPaneOpen, Mode=TwoWay}"
+                          ToolTip="Headings, notes, workspaces and search, docked to the side"/>
+            </StackPanel>
+            <TextBlock Style="{StaticResource RibbonGroupLabel}" Text="Show"/>
         </StackPanel>
     </StackPanel>
 </UserControl>

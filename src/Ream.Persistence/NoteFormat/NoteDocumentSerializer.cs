@@ -21,6 +21,18 @@ public static class NoteDocumentSerializer
     private const string AssetPrefix = "asset://";
     private const double SizeTolerance = 0.01;
 
+    // A fixed color rather than a theme resource: the persistence layer doesn't know about the app's
+    // themes, and a border set once should look the same after a reload regardless of what applied it.
+    private static readonly SolidColorBrush BorderBrush = CreateBorderBrush();
+    private static SolidColorBrush CreateBorderBrush()
+    {
+        var brush = new SolidColorBrush(Color.FromRgb(0x80, 0x80, 0x80));
+        brush.Freeze();
+        return brush;
+    }
+
+    private static readonly Thickness DefaultParagraphMargin = new Paragraph().Margin;
+
     // ---------- Writing ----------
 
     /// <param name="saveAsset">Stores PNG bytes and returns an asset name; used only for images not yet backed by a file.</param>
@@ -85,6 +97,18 @@ public static class NoteDocumentSerializer
             element.SetAttributeValue("align", paragraph.TextAlignment.ToString().ToLowerInvariant());
         WriteFormatting(element, TextStyle.Of(paragraph), TextStyle.Of(document));
 
+        if (!double.IsNaN(paragraph.LineHeight))
+            element.SetAttributeValue("lh", Number(paragraph.LineHeight));
+        if (Math.Abs(paragraph.Margin.Top - DefaultParagraphMargin.Top) > SizeTolerance)
+            element.SetAttributeValue("mt", Number(paragraph.Margin.Top));
+        if (Math.Abs(paragraph.Margin.Bottom - DefaultParagraphMargin.Bottom) > SizeTolerance)
+            element.SetAttributeValue("mb", Number(paragraph.Margin.Bottom));
+        if (paragraph.BorderThickness != default)
+        {
+            var t = paragraph.BorderThickness;
+            element.SetAttributeValue("bd", $"{Number(t.Left)},{Number(t.Top)},{Number(t.Right)},{Number(t.Bottom)}");
+        }
+
         WriteInlines(paragraph.Inlines, paragraph, element, saveAsset);
         return element;
     }
@@ -99,6 +123,8 @@ public static class NoteDocumentSerializer
                     if (run.Text.Length == 0) break;
                     var element = new XElement("R");
                     WriteFormatting(element, TextStyle.Of(run), TextStyle.Of(paragraph));
+                    if (run.BaselineAlignment == BaselineAlignment.Subscript) element.SetAttributeValue("va", "sub");
+                    else if (run.BaselineAlignment == BaselineAlignment.Superscript) element.SetAttributeValue("va", "super");
                     element.Value = Sanitize(run.Text);
                     parent.Add(element);
                     break;
@@ -256,6 +282,22 @@ public static class NoteDocumentSerializer
             paragraph.TextAlignment = align;
         ApplyFormatting(paragraph, element);
 
+        if (ParseDouble((string?)element.Attribute("lh"), 1, 500) is { } lineHeight)
+            paragraph.LineHeight = lineHeight;
+        if (element.Attribute("mt") is not null || element.Attribute("mb") is not null)
+        {
+            var margin = paragraph.Margin;
+            double top = ParseDouble((string?)element.Attribute("mt"), 0, 500) ?? margin.Top;
+            double bottom = ParseDouble((string?)element.Attribute("mb"), 0, 500) ?? margin.Bottom;
+            paragraph.Margin = new Thickness(margin.Left, top, margin.Right, bottom);
+        }
+        if (ParseThickness((string?)element.Attribute("bd")) is { } border)
+        {
+            paragraph.BorderThickness = border;
+            paragraph.BorderBrush = BorderBrush;
+            paragraph.Padding = new Thickness(4, 2, 4, 2);
+        }
+
         foreach (var child in element.Elements())
         {
             switch (child.Name.LocalName)
@@ -263,6 +305,8 @@ public static class NoteDocumentSerializer
                 case "R":
                     var run = new Run(child.Value);
                     ApplyFormatting(run, child);
+                    if ((string?)child.Attribute("va") is "sub") run.BaselineAlignment = BaselineAlignment.Subscript;
+                    else if ((string?)child.Attribute("va") is "super") run.BaselineAlignment = BaselineAlignment.Superscript;
                     paragraph.Inlines.Add(run);
                     break;
                 case "BR":
@@ -390,6 +434,22 @@ public static class NoteDocumentSerializer
         && double.IsFinite(value) && value >= min && value <= max
             ? value
             : null;
+
+    /// <summary>Parses a "left,top,right,bottom" border thickness; malformed or out-of-range text is ignored.</summary>
+    private static Thickness? ParseThickness(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return null;
+        var parts = text.Split(',');
+        if (parts.Length != 4) return null;
+
+        var values = new double[4];
+        for (int i = 0; i < 4; i++)
+        {
+            if (ParseDouble(parts[i], 0, 100) is not { } value) return null;
+            values[i] = value;
+        }
+        return new Thickness(values[0], values[1], values[2], values[3]);
+    }
 
     private static string Number(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 

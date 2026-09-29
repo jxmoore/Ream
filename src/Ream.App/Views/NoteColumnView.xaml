@@ -2,48 +2,92 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              PreviewMouseLeftButtonDown="OnPreviewMouseLeftButtonDown">
-    <Border CornerRadius="10" BorderThickness="2" Background="{DynamicResource NoteBrush}" ClipToBounds="True">
-        <Border.Style>
-            <Style TargetType="Border">
-                <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
-                <Style.Triggers>
-                    <DataTrigger Binding="{Binding IsFocused}" Value="True">
-                        <Setter Property="BorderBrush" Value="{DynamicResource FocusBorderBrush}"/>
-                    </DataTrigger>
-                </Style.Triggers>
-            </Style>
-        </Border.Style>
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
+    <!--
+        Outer grid: the note card sits in the middle cell, with two more rulers - outside the card, not inside it -
+        that show only while NoteViewModel.ShowRuler is on. The horizontal one always sits above the card
+        (HorizontalRulerHost, row 0, same column as the card); the vertical one sits in whichever of the left/right
+        side columns VerticalRulerHost.SetPosition put it in (NoteColumnView.xaml.cs, based on this note's position
+        in its row - the side with no neighbouring note takes priority). The column NOT hosting it stays width 0
+        (Auto, nothing else in it). ResizeHandle and DraftOutline still span the outer grid's own right edge / whole
+        area, not just the card, so resizing keeps working off this control's real total width regardless of a ruler.
+    -->
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="LeftRulerColumn" Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition x:Name="RightRulerColumn" Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
-            <Rectangle x:Name="DraftOutline" Grid.RowSpan="2" RadiusX="7" RadiusY="7" Margin="5"
-                       StrokeThickness="1.5" StrokeDashArray="5 4" IsHitTestVisible="False"
-                       Stroke="{DynamicResource MutedTextBrush}" Panel.ZIndex="5">
-                <Rectangle.Style>
-                    <Style TargetType="Rectangle">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsDraft}" Value="True">
-                                <Setter Property="Visibility" Value="Visible"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Rectangle.Style>
-            </Rectangle>
+        <!-- Horizontal ruler: tick marks (redrawn to width in code-behind) plus a draggable triangle marker for the
+             left indent of whichever paragraph(s) the selection touches. -->
+        <Border x:Name="HorizontalRulerHost" Grid.Row="0" Grid.Column="1" Height="20" Margin="0,0,0,4"
+                Background="{DynamicResource ControlBrush}" CornerRadius="3" ClipToBounds="True">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding ShowRuler}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Canvas x:Name="HorizontalRulerCanvas" SizeChanged="OnHorizontalRulerSizeChanged">
+                <Thumb x:Name="IndentMarker" Width="12" Height="12" Canvas.Top="4" Cursor="SizeWE"
+                       ToolTip="Drag to set the left indent of the current paragraph"
+                       DragDelta="OnIndentMarkerDrag" DragCompleted="OnIndentMarkerDragCompleted">
+                    <Thumb.Template>
+                        <ControlTemplate TargetType="Thumb">
+                            <Path Data="M0,0 L12,0 L6,10 Z" Fill="{DynamicResource AccentBrush}"/>
+                        </ControlTemplate>
+                    </Thumb.Template>
+                </Thumb>
+            </Canvas>
+        </Border>
 
-            <DockPanel Grid.Row="0" Margin="16,14,16,4" LastChildFill="True">
-                <!-- A draft (not saved unless it gets something in it) says so, so a vanishing note is never a surprise. -->
-                <Border x:Name="DraftPill" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,10,0"
-                        CornerRadius="9" Padding="8,1"
-                        Background="{DynamicResource ControlBrush}" BorderThickness="1"
-                        BorderBrush="{DynamicResource ControlBorderBrush}"
-                        ToolTip="A draft: it is not saved, and disappears if you leave it empty. Type something to keep it.">
-                    <TextBlock Text="Draft" FontSize="11" Foreground="{DynamicResource MutedTextBrush}"/>
-                    <Border.Style>
-                        <Style TargetType="Border">
+        <!-- Vertical ruler: tick marks only (Word's own doesn't set indents from the side ruler either). Which
+             column it's actually in (0 = left, 2 = right) is set in code-behind. -->
+        <Border x:Name="VerticalRulerHost" Grid.Row="1" Grid.Column="0" Width="20" Margin="0,0,4,0"
+                Background="{DynamicResource ControlBrush}" CornerRadius="3" ClipToBounds="True">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding ShowRuler}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Canvas x:Name="VerticalRulerCanvas" SizeChanged="OnVerticalRulerSizeChanged"/>
+        </Border>
+
+        <Border Grid.Row="1" Grid.Column="1" CornerRadius="10" BorderThickness="2" Background="{DynamicResource NoteBrush}" ClipToBounds="True">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsFocused}" Value="True">
+                            <Setter Property="BorderBrush" Value="{DynamicResource FocusBorderBrush}"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Rectangle x:Name="DraftOutline" Grid.RowSpan="2" RadiusX="7" RadiusY="7" Margin="5"
+                           StrokeThickness="1.5" StrokeDashArray="5 4" IsHitTestVisible="False"
+                           Stroke="{DynamicResource MutedTextBrush}" Panel.ZIndex="5">
+                    <Rectangle.Style>
+                        <Style TargetType="Rectangle">
                             <Setter Property="Visibility" Value="Collapsed"/>
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsDraft}" Value="True">
@@ -51,83 +95,135 @@
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
-                    </Border.Style>
-                </Border>
-                <!-- Flashes the new width ("55%") for a moment after it is changed on purpose, then fades. -->
-                <TextBlock x:Name="SizeToast" DockPanel.Dock="Right" VerticalAlignment="Center" Opacity="0"
-                           IsHitTestVisible="False" FontSize="12" FontWeight="SemiBold"
-                           Foreground="{DynamicResource FocusBorderBrush}"/>
-                <Grid Margin="0,0,10,0">
-                    <TextBlock x:Name="TitleText" Text="{Binding DisplayTitle}" FontSize="18" FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextBrush}"
-                               Cursor="IBeam" ToolTip="Click to rename (F2)"
-                               MouseLeftButtonDown="OnTitleMouseDown">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsEditingTitle}" Value="True">
-                                        <Setter Property="Visibility" Value="Hidden"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                    <TextBox x:Name="TitleBox" FontSize="18" FontWeight="SemiBold" MaxLength="80" Padding="0,0,0,1"
-                             Text="{Binding EditTitle, UpdateSourceTrigger=PropertyChanged}"
-                             PreviewKeyDown="OnTitleKeyDown"
-                             LostKeyboardFocus="OnTitleLostFocus"
-                             IsVisibleChanged="OnTitleBoxVisibleChanged">
-                        <TextBox.Style>
-                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                    </Rectangle.Style>
+                </Rectangle>
+
+                <!-- Show group's Gridlines (SettingsViewModel.GridlinesOn): on the note itself, not the canvas behind
+                     it - a resource, not a binding, since the DataContext here is the note, not the settings.
+                     RowSpan 2 and declared before the header so it sits behind the heading too, not just the editor. -->
+                <Rectangle Grid.RowSpan="2" IsHitTestVisible="False" Opacity="0.18"
+                           Visibility="{DynamicResource GridlinesVisibility}">
+                    <Rectangle.Fill>
+                        <DrawingBrush TileMode="Tile" Viewport="0,0,24,24" ViewportUnits="Absolute">
+                            <DrawingBrush.Drawing>
+                                <GeometryDrawing>
+                                    <GeometryDrawing.Pen>
+                                        <Pen Thickness="1" Brush="{DynamicResource MutedTextBrush}"/>
+                                    </GeometryDrawing.Pen>
+                                    <GeometryDrawing.Geometry>
+                                        <GeometryGroup>
+                                            <LineGeometry StartPoint="0,0" EndPoint="24,0"/>
+                                            <LineGeometry StartPoint="0,0" EndPoint="0,24"/>
+                                        </GeometryGroup>
+                                    </GeometryDrawing.Geometry>
+                                </GeometryDrawing>
+                            </DrawingBrush.Drawing>
+                        </DrawingBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+
+                <DockPanel Grid.Row="0" Margin="16,14,16,4" LastChildFill="True">
+                    <!-- A draft (not saved unless it gets something in it) says so, so a vanishing note is never a surprise. -->
+                    <Border x:Name="DraftPill" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,10,0"
+                            CornerRadius="9" Padding="8,1"
+                            Background="{DynamicResource ControlBrush}" BorderThickness="1"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            ToolTip="A draft: it is not saved, and disappears if you leave it empty. Type something to keep it.">
+                        <TextBlock Text="Draft" FontSize="11" Foreground="{DynamicResource MutedTextBrush}"/>
+                        <Border.Style>
+                            <Style TargetType="Border">
                                 <Setter Property="Visibility" Value="Collapsed"/>
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsEditingTitle}" Value="True">
+                                    <DataTrigger Binding="{Binding IsDraft}" Value="True">
                                         <Setter Property="Visibility" Value="Visible"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
-                        </TextBox.Style>
-                    </TextBox>
-                </Grid>
-            </DockPanel>
+                        </Border.Style>
+                    </Border>
+                    <!-- Flashes the new width ("55%") for a moment after it is changed on purpose, then fades. -->
+                    <TextBlock x:Name="SizeToast" DockPanel.Dock="Right" VerticalAlignment="Center" Opacity="0"
+                               IsHitTestVisible="False" FontSize="12" FontWeight="SemiBold"
+                               Foreground="{DynamicResource FocusBorderBrush}"/>
+                    <Grid Margin="0,0,10,0">
+                        <TextBlock x:Name="TitleText" Text="{Binding DisplayTitle}" FontSize="18" FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextBrush}"
+                                   Cursor="IBeam" ToolTip="Click to rename (F2)"
+                                   MouseLeftButtonDown="OnTitleMouseDown">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsEditingTitle}" Value="True">
+                                            <Setter Property="Visibility" Value="Hidden"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBox x:Name="TitleBox" FontSize="18" FontWeight="SemiBold" MaxLength="80" Padding="0,0,0,1"
+                                 Text="{Binding EditTitle, UpdateSourceTrigger=PropertyChanged}"
+                                 PreviewKeyDown="OnTitleKeyDown"
+                                 LostKeyboardFocus="OnTitleLostFocus"
+                                 IsVisibleChanged="OnTitleBoxVisibleChanged">
+                            <TextBox.Style>
+                                <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsEditingTitle}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBox.Style>
+                        </TextBox>
+                    </Grid>
+                </DockPanel>
 
-            <RichTextBox x:Name="Editor" Grid.Row="1"
-                         Background="Transparent" BorderThickness="0"
-                         Foreground="{DynamicResource TextBrush}"
-                         CaretBrush="{DynamicResource TextBrush}"
-                         SelectionBrush="{DynamicResource AccentBrush}"
-                         FontFamily="Segoe UI" FontSize="14"
-                         Padding="12,4,12,12"
-                         VerticalScrollBarVisibility="Auto"
-                         HorizontalScrollBarVisibility="Disabled"
-                         AcceptsTab="True"
-                         SpellCheck.IsEnabled="True">
-                <RichTextBox.Resources>
-                    <Style TargetType="Paragraph">
-                        <Setter Property="Margin" Value="0,0,0,6"/>
-                    </Style>
-                </RichTextBox.Resources>
-            </RichTextBox>
+                <RichTextBox x:Name="Editor" Grid.Row="1"
+                             Background="Transparent" BorderThickness="0"
+                             Foreground="{DynamicResource TextBrush}"
+                             CaretBrush="{DynamicResource TextBrush}"
+                             SelectionBrush="{DynamicResource AccentBrush}"
+                             FontFamily="Segoe UI" FontSize="14"
+                             Padding="12,4,12,12"
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Disabled"
+                             AcceptsTab="True"
+                             SpellCheck.IsEnabled="True"
+                             IsReadOnly="{Binding EffectiveReadOnly}">
+                    <!-- The View tab's Zoom slider (ThemeService.NoteZoomScaleKey): a LayoutTransform, not a RenderTransform, so
+                         text actually re-wraps at the zoomed width instead of just being stretched, and the note's own scrollbar
+                         keeps working - it scales with everything else, same as it would zooming a whole page in a real app. -->
+                    <RichTextBox.LayoutTransform>
+                        <ScaleTransform ScaleX="{DynamicResource NoteZoomScale}" ScaleY="{DynamicResource NoteZoomScale}"/>
+                    </RichTextBox.LayoutTransform>
+                    <RichTextBox.Resources>
+                        <Style TargetType="Paragraph">
+                            <Setter Property="Margin" Value="0,0,0,6"/>
+                        </Style>
+                    </RichTextBox.Resources>
+                </RichTextBox>
+            </Grid>
+        </Border>
 
-            <Thumb x:Name="ResizeHandle" Grid.RowSpan="2" HorizontalAlignment="Right" Width="10"
-                   Cursor="SizeWE" ToolTip="Drag to resize"
-                   DragStarted="OnResizeStarted" DragDelta="OnResizeDelta" DragCompleted="OnResizeCompleted">
-                <Thumb.Template>
-                    <ControlTemplate TargetType="Thumb">
-                        <Border Background="Transparent">
-                            <Border x:Name="Grip" Width="3" CornerRadius="2" Background="Transparent" HorizontalAlignment="Center" Margin="0,24"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Grip" Property="Background" Value="{DynamicResource AccentBrush}"/>
-                            </Trigger>
-                            <Trigger Property="IsDragging" Value="True">
-                                <Setter TargetName="Grip" Property="Background" Value="{DynamicResource AccentBrush}"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Thumb.Template>
-            </Thumb>
-        </Grid>
-    </Border>
+        <Thumb x:Name="ResizeHandle" Grid.RowSpan="2" Grid.ColumnSpan="3" HorizontalAlignment="Right" Width="10"
+               Cursor="SizeWE" ToolTip="Drag to resize"
+               DragStarted="OnResizeStarted" DragDelta="OnResizeDelta" DragCompleted="OnResizeCompleted">
+            <Thumb.Template>
+                <ControlTemplate TargetType="Thumb">
+                    <Border Background="Transparent">
+                        <Border x:Name="Grip" Width="3" CornerRadius="2" Background="Transparent" HorizontalAlignment="Center" Margin="0,24"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Grip" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="Grip" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Thumb.Template>
+        </Thumb>
+    </Grid>
 </UserControl>

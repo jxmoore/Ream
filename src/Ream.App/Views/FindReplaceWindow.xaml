@@ -1,0 +1,38 @@
+<Window x:Class="Ream.App.Views.FindReplaceWindow" x:ClassModifier="internal"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="420" SizeToContent="Height" ResizeMode="NoResize"
+        ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
+        Style="{StaticResource ModalWindowStyle}">
+    <Grid Margin="20,18,20,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="90"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Row="0" Grid.Column="0" Text="Find what:" VerticalAlignment="Center" Margin="0,0,10,8"/>
+        <TextBox x:Name="FindBox" Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" KeyDown="OnFindBoxKeyDown"/>
+
+        <TextBlock x:Name="ReplaceLabel" Grid.Row="1" Grid.Column="0" Text="Replace with:" VerticalAlignment="Center" Margin="0,0,10,8"/>
+        <TextBox x:Name="ReplaceBox" Grid.Row="1" Grid.Column="1" Margin="0,0,0,8"/>
+
+        <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,0,14">
+            <CheckBox x:Name="MatchCaseCheckBox" Content="Match case" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+            <TextBlock x:Name="StatusText" HorizontalAlignment="Right" VerticalAlignment="Center"
+                       Foreground="{DynamicResource MutedTextBrush}" FontSize="12"/>
+        </Grid>
+
+        <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="FindNextButton" Content="Find Next" IsDefault="True" MinWidth="88" Padding="10,5" Margin="0,0,8,0" Click="OnFindNext"/>
+            <Button x:Name="ReplaceButton" Content="Replace" MinWidth="88" Padding="10,5" Margin="0,0,8,0" Click="OnReplace"/>
+            <Button x:Name="ReplaceAllButton" Content="Replace All" MinWidth="88" Padding="10,5" Margin="0,0,8,0" Click="OnReplaceAll"/>
+            <Button x:Name="CloseButton" Content="Close" IsCancel="True" MinWidth="88" Padding="10,5" Click="OnClose"/>
+        </StackPanel>
+    </Grid>
+</Window>
